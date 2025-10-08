@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+.env
+.env.*
+!.env.example
+
+# downloaded model weights (fetched by `make models`, verified against models.lock)
+.models/
+# LLM response cache, embedding cache, WARC slices, built indexes
+.cache/
+runs/
+*.faiss
+*.db
+*.log
+.DS_Store
+.streamlit/secrets.toml
