@@ -1,0 +1,10 @@
+name: home-espresso-demo
+target_domains: [brewline.example]
+competitor_domains: [crema-lab.example, shotreport.example, beanbudget.example, grindandtamp.example]
+html_dir: html
+queries: queries.jsonl
+topics:
+  - home espresso machines
+  - espresso grinders
+  - espresso technique and troubleshooting
+  - espresso machine maintenance

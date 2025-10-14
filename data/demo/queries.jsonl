@@ -1,0 +1,40 @@
+{"query_id": "info-01", "query": "what is a dual boiler espresso machine", "intent": "informational"}
+{"query_id": "info-02", "query": "how does a PID controller improve espresso", "intent": "informational"}
+{"query_id": "info-03", "query": "what grind size should I use for espresso", "intent": "informational"}
+{"query_id": "info-04", "query": "how much coffee should I use for a double shot", "intent": "informational"}
+{"query_id": "info-05", "query": "what does pre-infusion do on an espresso machine", "intent": "informational"}
+{"query_id": "info-06", "query": "how long should an espresso shot take", "intent": "informational"}
+{"query_id": "info-07", "query": "what water hardness is best for an espresso machine", "intent": "informational"}
+{"query_id": "info-08", "query": "why does grinder retention matter for espresso", "intent": "informational"}
+{"query_id": "info-09", "query": "what is the difference between flat and conical burrs", "intent": "informational"}
+{"query_id": "info-10", "query": "how often should I descale an espresso machine", "intent": "informational"}
+{"query_id": "comp-01", "query": "brewline duo vs crema lab aria dual", "intent": "comparison"}
+{"query_id": "comp-02", "query": "single boiler vs dual boiler espresso machine", "intent": "comparison"}
+{"query_id": "comp-03", "query": "brewline solo vs crema lab aria", "intent": "comparison"}
+{"query_id": "comp-04", "query": "best espresso machine for milk drinks", "intent": "comparison"}
+{"query_id": "comp-05", "query": "which home espresso machine heats up fastest", "intent": "comparison"}
+{"query_id": "comp-06", "query": "is a dual boiler espresso machine worth the extra cost", "intent": "comparison"}
+{"query_id": "comp-07", "query": "best espresso grinder under 500 dollars", "intent": "comparison"}
+{"query_id": "comp-08", "query": "brewline mill 64 vs crema lab nano", "intent": "comparison"}
+{"query_id": "comp-09", "query": "most temperature stable home espresso machine", "intent": "comparison"}
+{"query_id": "comp-10", "query": "best espresso machine for beginners", "intent": "comparison"}
+{"query_id": "tran-01", "query": "buy a dual boiler espresso machine", "intent": "transactional"}
+{"query_id": "tran-02", "query": "best espresso machine deals", "intent": "transactional"}
+{"query_id": "tran-03", "query": "cheap espresso machine that makes good espresso", "intent": "transactional"}
+{"query_id": "tran-04", "query": "brewline duo price", "intent": "transactional"}
+{"query_id": "tran-05", "query": "crema lab aria price and warranty", "intent": "transactional"}
+{"query_id": "tran-06", "query": "espresso machine with a three year warranty", "intent": "transactional"}
+{"query_id": "tran-07", "query": "where to buy a home espresso grinder", "intent": "transactional"}
+{"query_id": "tran-08", "query": "espresso starter kit for beginners", "intent": "transactional"}
+{"query_id": "tran-09", "query": "best espresso machine under 500 dollars", "intent": "transactional"}
+{"query_id": "tran-10", "query": "espresso machine with fast steam for lattes", "intent": "transactional"}
+{"query_id": "trou-01", "query": "why is my espresso sour", "intent": "troubleshooting"}
+{"query_id": "trou-02", "query": "why is my espresso bitter", "intent": "troubleshooting"}
+{"query_id": "trou-03", "query": "espresso shot running too fast", "intent": "troubleshooting"}
+{"query_id": "trou-04", "query": "espresso machine not reaching pressure", "intent": "troubleshooting"}
+{"query_id": "trou-05", "query": "how to fix channeling in espresso", "intent": "troubleshooting"}
+{"query_id": "trou-06", "query": "espresso machine taking a long time to heat up", "intent": "troubleshooting"}
+{"query_id": "trou-07", "query": "how to descale a dual boiler espresso machine", "intent": "troubleshooting"}
+{"query_id": "trou-08", "query": "espresso grinder clumping", "intent": "troubleshooting"}
+{"query_id": "trou-09", "query": "milk not frothing properly with the steam wand", "intent": "troubleshooting"}
+{"query_id": "trou-10", "query": "espresso machine leaking from the group head", "intent": "troubleshooting"}
