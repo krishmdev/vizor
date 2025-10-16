@@ -1,0 +1,16 @@
+# Real-model run. Needs OPENAI_API_KEY. Responses are cached under .cache/llm, so re-running is
+# free; the run stops at max_cost_usd.
+project: data/demo/project.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: auto
+samples: 5
+llm:
+  backend: openai
+  model: gpt-4o-mini
+  temperature: 0.7
+  max_tokens: 450
+  workers: 6
+  max_cost_usd: 3.0
+sandbox:
+  llm_rewrites: true

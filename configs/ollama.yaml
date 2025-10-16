@@ -1,0 +1,17 @@
+# Local model through Ollama (`ollama pull qwen2.5:7b-instruct`). Slow on a laptop, so this runs a
+# reduced design: 20 queries x 3 samples.
+project: data/demo/project.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: auto
+samples: 3
+queries: 20
+llm:
+  backend: ollama
+  model: qwen2.5:7b-instruct
+  base_url: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 450
+  workers: 1
+sandbox:
+  llm_rewrites: true

@@ -1,0 +1,10 @@
+# Keyless demo: real retrieval models (bge-small + ms-marco cross-encoder + cardiffnlp sentiment,
+# fetched by `make models`), FakeLLM for answers. FakeLLM numbers are a pipeline check only.
+project: data/demo/project.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: auto
+samples: 5
+llm:
+  backend: fake
+  temperature: 0.7

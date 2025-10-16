@@ -1,0 +1,14 @@
+# CI smoke run: no model downloads at all (hashing embedder, no reranker, VADER sentiment).
+project: data/demo/project.yaml
+embedder: hashing
+reranker: none
+sentiment: vader
+samples: 2
+queries: 8
+llm:
+  backend: fake
+sandbox:
+  bootstrap: 1000
+bandit:
+  rounds: 100
+  runs: 5
