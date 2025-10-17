@@ -51,7 +51,7 @@ class FakeLLM:
         self.embedder = embedder
         self.gamma = gamma
         self.tau = tau
-        self.model_id = f"fake-extractive/v1/{embedder.embedder_id.split('/')[1]}"
+        self.model_id = "fake-extractive/v1/" + "/".join(embedder.embedder_id.split("/")[1:3])
 
     def complete(
         self, messages: Messages, *, temperature: float, seed: int, max_tokens: int
