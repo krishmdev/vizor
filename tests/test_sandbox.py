@@ -7,8 +7,16 @@ from vizor.optimize.transforms import TransformContext
 
 @pytest.fixture(scope="module")
 def sandbox(engine, docs, queries, project, hashing):
-    ctx = TransformContext({d.doc_id: d for d in docs}, queries[:12], hashing)
-    sb = Sandbox(engine, queries[:12], 2, project.domains, ctx, bootstrap=500)
+    doc_map = {d.doc_id: d for d in docs}
+    qs = queries[::3]  # 14 queries across all intents
+    sb = Sandbox(
+        engine,
+        qs,
+        2,
+        project.domains,
+        lambda q: TransformContext(doc_map, list(q), hashing),
+        bootstrap=500,
+    )
     sb.run_baseline()
     return sb
 
@@ -32,9 +40,53 @@ def test_aa_resample_changes_seeds_not_prompts(sandbox):
     assert all(x.answer.seed != y.answer.seed for x, y in zip(aa.results, base, strict=True))
 
 
-def test_doc_arm_only_changes_target_pages(sandbox):
+def test_doc_arm_edits_only_the_focus_page_of_each_query(sandbox):
     run = sandbox.run(Arm.parse("faq_rewrite"))
-    assert run.changed and all(d.role == "target" for d in run.changed.values())
+    assert set(run.changed) == {"fold1", "fold2"}
+    for pages in run.changed.values():
+        assert all(d.role == "target" for d in pages.values())
+    for qid, (_, doc_id) in run.scored_against.items():
+        assert doc_id == sandbox.focus[qid]
+    assert set(sandbox.focus) == {q.query_id for q in sandbox.queries}
+
+
+def _page_text(doc):
+    parts = [doc.title, doc.meta_description, doc.body, *(f"{q} {a}" for q, a in doc.faq)]
+    return " ".join(parts).lower()
+
+
+@pytest.mark.parametrize(
+    "arm", ["faq_rewrite", "metadata", "keyword_stuffing", "faq_rewrite+metadata"]
+)
+def test_no_query_is_scored_against_a_page_built_from_it(sandbox, arm):
+    run = sandbox.run(Arm.parse(arm))
+    base_docs = sandbox.engine.cascade.docs
+    text = {q.query_id: q.text.lower() for q in sandbox.queries}
+    checked = 0
+    for qid, (fold, doc_id) in run.scored_against.items():
+        new = run.changed.get(fold, {}).get(doc_id)
+        if new is None or text[qid] in _page_text(base_docs[doc_id]):
+            continue
+        checked += 1
+        assert text[qid] not in _page_text(new), (arm, qid, fold)
+    assert checked > 0
+
+
+def test_folds_partition_queries(sandbox):
+    a, b = sandbox.folds
+    ids_a, ids_b = {q.query_id for q in a}, {q.query_id for q in b}
+    assert not ids_a & ids_b and ids_a | ids_b == {q.query_id for q in sandbox.queries}
+
+
+def test_holm_excludes_controls(sandbox):
+    rows = [
+        sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse(a)))
+        for a in ["noop", "aa_resample", "faq_rewrite", "jsonld_insert"]
+    ]
+    df = Sandbox.with_holm(rows).set_index("arm")
+    assert df.loc[["noop", "aa_resample"], "p_holm"].isna().all()
+    assert df.loc[["faq_rewrite", "jsonld_insert"], "p_holm"].notna().all()
+    assert "beyond_aa" in df.columns
 
 
 def test_position_sweep_places_target(sandbox):
@@ -49,4 +101,14 @@ def test_position_sweep_places_target(sandbox):
 def test_boost_sweep_is_monotone_in_retrieval(sandbox):
     df, _ = boost_sweep(sandbox, [0.0, 0.05, 0.5])
     assert np.all(np.diff(df.retrieval_pct.to_numpy()) >= 0)
-    assert df.retrieval_pct.iloc[-1] == 100.0
+    # a large post-rerank boost puts a target page in the prompt exactly when one is a candidate
+    with_candidate = {
+        r.answer.query_id
+        for r in sandbox.baseline.results
+        if any(c.doc.role == "target" for c in r.selection.candidates)
+    }
+    assert df.retrieval_pct.iloc[-1] == pytest.approx(
+        100 * len(with_candidate) / len(sandbox.queries)
+    )
+    last = df.iloc[-1]
+    assert last.n_set_changed + last.n_order_only + last.n_unchanged == len(sandbox.queries)

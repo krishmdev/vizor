@@ -120,6 +120,7 @@ class Transform:
     requires_llm: bool = False
     fabrication_risk: bool = False
     description: str = ""
+    uses_queries: bool = False  # reads the tracked queries, so it must be cross-fitted
 
 
 def _sentences(doc: SourceDoc) -> list[str]:
@@ -421,13 +422,18 @@ TRANSFORMS: dict[str, Transform] = {
     for t in [
         Transform("noop", "doc", noop, description="identity (A/A check)"),
         Transform(
-            "metadata", "doc", metadata, description="title and meta description from page facts"
+            "metadata",
+            "doc",
+            metadata,
+            description="title and meta description from page facts",
+            uses_queries=True,
         ),
         Transform(
             "faq_rewrite",
             "doc",
             faq_rewrite,
             description="FAQ block answering tracked queries with page sentences",
+            uses_queries=True,
         ),
         Transform(
             "jsonld_insert",
@@ -452,6 +458,7 @@ TRANSFORMS: dict[str, Transform] = {
             "doc",
             keyword_stuffing,
             description="append top query keywords (control)",
+            uses_queries=True,
         ),
         *[
             Transform(
@@ -468,6 +475,17 @@ TRANSFORMS: dict[str, Transform] = {
 }
 DETERMINISTIC = [n for n, t in TRANSFORMS.items() if not t.requires_llm]
 LLM_REWRITES = [n for n, t in TRANSFORMS.items() if t.requires_llm and not t.fabrication_risk]
+
+
+def apply_chain(
+    doc: SourceDoc, arms: Sequence[str], ctx: TransformContext
+) -> tuple[SourceDoc, str]:
+    cur, notes = doc, []
+    for arm in arms:
+        cur, diff = TRANSFORMS[arm].apply(cur, ctx)
+        if diff:
+            notes.append(f"[{arm}]\n{diff}")
+    return cur, "\n".join(notes)
 
 
 def apply_to_targets(

@@ -2,20 +2,28 @@
 
 Design:
 - A fixed query set Q and K samples per query at the engine's temperature.
-- Common random numbers: sample k of query q uses the same seed under every arm, so the only
-  thing that differs between baseline and variant is the arm.
-- Doc arms transform the target site's pages; only changed passages are re-embedded.
+- Common random numbers: sample k of query q uses the same seed under every arm. With FakeLLM
+  or a local model this pairs the randomness; OpenAI's seed is best effort, so there the pairing
+  buys little and `aa_resample` is what tells you how big chance differences are.
+- Page arms are applied to the query's *focus page*: the target page the baseline retrieval ranked
+  highest for that query (or, if none made the candidate list, the target page closest to the
+  query). Each query sees exactly one edited page, which is what makes per-query contexts in the
+  bandit meaningful.
+- Cross-fitting: arms that read the tracked queries (metadata keyphrases, FAQ questions, keyword
+  stuffing) are built from one half of the queries and scored on the other half, so no page is
+  ever edited with the very query it is then scored on.
 - Engine arms change retrieval weighting or source order and leave pages alone.
-- `noop` must give exactly zero difference (checks the pipeline). `aa_resample` re-samples the
-  unchanged prompt with fresh seeds, which measures pure sampling noise: the noise floor that
-  every other arm should be read against.
-- The unit of analysis is the query: delta_q = mean_k(variant) - mean_k(baseline). Report the mean
-  with a paired-bootstrap 95% CI over queries, a Wilcoxon signed-rank p, and Holm across arms.
+- `noop` must give exactly zero difference (a pipeline and cache check). `aa_resample` re-samples
+  the unchanged prompts with fresh seeds: the noise floor every other arm is read against.
+- The unit of analysis is the query: delta_q = mean_k(variant) - mean_k(baseline). The test is a
+  Wilcoxon signed-rank on delta_q, Holm-adjusted across the real arms (noop and aa_resample are
+  controls, outside the family); the paired-bootstrap 95% CI is descriptive.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -27,10 +35,20 @@ from vizor.metrics.impression import relative_improvement
 from vizor.metrics.visibility import answer_rows
 from vizor.optimize.retrieval_policy import RELEVANCE, RetrievalPolicy
 from vizor.optimize.stats import holm, paired
-from vizor.optimize.transforms import TRANSFORMS, TransformContext, apply_to_targets
-from vizor.types import Query, SourceDoc
+from vizor.optimize.transforms import TRANSFORMS, TransformContext, apply_chain
+from vizor.types import Query, SourceDoc, stable_seed
 
-TARGET_METRICS = ["imp_pwc", "imp_word", "c_share", "cited", "retrieved", "answer_sentiment"]
+TARGET_METRICS = [
+    "imp_pwc",
+    "imp_word",
+    "c_share",
+    "cited",
+    "retrieved",
+    "answer_sentiment",
+    "uncited",
+    "n_hallucinated",
+]
+CONTROLS = ("noop", "aa_resample")
 
 
 @dataclass(frozen=True)
@@ -53,14 +71,21 @@ class Arm:
                 raise ValueError(f"unknown arm {n!r}")
         return cls(spec, "doc", transforms=names)
 
+    @property
+    def uses_queries(self) -> bool:
+        return any(TRANSFORMS[t].uses_queries for t in self.transforms)
+
 
 @dataclass
 class ArmRun:
     arm: Arm
     results: list[EngineResult]
     rows: pd.DataFrame
-    diffs: dict[str, str] = field(default_factory=dict)
-    changed: dict[str, SourceDoc] = field(default_factory=dict)
+    # fold -> doc_id -> diff text / edited doc; "all" when the arm doesn't read queries
+    diffs: dict[str, dict[str, str]] = field(default_factory=dict)
+    changed: dict[str, dict[str, SourceDoc]] = field(default_factory=dict)
+    # query_id -> (fold, doc_id) of the page edited for that query
+    scored_against: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     def per_query(self) -> pd.DataFrame:
         """Mean over samples of the target's metrics, one row per query."""
@@ -80,9 +105,28 @@ def target_frame(rows: pd.DataFrame) -> pd.DataFrame:
         retrieved=("retrieved", "max"),
         answer_sentiment=("answer_sentiment", "mean"),
         source_sentiment=("source_sentiment", "mean"),
+        uncited=("answer_uncited", "max"),
+        n_hallucinated=("n_hallucinated", "max"),
     )
-    agg[["cited", "retrieved"]] = agg[["cited", "retrieved"]].astype(float)
+    agg[["cited", "retrieved", "uncited"]] = agg[["cited", "retrieved", "uncited"]].astype(float)
     return agg.reset_index()
+
+
+def two_folds(queries: Sequence[Query]) -> tuple[list[Query], list[Query]]:
+    """Deterministic 50/50 split by hash, stratified by intent."""
+    a: list[Query] = []
+    b: list[Query] = []
+    by: dict[str, list[Query]] = defaultdict(list)
+    for q in queries:
+        by[q.intent].append(q)
+    # Hash-order within each intent, then deal alternately across the concatenation, so both
+    # folds stay balanced by intent and neither is empty even with one query per intent.
+    ordered = [
+        q for g in by.values() for q in sorted(g, key=lambda q: stable_seed("split", q.query_id))
+    ]
+    for i, q in enumerate(ordered):
+        (a if i % 2 == 0 else b).append(q)
+    return a, b
 
 
 class Sandbox:
@@ -92,7 +136,7 @@ class Sandbox:
         queries: Sequence[Query],
         samples: int,
         domains: dict[str, str],
-        ctx: TransformContext,
+        ctx_factory: Callable[[Sequence[Query]], TransformContext],
         sentiment=None,
         decay: str = "paper",
         bootstrap: int = 5000,
@@ -101,11 +145,14 @@ class Sandbox:
         self.queries = list(queries)
         self.samples = samples
         self.domains = domains
-        self.ctx = ctx
+        self.ctx_factory = ctx_factory
+        self.ctx = ctx_factory(self.queries)
         self.sentiment = sentiment
         self.decay = decay
         self.bootstrap = bootstrap
         self.baseline: ArmRun | None = None
+        self.folds = two_folds(self.queries)
+        self.focus: dict[str, str] = {}
 
     def rows_for(self, results: list[EngineResult], arm: str) -> pd.DataFrame:
         out = []
@@ -119,21 +166,85 @@ class Sandbox:
                 out.append(row)
         return pd.DataFrame(out)
 
-    def run(self, arm: Arm, queries: Sequence[Query] | None = None, docs_ctx=None) -> ArmRun:
-        queries = list(queries or self.queries)
-        engine = self.engine
-        diffs: dict[str, str] = {}
-        changed: dict[str, SourceDoc] = {}
-        if arm.kind == "doc":
-            changed, diffs = apply_to_targets(arm.transforms, docs_ctx or self.ctx)
-            if changed:
-                engine = engine.with_cascade(engine.cascade.with_docs(changed))
-        results = engine.run(queries, self.samples, arm.policy, arm.salt)
-        return ArmRun(arm, results, self.rows_for(results, arm.name), diffs, changed)
+    def _set_focus(self, base: ArmRun) -> None:
+        targets = [d for d in self.engine.cascade.docs.values() if d.role == "target"]
+        if not targets:
+            return
+        tv = np.stack([self.ctx.doc_vector(d) for d in targets])
+        for r in base.results:
+            qid = r.answer.query_id
+            if qid in self.focus:
+                continue
+            hit = next((c.doc for c in r.selection.candidates if c.doc.role == "target"), None)
+            if hit is None:
+                q = next(q for q in self.queries if q.query_id == qid)
+                qv = self.engine.cascade.query_vector(q.text)
+                hit = targets[int(np.argmax(tv @ qv))]
+            self.focus[qid] = hit.doc_id
 
     def run_baseline(self) -> ArmRun:
-        self.baseline = self.run(Arm("baseline", "doc"))
-        return self.baseline
+        base = self._run_engine(Arm("baseline", "doc"), self.queries)
+        self._set_focus(base)
+        self.baseline = base
+        return base
+
+    def _run_engine(
+        self, arm: Arm, queries: Sequence[Query], engine: Engine | None = None
+    ) -> ArmRun:
+        results = (engine or self.engine).run(queries, self.samples, arm.policy, arm.salt)
+        return ArmRun(arm, results, self.rows_for(results, arm.name))
+
+    def _run_doc_arm(
+        self, arm: Arm, plan: list[tuple[str, Sequence[Query], TransformContext]]
+    ) -> ArmRun:
+        results: list[EngineResult] = []
+        diffs: dict[str, dict[str, str]] = {}
+        changed: dict[str, dict[str, SourceDoc]] = {}
+        scored: dict[str, tuple[str, str]] = {}
+        docs = self.engine.cascade.docs
+        for fold, queries, ctx in plan:
+            by_page: dict[str, list[Query]] = defaultdict(list)
+            for q in queries:
+                by_page[self.focus[q.query_id]].append(q)
+            for doc_id, group in by_page.items():
+                new, diff = apply_chain(docs[doc_id], arm.transforms, ctx)
+                engine = self.engine
+                if new is not docs[doc_id]:
+                    engine = engine.with_cascade(engine.cascade.with_docs({doc_id: new}))
+                    changed.setdefault(fold, {})[doc_id] = new
+                    diffs.setdefault(fold, {})[doc_id] = diff
+                results += engine.run(group, self.samples, arm.policy, arm.salt)
+                for q in group:
+                    scored[q.query_id] = (fold, doc_id)
+        order = {q.query_id: i for i, q in enumerate(self.queries)}
+        results.sort(key=lambda r: (order.get(r.answer.query_id, 0), r.answer.sample))
+        return ArmRun(arm, results, self.rows_for(results, arm.name), diffs, changed, scored)
+
+    def run(
+        self,
+        arm: Arm,
+        queries: Sequence[Query] | None = None,
+        ctx_queries: Sequence[Query] | None = None,
+    ) -> ArmRun:
+        """Run an arm. Page arms are cross-fitted over the two folds unless `ctx_queries` pins
+        the queries the transforms may read (used by the held-out greedy loop)."""
+        queries = list(queries or self.queries)
+        if arm.kind != "doc":
+            return self._run_engine(arm, queries)
+        if self.baseline is None:
+            raise RuntimeError("run_baseline() first: page arms need each query's focus page")
+        if ctx_queries is not None:
+            plan = [("pinned", queries, self.ctx_factory(ctx_queries))]
+        elif arm.uses_queries:
+            ids = {q.query_id for q in queries}
+            a, b = self.folds
+            plan = [
+                ("fold1", [q for q in a if q.query_id in ids], self.ctx_factory(b)),
+                ("fold2", [q for q in b if q.query_id in ids], self.ctx_factory(a)),
+            ]
+        else:
+            plan = [("all", queries, self.ctx)]
+        return self._run_doc_arm(arm, plan)
 
     def compare(self, base: ArmRun, var: ArmRun, subset: Sequence[str] | None = None) -> dict:
         b, v = base.per_query(), var.per_query()
@@ -146,8 +257,7 @@ class Sandbox:
         csov = paired(d["c_share"].to_numpy() * 100, b=self.bootstrap)
         retrieved_b = b["retrieved"] > 0
         cond = d.loc[retrieved_b, "imp_pwc"] * 100
-        calls = sum(1 for r in var.results if not r.answer.usage.get("cached", False))
-        cost = sum(r.answer.usage.get("cost_usd", 0.0) for r in var.results)
+        fresh = [r for r in var.results if not r.answer.usage.get("cached", False)]
         return {
             "arm": var.arm.name,
             "kind": var.arm.kind,
@@ -165,17 +275,27 @@ class Sandbox:
             "d_retrieval_pp": d["retrieved"].mean() * 100,
             "d_pwc_given_retrieved_pp": cond.mean() if len(cond) else np.nan,
             "d_sentiment": d["answer_sentiment"].mean(),
-            "new_calls": calls,
-            "cost_usd": cost,
+            "uncited_rate_pct": v["uncited"].mean() * 100,
+            "d_uncited_pp": d["uncited"].mean() * 100,
+            "hallucinated_per_answer": v["n_hallucinated"].mean(),
+            "new_calls": len(fresh),
+            "new_cost_usd": sum(r.answer.usage.get("cost_usd", 0.0) for r in fresh),
+            "transform_scope": "crossfit-2" if var.arm.uses_queries else "none",
         }
 
     @staticmethod
     def with_holm(rows: list[dict]) -> pd.DataFrame:
         df = pd.DataFrame(rows)
-        tested = df["arm"] != "noop"
+        tested = ~df["arm"].isin(CONTROLS)
         df["p_holm"] = np.nan
         if tested.any():
             df.loc[tested, "p_holm"] = holm(df.loc[tested, "p"].tolist())
+        df["significant"] = tested & (df["p_holm"] < 0.05)
+        aa = df[df["arm"] == "aa_resample"]
+        if len(aa):
+            lo, hi = float(aa["d_pwc_lo"].iloc[0]), float(aa["d_pwc_hi"].iloc[0])
+            df["aa_lo"], df["aa_hi"] = lo, hi
+            df["beyond_aa"] = tested & ((df["d_pwc_pp"] > hi) | (df["d_pwc_pp"] < lo))
         return df
 
 
@@ -229,9 +349,33 @@ def boost_sweep(sb: Sandbox, boosts: Sequence[float]) -> tuple[pd.DataFrame, dic
                 Arm(f"engine:boost:{w:g}", "engine", policy=RetrievalPolicy(target_boost=w))
             )
     ref = runs[boosts[0]]
+
+    def source_lists(run: ArmRun) -> dict[str, list[str]]:
+        return {
+            r.answer.query_id: [s.doc_id for s in r.answer.sources]
+            for r in run.results
+            if r.answer.sample == 0
+        }
+
+    ref_src = source_lists(ref)
     out = []
     for w, run in runs.items():
         pq = run.per_query()
+        src = source_lists(run)
+        cls = {}
+        for qid, docs in src.items():
+            base = ref_src.get(qid, [])
+            cls[qid] = (
+                "unchanged"
+                if docs == base
+                else ("order_only" if set(docs) == set(base) else "set_changed")
+            )
+        d_q = (pq["imp_pwc"] - ref.per_query()["imp_pwc"]) * 100
+        by_cls = {}
+        for c in ("set_changed", "order_only", "unchanged"):
+            ids = [q for q, k in cls.items() if k == c and q in d_q.index]
+            by_cls[f"n_{c}"] = len(ids)
+            by_cls[f"d_pwc_{c}_pp"] = float(d_q.loc[ids].mean()) if ids else np.nan
         mean, lo, hi = level_ci(pq["imp_pwc"].to_numpy() * 100, sb.bootstrap)
         cmp = sb.compare(ref, run) if w != boosts[0] else None
         out.append(
@@ -248,6 +392,7 @@ def boost_sweep(sb: Sandbox, boosts: Sequence[float]) -> tuple[pd.DataFrame, dic
                 "d_lo": cmp["d_pwc_lo"] if cmp else 0.0,
                 "d_hi": cmp["d_pwc_hi"] if cmp else 0.0,
                 "p": cmp["p"] if cmp else 1.0,
+                **by_cls,
             }
         )
     return pd.DataFrame(out), runs

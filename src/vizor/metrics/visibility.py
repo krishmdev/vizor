@@ -95,6 +95,8 @@ def answer_rows(
             "n_sentences": len(answer.sentences),
             "emphasized": any(labels[i] == "emphasized" for i in idx),
             "ignored": bool(idx) and all(labels[i] == "ignored" for i in idx),
+            "answer_uncited": imp.uncited,
+            "n_hallucinated": len(answer.hallucinated_citations),
             "answer_sentiment": np.nan,
             "source_sentiment": np.nan,
         }
