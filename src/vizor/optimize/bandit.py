@@ -120,6 +120,20 @@ class EpsGreedy:
         self.inner.update(x, arm, r)
 
 
+class BiasOnly:
+    """LinUCB that sees only the bias feature: a context-free ablation."""
+
+    def __init__(self, arms: Sequence[str], alpha: float = 0.1) -> None:
+        self.inner = LinUCB(arms, 1, alpha)
+        self.name = f"linucb-bias-only(a={alpha:g})"
+
+    def select(self, x: np.ndarray, rng: np.random.Generator) -> str:
+        return self.inner.select(x[:1], rng)
+
+    def update(self, x: np.ndarray, arm: str, r: float) -> None:
+        self.inner.update(x[:1], arm, r)
+
+
 class RandomPolicy:
     def __init__(self, arms: Sequence[str], d: int) -> None:
         self.arms = list(arms)
@@ -144,6 +158,9 @@ class FixedArm:
         pass
 
 
+HINDSIGHT = "best fixed arm (hindsight)"
+
+
 def make_policies(arms: Sequence[str], d: int, best_fixed: str) -> dict:
     return {
         "linucb(a=0.1)": lambda: LinUCB(arms, d, 0.1),
@@ -151,8 +168,9 @@ def make_policies(arms: Sequence[str], d: int, best_fixed: str) -> dict:
         "linucb(a=1)": lambda: LinUCB(arms, d, 1.0),
         "lints(v=0.1)": lambda: LinTS(arms, d, 0.1),
         "eps-greedy(0.1)": lambda: EpsGreedy(arms, d, 0.1),
+        "linucb-bias-only(a=0.1)": lambda: BiasOnly(arms, 0.1),
         "random": lambda: RandomPolicy(arms, d),
-        "best-fixed-arm": lambda: FixedArm(best_fixed, "best-fixed-arm"),
+        HINDSIGHT: lambda: FixedArm(best_fixed, HINDSIGHT),
     }
 
 
@@ -160,7 +178,7 @@ def replay(
     rewards: np.ndarray,
     contexts: np.ndarray,
     arms: Sequence[str],
-    rounds: int = 300,
+    rounds: int = 2000,
     runs: int = 20,
     seed: int = 0,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -205,6 +223,7 @@ def replay(
         )
         summary.append(
             {
+                "eval": "replay",
                 "policy": name,
                 "final_regret": float(m[-1]),
                 "final_regret_ci": float(half[-1]),
@@ -214,6 +233,7 @@ def replay(
             }
         )
     oracle_row = {
+        "eval": "replay",
         "policy": "oracle",
         "final_regret": 0.0,
         "final_regret_ci": 0.0,
@@ -222,3 +242,76 @@ def replay(
         "top_arm_share": np.nan,
     }
     return pd.concat(curves, ignore_index=True), pd.DataFrame([*summary, oracle_row])
+
+
+def heldout(
+    rewards: np.ndarray,
+    contexts: np.ndarray,
+    arms: Sequence[str],
+    train: Sequence[int],
+    test: Sequence[int],
+) -> pd.DataFrame:
+    """Fit on the train contexts (every arm's observed reward), freeze, and score the frozen
+    choices on the test contexts. Mean regret per decision, in PAWC share."""
+    mu = rewards.mean(axis=2)
+    oracle = mu.max(axis=1)
+    ridge = LinUCB(arms, contexts.shape[1], alpha=0.0)
+    bias = LinUCB(arms, 1, alpha=0.0)
+    for i in train:
+        for j, a in enumerate(arms):
+            for k in range(rewards.shape[2]):
+                ridge.update(contexts[i], a, rewards[i, j, k])
+                bias.update(contexts[i, :1], a, rewards[i, j, k])
+    fixed = int(mu[list(train)].mean(axis=0).argmax())
+    rows = []
+    choices = {
+        "linucb (frozen, contextual)": [
+            arms.index(max(ridge.predict(contexts[i]).items(), key=lambda kv: kv[1])[0])
+            for i in test
+        ],
+        "linucb-bias-only (frozen)": [
+            arms.index(max(bias.predict(contexts[i, :1]).items(), key=lambda kv: kv[1])[0])
+            for i in test
+        ],
+        "best fixed arm (chosen on train)": [fixed] * len(test),
+    }
+    for name, pick in choices.items():
+        reg = [oracle[i] - mu[i, a] for i, a in zip(test, pick, strict=True)]
+        rew = [mu[i, a] for i, a in zip(test, pick, strict=True)]
+        top = max(set(pick), key=pick.count)
+        rows.append(
+            {
+                "eval": "heldout",
+                "policy": name,
+                "final_regret": float(np.sum(reg)),
+                "final_regret_ci": float(1.96 * np.std(reg, ddof=1) / np.sqrt(len(reg)) * len(reg))
+                if len(reg) > 1
+                else 0.0,
+                "mean_reward_pp": float(np.mean(rew) * 100),
+                "top_arm": arms[top],
+                "top_arm_share": pick.count(top) / len(pick),
+            }
+        )
+    rows.append(
+        {
+            "eval": "heldout",
+            "policy": "random (expected)",
+            "final_regret": float(np.sum(oracle[list(test)] - mu[list(test)].mean(axis=1))),
+            "final_regret_ci": np.nan,
+            "mean_reward_pp": float(mu[list(test)].mean() * 100),
+            "top_arm": "",
+            "top_arm_share": np.nan,
+        }
+    )
+    rows.append(
+        {
+            "eval": "heldout",
+            "policy": "oracle",
+            "final_regret": 0.0,
+            "final_regret_ci": 0.0,
+            "mean_reward_pp": float(oracle[list(test)].mean() * 100),
+            "top_arm": "",
+            "top_arm_share": np.nan,
+        }
+    )
+    return pd.DataFrame(rows)

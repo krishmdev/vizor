@@ -48,3 +48,25 @@ def test_linucb_save_load(tmp_path):
     back = LinUCB.load(tmp_path / "p.json")
     x = np.array([1.0, 0.1, 0.9])
     assert back.scores(x) == pol.scores(x)
+
+
+def test_heldout_contextual_fit_beats_random_when_arms_depend_on_context():
+    from vizor.optimize.bandit import heldout
+
+    r, x = _synthetic(n_ctx=80, seed=3)
+    df = heldout(
+        r, x, ["a", "b", "c", "d"], list(range(0, 80, 2)), list(range(1, 80, 2))
+    ).set_index("policy")
+    assert (
+        df.loc["linucb (frozen, contextual)", "final_regret"]
+        < df.loc["random (expected)", "final_regret"]
+    )
+    assert df.loc["oracle", "final_regret"] == 0.0
+
+
+def test_replay_has_labelled_reference_rows():
+    from vizor.optimize.bandit import HINDSIGHT
+
+    r, x = _synthetic()
+    _, s = replay(r, x, ["a", "b", "c", "d"], rounds=50, runs=2)
+    assert {HINDSIGHT, "linucb-bias-only(a=0.1)", "oracle"} <= set(s.policy)

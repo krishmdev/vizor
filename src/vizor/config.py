@@ -44,7 +44,7 @@ class SandboxConfig(BaseModel):
 
 
 class BanditConfig(BaseModel):
-    rounds: int = 300
+    rounds: int = 2000
     runs: int = 20
     greedy_steps: int = 4
 
