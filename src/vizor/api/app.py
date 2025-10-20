@@ -25,6 +25,7 @@ from vizor.models import project_root
 
 STATE: dict = {"engine": None, "egress": None, "jobs": {}}
 _lock = threading.Lock()
+_jobs_lock = threading.Lock()
 
 
 def config_path() -> Path | None:
@@ -184,15 +185,16 @@ def answer(req: AnswerRequest) -> AnswerOut:
         policy = RetrievalPolicy.parse(req.policy)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
-    if req.arms:
-        ctx = TransformContext({d.doc_id: d for d in docs}, queries, engine.cascade.embedder)
-        try:
-            changed, _ = apply_to_targets(req.arms, ctx)
-        except KeyError as e:
-            raise HTTPException(422, f"unknown arm {e}") from e
-        engine = engine.with_cascade(engine.cascade.with_docs(changed))
     q = Query("live-" + stable_id(req.query, 8), req.query, "live")
+    # The embedding and rerank caches aren't thread-safe, so transforms and retrieval run locked.
     with _lock:
+        if req.arms:
+            ctx = TransformContext({d.doc_id: d for d in docs}, queries, engine.cascade.embedder)
+            try:
+                changed, _ = apply_to_targets(req.arms, ctx)
+            except KeyError as e:
+                raise HTTPException(422, f"unknown arm {e}") from e
+            engine = engine.with_cascade(engine.cascade.with_docs(changed))
         r = engine.answer(q, req.sample, policy)
     return answer_payload(r.answer, r.prompt, proj.domains, cfg.llm.backend == "fake")
 
@@ -283,7 +285,10 @@ def _start(kind: str, req: JobRequest) -> JobOut:
     job_id = f"{time.strftime('%Y%m%d-%H%M%S')}_{kind}_{uuid.uuid4().hex[:6]}"
     out = project_root() / "runs" / job_id
     job = {"job_id": job_id, "kind": kind, "status": "running", "out_dir": str(out), "error": None}
-    STATE["jobs"][job_id] = job
+    with _jobs_lock:
+        if any(j["status"] == "running" for j in STATE["jobs"].values()):
+            raise HTTPException(409, "another job is running; one at a time")
+        STATE["jobs"][job_id] = job
 
     def work() -> None:
         try:

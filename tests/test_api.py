@@ -71,6 +71,17 @@ def test_background_sandbox_job_and_results(client):
             break
         time.sleep(0.5)
     assert st["status"] == "done", st
+    from vizor.api import app as api
+
+    api.STATE["jobs"]["busy"] = {
+        "job_id": "busy",
+        "kind": "x",
+        "status": "running",
+        "out_dir": "",
+        "error": None,
+    }
+    assert client.post("/sandbox", json={"queries": 4, "samples": 1}).status_code == 409
+    del api.STATE["jobs"]["busy"]
     ids = [e["id"] for e in client.get("/experiments").json()]
     assert job["job_id"] in ids
     e = client.get(f"/experiments/{job['job_id']}").json()

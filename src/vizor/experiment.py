@@ -22,6 +22,7 @@ from vizor.models import PINS
 from vizor.optimize import bandit as bandit_mod
 from vizor.optimize.reward import N_FEATURES, context_features
 from vizor.optimize.sandbox import (
+    CONTROLS,
     Arm,
     ArmRun,
     Sandbox,
@@ -29,11 +30,11 @@ from vizor.optimize.sandbox import (
     position_sweep,
     score_scale,
     target_frame,
+    two_folds,
 )
 from vizor.optimize.transforms import FABRICATING, LLM_REWRITES, TransformContext
 from vizor.retrieve.chunk import flatten_jsonld
 from vizor.runstore import git_commit, host_manifest, write_csv, write_jsonl_gz
-from vizor.types import stable_seed
 
 Log = Callable[[str], None]
 
@@ -49,38 +50,17 @@ def _render_doc(d) -> str:
     return "\n".join(parts)
 
 
-def split_queries(queries, frac: float = 0.5):
-    """Deterministic train/held-out split by hash, stratified by intent."""
-    train, test = [], []
-    by: dict[str, list] = {}
-    for q in queries:
-        by.setdefault(q.intent, []).append(q)
-    for group in by.values():
-        group = sorted(group, key=lambda q: stable_seed("split", q.query_id))
-        k = int(round(len(group) * frac))
-        train += group[:k]
-        test += group[k:]
-    return train, test
-
-
-def contexts_for(base: ArmRun, queries) -> np.ndarray:
-    pq = base.per_query()
-    focus = {}
-    for r in base.results:
-        if r.answer.query_id not in focus:
-            focus[r.answer.query_id] = next(
-                (c.doc for c in r.selection.candidates if c.doc.role == "target"), None
-            )
+def contexts_for(sb: Sandbox, ref: ArmRun, queries) -> np.ndarray:
+    """13 features per query from its focus page. The baseline rate features come from `ref`,
+    the A/A re-sample when there is one, so they don't share sampling noise with the rewards
+    (which are variant minus baseline)."""
+    pq = ref.per_query()
+    docs = sb.engine.cascade.docs
     xs = []
     for q in queries:
         row = pq.loc[q.query_id]
-        doc = focus.get(q.query_id)
-        if doc is None:
-            x = np.zeros(N_FEATURES)
-            x[0] = 1.0
-        else:
-            x = context_features(doc, q.intent, row["retrieved"], row["cited"], row["imp_pwc"])
-        xs.append(x)
+        doc = docs[sb.focus[q.query_id]]
+        xs.append(context_features(doc, q.intent, row["retrieved"], row["cited"], row["imp_pwc"]))
     return np.array(xs)
 
 
@@ -92,9 +72,8 @@ def reward_table(base: ArmRun, runs: dict[str, ArmRun], queries, samples: int) -
         v = target_frame(runs[a].rows).set_index(["query_id", "sample"])["imp_pwc"]
         for i, q in enumerate(queries):
             for k in range(samples):
-                r[i, j, k] = np.clip(
-                    v.get((q.query_id, k), 0.0) - b.get((q.query_id, k), 0.0), -1, 1
-                )
+                d = v.get((q.query_id, k), 0.0) - b.get((q.query_id, k), 0.0)
+                r[i, j, k] = np.clip(d, -1, 1)
     return r
 
 
@@ -106,14 +85,14 @@ def greedy_trajectory(
     contexts: np.ndarray,
     queries,
     steps: int,
-    ctx_factory: Callable[[list], TransformContext],
     log: Log,
 ) -> tuple[pd.DataFrame, list[ArmRun]]:
-    """Fit LinUCB on the training queries' rewards, let it propose arms for the held-out queries,
-    and keep an arm only if the held-out paired 95% CI lower bound on delta PAWC is above zero."""
-    train, test = split_queries(queries)
+    """Fit a ridge model (LinUCB, alpha=0) on fold-1 queries' rewards, let it rank arms for the
+    fold-2 queries, then apply them one at a time with transforms built from fold 1 only. An arm
+    is kept only if the fold-2 paired 95% CI lower bound on delta PAWC is above zero."""
+    train, test = sb.folds
     idx = {q.query_id: i for i, q in enumerate(queries)}
-    pol = bandit_mod.LinUCB(arms, contexts.shape[1], alpha=0.5)
+    pol = bandit_mod.LinUCB(arms, contexts.shape[1], alpha=0.0)
     for q in train:
         i = idx[q.query_id]
         for j, a in enumerate(arms):
@@ -122,17 +101,17 @@ def greedy_trajectory(
     test_x = contexts[[idx[q.query_id] for q in test]]
     pred = {a: float(np.mean([pol.predict(x)[a] for x in test_x])) for a in arms}
     ranked = sorted(pred, key=lambda a: -pred[a])
-    ctx = ctx_factory(train)
     applied: list[str] = []
     current = base
     rows, extra_runs = [], []
+    test_ids = [q.query_id for q in test]
     for step, arm in enumerate(ranked[:steps], start=1):
         trial = [*applied, arm]
         run = sb.run(
-            Arm("greedy:" + "+".join(trial), "doc", tuple(trial)), queries=test, docs_ctx=ctx
+            Arm("greedy:" + "+".join(trial), "doc", tuple(trial)), queries=test, ctx_queries=train
         )
         extra_runs.append(run)
-        cmp = sb.compare(current, run, subset=[q.query_id for q in test])
+        cmp = sb.compare(current, run, subset=test_ids)
         kept = bool(cmp["d_pwc_lo"] > 0)
         log(
             f"greedy step {step}: +{arm} d_pwc={cmp['d_pwc_pp']:+.2f}pp "
@@ -140,7 +119,7 @@ def greedy_trajectory(
         )
         if kept:
             applied, current = trial, run
-        pq = current.per_query().loc[[q.query_id for q in test]]
+        pq = current.per_query().loc[test_ids]
         rows.append(
             {
                 "step": step,
@@ -160,6 +139,16 @@ def greedy_trajectory(
 
 def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     t0 = time.time()
+    if cfg.llm.backend != "fake" and cfg.llm.max_cost_usd is not None:
+        from vizor.estimate import estimate_cost
+
+        est = estimate_cost(cfg)
+        log(f"pre-flight estimate: {est}")
+        if est["max_cost_usd_upper_bound"] > cfg.llm.max_cost_usd:
+            raise BudgetExceeded(
+                f"estimated upper bound ${est['max_cost_usd_upper_bound']:.2f} exceeds "
+                f"max_cost_usd ${cfg.llm.max_cost_usd:.2f}; not starting"
+            )
     out.mkdir(parents=True, exist_ok=True)
     project, docs, queries, engine = build(cfg)
     sentiment = make_sentiment(cfg.sentiment)
@@ -168,14 +157,14 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     doc_map = {d.doc_id: d for d in docs}
 
     def ctx_for(qs) -> TransformContext:
-        return TransformContext(doc_map, qs, embedder, llm=rewrite_llm)
+        return TransformContext(doc_map, list(qs), embedder, llm=rewrite_llm)
 
     sb = Sandbox(
         engine,
         queries,
         cfg.samples,
         project.domains,
-        ctx_for(queries),
+        ctx_for,
         sentiment,
         cfg.decay,
         cfg.sandbox.bootstrap,
@@ -211,17 +200,23 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         arm_specs += LLM_REWRITES
         if cfg.sandbox.allow_fabrication:
             arm_specs += sorted(FABRICATING)
-    controls = [a for a in arm_specs if a in ("noop", "aa_resample")]
-    others = [a for a in arm_specs if a not in controls]
-
+    parsed = {a: Arm.parse(a) for a in arm_specs}
+    # Controls first, then page arms (what a site owner controls, and what the bandit needs),
+    # then engine arms and sweeps, so a budget stop cuts the least important work.
+    order = (
+        [a for a in arm_specs if a in CONTROLS]
+        + [a for a in arm_specs if a not in CONTROLS and parsed[a].kind == "doc"]
+        + [a for a in arm_specs if a not in CONTROLS and parsed[a].kind != "doc"]
+    )
     arm_runs: dict[str, ArmRun] = {}
-    for spec in controls:
-        r = attempt(spec, lambda s=spec: sb.run(Arm.parse(s)))
+    for spec in order:
+        r = attempt(spec, lambda s=spec: sb.run(parsed[s]))
         if r:
             arm_runs[spec] = r
+            log(f"arm {spec} done ({time.time() - t0:.0f}s)")
+    all_runs += list(arm_runs.values())
 
     pos_df = attempt("position_sweep", lambda: position_sweep(sb, cfg.sandbox.position_sweep))
-    boost_df = attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep))
     if pos_df:
         pos_df, pos_runs = pos_df
         all_runs += list(pos_runs.values())
@@ -231,6 +226,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             .round(2)
             .to_string(index=False)
         )
+    boost_df = attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep))
     if boost_df:
         boost_df, boost_runs = boost_df
         all_runs += [r for w, r in boost_runs.items() if w != 0]
@@ -241,13 +237,6 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             .to_string(index=False)
         )
 
-    for spec in others:
-        r = attempt(spec, lambda s=spec: sb.run(Arm.parse(s)))
-        if r:
-            arm_runs[spec] = r
-            log(f"arm {spec} done ({time.time() - t0:.0f}s)")
-    all_runs += list(arm_runs.values())
-
     deltas = Sandbox.with_holm([sb.compare(base, r) for r in arm_runs.values()])
     log(
         "arms:\n"
@@ -256,19 +245,28 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         .to_string(index=False)
     )
 
-    # Bandit: page-side arms only; engine interventions aren't actions a site owner controls.
+    # Bandit over page arms only; engine interventions aren't something a site owner controls.
     b_arms = [a for a, r in arm_runs.items() if r.arm.kind == "doc"]
     traj = pd.DataFrame()
     curve = summary = pd.DataFrame()
     contexts = np.zeros((0, N_FEATURES))
     rewards = np.zeros((0, 0, cfg.samples))
     if len(b_arms) >= 2:
-        b_runs = {a: arm_runs[a] for a in b_arms}
-        rewards = reward_table(base, b_runs, queries, cfg.samples)
-        contexts = contexts_for(base, queries)
+        rewards = reward_table(base, {a: arm_runs[a] for a in b_arms}, queries, cfg.samples)
+        contexts = contexts_for(sb, arm_runs.get("aa_resample", base), queries)
         curve, summary = bandit_mod.replay(
             rewards, contexts, b_arms, cfg.bandit.rounds, cfg.bandit.runs, seed=cfg.seed
         )
+        idx = {q.query_id: i for i, q in enumerate(queries)}
+        train, test = two_folds(queries)
+        held = bandit_mod.heldout(
+            rewards,
+            contexts,
+            b_arms,
+            [idx[q.query_id] for q in train],
+            [idx[q.query_id] for q in test],
+        )
+        summary = pd.concat([summary, held], ignore_index=True)
         log("bandit:\n" + summary.round(3).to_string(index=False))
         cand = [a for a in b_arms if a != "noop"]
         res = attempt(
@@ -281,7 +279,6 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
                 contexts,
                 queries,
                 cfg.bandit.greedy_steps,
-                ctx_for,
                 log,
             ),
         )
@@ -309,6 +306,20 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         [r.per_query().assign(arm=r.arm.name).reset_index() for r in [base, *arm_runs.values()]]
     )
     write_csv(out / "per_query.csv", per_query)
+    focus = pd.DataFrame(
+        [
+            {
+                "query_id": q.query_id,
+                "query": q.text,
+                "intent": q.intent,
+                "fold": 1 if q in sb.folds[0] else 2,
+                "focus_doc": sb.focus[q.query_id],
+                "focus_url": doc_map[sb.focus[q.query_id]].url,
+            }
+            for q in queries
+        ]
+    )
+    write_csv(out / "queries.csv", focus)
     if isinstance(pos_df, pd.DataFrame):
         write_csv(out / "position_sweep.csv", pos_df)
     if isinstance(boost_df, pd.DataFrame):
@@ -346,15 +357,19 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     if len(traj):
         write_csv(out / "trajectory.csv", traj)
 
+    # diffs[arm][fold][doc_id] = {url, notes, before, after}
     diffs = {
         name: {
-            doc_id: {
-                "url": doc_map[doc_id].url,
-                "notes": run.diffs.get(doc_id, ""),
-                "before": _render_doc(doc_map[doc_id]),
-                "after": _render_doc(new),
+            fold: {
+                doc_id: {
+                    "url": doc_map[doc_id].url,
+                    "notes": run.diffs.get(fold, {}).get(doc_id, ""),
+                    "before": _render_doc(doc_map[doc_id]),
+                    "after": _render_doc(new),
+                }
+                for doc_id, new in pages.items()
             }
-            for doc_id, new in run.changed.items()
+            for fold, pages in run.changed.items()
         }
         for name, run in arm_runs.items()
         if run.changed
@@ -362,6 +377,15 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     (out / "diffs.json").write_text(json.dumps(diffs, indent=1, ensure_ascii=False))
 
     llm_stats = engine.llm.stats() if hasattr(engine.llm, "stats") else {}
+    models_seen = sorted({r.answer.model for run in all_runs for r in run.results})
+    fingerprints: dict[str, int] = {}
+    for run in all_runs:
+        for r in run.results:
+            fp = r.answer.usage.get("system_fingerprint")
+            if fp:
+                fingerprints[fp] = fingerprints.get(fp, 0) + 1
+    if len(models_seen) > 1:
+        log(f"WARNING: answers came from more than one model snapshot: {models_seen}")
     manifest = {
         "vizor_version": vizor.__version__,
         "git_commit": git_commit(),
@@ -377,12 +401,17 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "index_backend": engine.cascade.index.backend,
         "llm_model": engine.llm.model_id,
         "llm_is_fake": cfg.llm.backend == "fake",
-        "models_seen": sorted({r.answer.model for run in all_runs for r in run.results}),
+        "fake_llm_position_prior": 0.05 if cfg.llm.backend == "fake" else None,
+        "models_seen": models_seen,
+        "single_model_snapshot": len(models_seen) == 1,
+        "system_fingerprints": fingerprints,
         "prompt_instruction_sha256": hashlib.sha256(INSTRUCTION.encode()).hexdigest()[:16],
         "seed_scheme": "sha256(base_seed, query_id, sample, salt)[:8] & 0x7fffffff",
         "base_seed": cfg.seed,
         "sentiment_backend": sentiment.backend_id,
         "decay": cfg.decay,
+        "transform_query_scope": "crossfit-2",
+        "page_arm_scope": "focus page per query",
         "model_pins": {k: f"{v.repo}@{v.revision}" for k, v in PINS.items()},
         "score_scale": score_scale(base),
         "llm_usage": llm_stats,

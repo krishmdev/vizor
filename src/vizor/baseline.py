@@ -21,8 +21,16 @@ def run_baseline(cfg: Config, out: Path, log=print) -> pd.DataFrame:
     t0 = time.time()
     project, docs, queries, engine = build(cfg)
     sentiment = make_sentiment(cfg.sentiment)
-    ctx = TransformContext({d.doc_id: d for d in docs}, queries, engine.cascade.embedder)
-    sb = Sandbox(engine, queries, cfg.samples, project.domains, ctx, sentiment, cfg.decay)
+    doc_map = {d.doc_id: d for d in docs}
+    sb = Sandbox(
+        engine,
+        queries,
+        cfg.samples,
+        project.domains,
+        lambda qs: TransformContext(doc_map, list(qs), engine.cascade.embedder),
+        sentiment,
+        cfg.decay,
+    )
     base = sb.run_baseline()
     out.mkdir(parents=True, exist_ok=True)
     prompts = {r.answer.prompt_hash: r.prompt for r in base.results}

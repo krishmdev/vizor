@@ -130,24 +130,46 @@ def deltas_md(r: dict) -> str:
             _f(x.d_cite_rate_pp, 1, True),
             _f(x.d_retrieval_pp, 1, True),
             _f(x.d_sentiment, 3, True),
-            _p(x.p_holm),
+            _f(getattr(x, "uncited_rate_pct", float("nan")), 0),
+            _p(x.p_holm) + (" *" if getattr(x, "significant", False) else ""),
+            ("yes" if getattr(x, "beyond_aa", False) else "no")
+            if x.arm not in ("noop", "aa_resample")
+            else "",
             str(int(x.n_queries)),
         ]
         for x in df.itertuples()
     ]
-    return _table(
-        [
-            "Arm",
-            "ΔPAWC pp [95% CI]",
-            "Rel Δ %",
-            "ΔC-SoV pp [95% CI]",
-            "Δ cited pp",
-            "Δ retrieved pp",
-            "Δ sentiment",
-            "p (Holm)",
-            "n",
-        ],
-        rows,
+    aa = df[df.arm == "aa_resample"]
+    note = (
+        "Test: Wilcoxon signed-rank on per-query deltas, Holm-adjusted across the non-control arms; "
+        "`*` marks p(Holm) < 0.05. The bootstrap CI is descriptive. `noop` and `aa_resample` are controls "
+        "outside the Holm family. Page arms that read the tracked queries are cross-fitted: built from one "
+        "half of the queries, scored on the other."
+    )
+    if len(aa):
+        note += (
+            f" A/A noise band (re-sampled unchanged prompts): {_ci(aa.d_pwc_pp.iloc[0], aa.d_pwc_lo.iloc[0], aa.d_pwc_hi.iloc[0])} pp; "
+            "'Beyond A/A' says whether an arm's mean falls outside that band."
+        )
+    return (
+        note
+        + "\n\n"
+        + _table(
+            [
+                "Arm",
+                "ΔPAWC pp [95% CI]",
+                "Rel Δ %",
+                "ΔC-SoV pp [95% CI]",
+                "Δ cited pp",
+                "Δ retrieved pp",
+                "Δ sentiment",
+                "Uncited answers %",
+                "p (Holm)",
+                "Beyond A/A",
+                "n",
+            ],
+            rows,
+        )
     )
 
 
@@ -182,26 +204,49 @@ def boost_md(r: dict) -> str:
             _ci(x.d_pwc_pp, x.d_lo, x.d_hi) if x.boost != 0 else "ref",
             _f(x.cite_rate_pct, 0),
             _p(x.p) if x.boost != 0 else "",
+            _cls(x, "set_changed") if x.boost != 0 else "",
+            _cls(x, "order_only") if x.boost != 0 else "",
+            _cls(x, "unchanged") if x.boost != 0 else "",
         ]
         for x in df.itertuples()
     ]
-    return _table(
-        [
-            "Boost w",
-            "Target retrieved %",
-            "PAWC share % [95% CI]",
-            "Δ vs w=0 pp [95% CI]",
-            "Cited %",
-            "p",
-        ],
-        rows,
+    return (
+        "Per-query classes compare the boosted source list with w=0: a different set of sources, the same "
+        "sources in a different order, or no change. Each class cell is `n queries: mean ΔPAWC pp`.\n\n"
+        + _table(
+            [
+                "Boost w",
+                "Target retrieved %",
+                "PAWC share % [95% CI]",
+                "Δ vs w=0 pp [95% CI]",
+                "Cited %",
+                "p",
+                "Set changed",
+                "Order only",
+                "Unchanged",
+            ],
+            rows,
+        )
     )
+
+
+def _cls(x, c: str) -> str:
+    n = getattr(x, f"n_{c}", None)
+    if n is None or (isinstance(n, float) and math.isnan(n)):
+        return ""
+    d = getattr(x, f"d_pwc_{c}_pp")
+    return f"{int(n)}: {_f(d, 1, True)}" if n else "0"
 
 
 def claim_md(r: dict) -> str:
     """Plain statements of what the sweeps measured, for the 'small changes, big shifts' claim."""
     m, pos, boost, deltas = r["manifest"], r["position"], r["boost"], r["deltas"]
     out = []
+    if m.get("llm_is_fake"):
+        return (
+            f"- FakeLLM applies an explicit −{m.get('fake_llm_position_prior') or 0.05:g} per-slot position "
+            "penalty; this sweep recovers that built-in prior and is not evidence about real models."
+        )
     if pos is not None and len(pos) > 1:
         first, last = pos.iloc[0], pos.iloc[-1]
         ratio = f", {_f(first.pwc_pct / last.pwc_pct, 1)}x" if last.pwc_pct > 0 else ""
@@ -248,22 +293,33 @@ def claim_md(r: dict) -> str:
 
 
 def bandit_md(r: dict) -> str:
-    df = r["bandit"]
+    full = r["bandit"]
+    if "eval" not in full.columns:
+        full = full.assign(eval="replay")
+    df = full[full["eval"] == "replay"]
+    held = full[full["eval"] == "heldout"]
     m = r["manifest"]["config"]["bandit"]
+
+    def arm_cell(x) -> str:
+        return (
+            f"`{x.top_arm}` ({_f(x.top_arm_share * 100, 0)}%)"
+            if isinstance(x.top_arm, str) and x.top_arm
+            else ""
+        )
+
     rows = [
         [
             x.policy,
             f"{_f(x.final_regret, 2)} ± {_f(x.final_regret_ci, 2)}",
             _f(x.mean_reward_pp, 2, True),
-            f"`{x.top_arm}` ({_f(x.top_arm_share * 100, 0)}%)"
-            if isinstance(x.top_arm, str) and x.top_arm
-            else "",
+            arm_cell(x),
         ]
         for x in df.itertuples()
     ]
-    return (
+    out = (
         f"Offline replay, {m['rounds']} rounds x {m['runs']} runs; regret is in units of PAWC share "
-        f"(1.0 = 100 pp) summed over rounds.\n\n"
+        f"(1.0 = 100 pp) summed over rounds. The hindsight row knows the best single arm in advance, so it "
+        f"is a reference line, not a policy.\n\n"
         + _table(
             [
                 "Policy",
@@ -274,6 +330,19 @@ def bandit_md(r: dict) -> str:
             rows,
         )
     )
+    if len(held):
+        out += (
+            "\n\nHeld-out check: fit on fold-1 queries, freeze, score the frozen choices on fold-2 queries "
+            "(regret summed over held-out queries, one decision each).\n\n"
+            + _table(
+                ["Policy", "Held-out regret", "Mean reward pp", "Most chosen arm"],
+                [
+                    [x.policy, _f(x.final_regret, 3), _f(x.mean_reward_pp, 2, True), arm_cell(x)]
+                    for x in held.itertuples()
+                ],
+            )
+        )
+    return out
 
 
 def trajectory_md(r: dict) -> str:
