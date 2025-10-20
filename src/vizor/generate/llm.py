@@ -139,8 +139,45 @@ def cost_usd(model: str, usage: dict) -> float:
     return (usage.get("prompt_tokens", 0) * pin + usage.get("completion_tokens", 0) * pout) / 1e6
 
 
+class SpendLedger:
+    """Cumulative API spend in <cache_dir>/ledger.json, shared by every process using the same
+    cache (CLI runs, API jobs), so one cap covers all of them. fcntl-locked."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+
+    def _locked(self, fn):
+        import fcntl
+
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path.with_suffix(".lock"), "a+") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            try:
+                data = json.loads(self.path.read_text()) if self.path.exists() else {}
+                out = fn(data)
+                tmp = self.path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(data, indent=1, sort_keys=True))
+                os.replace(tmp, self.path)
+                return out
+            finally:
+                fcntl.flock(lk, fcntl.LOCK_UN)
+
+    def total(self) -> float:
+        return self._locked(lambda d: float(d.get("spent_usd", 0.0)))
+
+    def add(self, model: str, usd: float) -> float:
+        def upd(d: dict) -> float:
+            d["spent_usd"] = float(d.get("spent_usd", 0.0)) + usd
+            d["calls"] = int(d.get("calls", 0)) + 1
+            d.setdefault("by_model", {})[model] = d.get("by_model", {}).get(model, 0.0) + usd
+            return d["spent_usd"]
+
+        return self._locked(upd)
+
+
 class CachedLLM:
-    """Disk cache + spend tracking around any backend."""
+    """Disk cache + spend tracking around any backend. `max_cost_usd` caps the cumulative spend
+    recorded in the shared ledger, not just this process's."""
 
     def __init__(self, inner: LLM, cache_dir: Path | None, max_cost_usd: float | None = None):
         self.inner = inner
@@ -151,6 +188,7 @@ class CachedLLM:
         self.calls = 0
         self.hits = 0
         self._lock = threading.Lock()
+        self.ledger = SpendLedger(self.cache_dir / "ledger.json") if self.cache_dir else None
 
     def _key(self, messages: Messages, temperature: float, seed: int, max_tokens: int) -> str:
         blob = json.dumps([self.model_id, messages, temperature, seed, max_tokens], sort_keys=True)
@@ -173,8 +211,11 @@ class CachedLLM:
                     self.hits += 1
                 return Completion(d["text"], d["model"], d["usage"], cached=True)
         with self._lock:
-            if self.max_cost_usd is not None and self.spent_usd >= self.max_cost_usd:
-                raise BudgetExceeded(f"spent ${self.spent_usd:.3f} of ${self.max_cost_usd:.2f}")
+            total = self.ledger.total() if self.ledger else self.spent_usd
+            if self.max_cost_usd is not None and total >= self.max_cost_usd:
+                raise BudgetExceeded(
+                    f"ledger shows ${total:.3f} spent, cap ${self.max_cost_usd:.2f}"
+                )
         t0 = time.perf_counter()
         c = self.inner.complete(messages, temperature=temperature, seed=seed, max_tokens=max_tokens)
         c.usage["latency_s"] = round(time.perf_counter() - t0, 3)
@@ -182,6 +223,8 @@ class CachedLLM:
         with self._lock:
             self.calls += 1
             self.spent_usd += c.usage["cost_usd"]
+            if self.ledger:
+                self.ledger.add(c.model, c.usage["cost_usd"])
         if self.cache_dir is not None:
             p = self._path(key)
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -191,4 +234,9 @@ class CachedLLM:
         return c
 
     def stats(self) -> dict:
-        return {"calls": self.calls, "cache_hits": self.hits, "spent_usd": round(self.spent_usd, 4)}
+        return {
+            "calls": self.calls,
+            "cache_hits": self.hits,
+            "spent_usd": round(self.spent_usd, 4),
+            "ledger_total_usd": round(self.ledger.total(), 4) if self.ledger else None,
+        }
