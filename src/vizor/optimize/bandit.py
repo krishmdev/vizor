@@ -210,11 +210,15 @@ def replay(
         cum = regrets.cumsum(axis=1)
         m = cum.mean(axis=0)
         half = 1.96 * cum.std(axis=0, ddof=1) / np.sqrt(runs) if runs > 1 else np.zeros(rounds)
+        # keep every 10th round (and the first and last) so the committed curve stays small
+        keep = np.unique(np.r_[0, np.arange(9, rounds, 10), rounds - 1])
+        m_all, half_all = m, half
+        m, half = m_all[keep], half_all[keep]
         curves.append(
             pd.DataFrame(
                 {
                     "policy": name,
-                    "t": np.arange(1, rounds + 1),
+                    "t": keep + 1,
                     "cum_regret": m,
                     "lo": m - half,
                     "hi": m + half,
@@ -225,8 +229,8 @@ def replay(
             {
                 "eval": "replay",
                 "policy": name,
-                "final_regret": float(m[-1]),
-                "final_regret_ci": float(half[-1]),
+                "final_regret": float(m_all[-1]),
+                "final_regret_ci": float(half_all[-1]),
                 "mean_reward_pp": float(total.mean() / rounds * 100),
                 "top_arm": arms[int(picks.argmax())],
                 "top_arm_share": float(picks.max() / picks.sum()),
