@@ -1,0 +1,70 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {version: "0.9.28"}
+      - run: uv sync --frozen --python 3.11
+      - run: uv run ruff check . && uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {version: "0.9.28"}
+      # core deps + faiss only: unit tests use the hashing embedder, so no model downloads
+      - run: uv sync --frozen --python 3.11 && uv pip install faiss-cpu==1.15.1
+      - run: uv run pytest -m "not slow and not network" --cov=vizor --cov-report=term
+
+  demo-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {version: "0.9.28"}
+      - run: uv sync --frozen --python 3.11
+      - run: uv run vizor demo --config configs/ci.yaml --out /tmp/d
+      - name: noop arm is exactly zero and every output exists
+        run: |
+          uv run python - <<'PY'
+          import pandas as pd, pathlib
+          d = pathlib.Path("/tmp/d")
+          for f in ["manifest.json", "responses.jsonl.gz", "deltas.csv", "position_sweep.csv",
+                    "boost_sweep.csv", "bandit_summary.csv", "summary.md"]:
+              assert (d / f).exists(), f
+          noop = pd.read_csv(d / "deltas.csv").set_index("arm").loc["noop"]
+          assert noop.d_pwc_lo <= 0 <= noop.d_pwc_hi and noop.d_pwc_pp == 0
+          PY
+      - run: uv run vizor recompute /tmp/d
+
+  # Setup phase with network: build the image and fetch the pinned models (cached by models.lock).
+  # Runtime phase: the demo and the egress canary run with --network none.
+  offline-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {version: "0.9.28"}
+      - uses: actions/cache@v4
+        with:
+          path: .models
+          key: models-${{ hashFiles('models.lock') }}
+      - run: uv sync --frozen --python 3.11 --no-install-project && uv pip install huggingface-hub
+      - run: uv run --no-sync python -c "import sys; sys.path.insert(0, 'src'); from vizor.models import fetch; print(fetch())"
+      - run: docker build -t vizor:ci .
+      - name: canary must fail inside --network none
+        run: docker run --rm --network none vizor:ci selfcheck egress --expect blocked
+      - name: canary connects on the default network (so the check above is not vacuous)
+        run: docker run --rm vizor:ci selfcheck egress --expect open
+      - name: keyless demo with the real retrieval models, no network
+        run: |
+          docker run --rm --network none -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 \
+            -v "$PWD/.models:/app/.models:ro" vizor:ci \
+            demo --config configs/demo.yaml --queries 8 --samples 2 --out /tmp/demo

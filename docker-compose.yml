@@ -1,0 +1,26 @@
+name: vizor
+services:
+  api:
+    build: .
+    image: vizor:dev
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      VIZOR_EGRESS_CANARY: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - ./.models:/app/.models:ro
+      - ./runs:/app/runs
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      retries: 30
+  dashboard:
+    image: vizor:dev
+    depends_on: [api]
+    entrypoint: ["streamlit", "run", "src/vizor/dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    environment:
+      VIZOR_API: http://api:8000
+      VIZOR_EGRESS_CANARY: "1"
+    ports: ["8501:8501"]

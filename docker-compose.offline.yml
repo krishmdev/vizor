@@ -1,0 +1,31 @@
+# Same stack on an internal network (no route out). Published ports don't work on internal
+# networks, so a checker container on the same network drives it instead.
+services:
+  api:
+    ports: !reset []
+    networks: [sealed]
+  dashboard:
+    ports: !reset []
+    networks: [sealed]
+  offline-check:
+    image: vizor:dev
+    depends_on:
+      api: {condition: service_healthy}
+    networks: [sealed]
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import json, urllib.request
+        from vizor.egress import check_egress
+        leaks = check_egress()
+        assert not leaks, f"egress open from checker: {leaks}"
+        h = json.load(urllib.request.urlopen("http://api:8000/health"))
+        assert h["egress"] == "blocked", h
+        req = urllib.request.Request("http://api:8000/answer", data=json.dumps({"query": "best espresso machine for milk drinks"}).encode(), headers={"content-type": "application/json"})
+        a = json.load(urllib.request.urlopen(req, timeout=300))
+        assert len(a["sources"]) == 5 and a["sentences"], a
+        ui = urllib.request.urlopen("http://dashboard:8501/", timeout=60).status
+        print("offline stack ok:", h, "answer sources:", [s["domain"] for s in a["sources"]], "ui:", ui)
+networks:
+  sealed:
+    internal: true
