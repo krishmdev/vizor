@@ -513,13 +513,23 @@ def sandbox() -> None:
     if diffs:
         c1, c2, c3 = st.columns([2, 1, 3])
         arm = c1.selectbox("Arm", list(diffs))
-        fold = c2.selectbox("Fold", list(diffs[arm]), help="Arms that read the tracked queries are built from "
-                            "the other fold's queries and scored on this fold's.")
+        fold = c2.selectbox(
+            "Fold",
+            list(diffs[arm]),
+            help="Arms that read the tracked queries are built from "
+            "the other fold's queries and scored on this fold's.",
+        )
         pages = diffs[arm][fold]
         doc = c3.selectbox("Page", list(pages), format_func=lambda k: pages[k]["url"])
         rec = pages[doc]
-        diff = difflib.unified_diff(rec["before"].splitlines(), rec.get("after", "").splitlines(),
-                                    "before", "after", lineterm="", n=1)
+        diff = difflib.unified_diff(
+            rec["before"].splitlines(),
+            rec.get("after", "").splitlines(),
+            "before",
+            "after",
+            lineterm="",
+            n=1,
+        )
         st.code("\n".join(diff) or "(no change)", language="diff")
     else:
         st.markdown('<p class="note">No page arms in this experiment.</p>', unsafe_allow_html=True)
