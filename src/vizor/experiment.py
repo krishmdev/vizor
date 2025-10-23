@@ -406,6 +406,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "single_model_snapshot": len(models_seen) == 1,
         "system_fingerprints": fingerprints,
         "prompt_instruction_sha256": hashlib.sha256(INSTRUCTION.encode()).hexdigest()[:16],
+        "system_prompt": cfg.llm.system_prompt or None,
         "seed_scheme": "sha256(base_seed, query_id, sample, salt)[:8] & 0x7fffffff",
         "base_seed": cfg.seed,
         "sentiment_backend": sentiment.backend_id,

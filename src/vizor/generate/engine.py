@@ -31,7 +31,9 @@ class Engine:
         base_seed: int = 0,
         wordcount: str = "alnum",
         workers: int = 1,
+        system_prompt: str = "",
     ) -> None:
+        self.system_prompt = system_prompt
         self.cascade = cascade
         self.llm = llm
         self.temperature = temperature
@@ -49,6 +51,7 @@ class Engine:
             self.base_seed,
             self.wordcount,
             self.workers,
+            self.system_prompt,
         )
 
     def seed_for(self, query: Query, sample: int, salt: str = "") -> int:
@@ -95,8 +98,11 @@ class Engine:
     ) -> EngineResult:
         prompt, sel = built
         seed = self.seed_for(query, sample, salt)
+        messages = [{"role": "user", "content": prompt}]
+        if self.system_prompt:
+            messages.insert(0, {"role": "system", "content": self.system_prompt})
         c = self.llm.complete(
-            [{"role": "user", "content": prompt}],
+            messages,
             temperature=self.temperature,
             seed=seed,
             max_tokens=self.max_tokens,

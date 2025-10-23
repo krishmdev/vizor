@@ -1,17 +1,29 @@
-# Local model through Ollama (`ollama pull qwen2.5:7b-instruct`). Slow on a laptop, so this runs a
-# reduced design: 20 queries x 3 samples.
+# Local model through Ollama (`ollama pull qwen2.5:3b-instruct`). A small 3B model on a laptop,
+# so this is a reduced design: 20 queries x 2 samples, fewer sweep points, no LLM rewrites.
 project: data/demo/project.yaml
 embedder: bge
 reranker: cross-encoder
 sentiment: auto
-samples: 3
+samples: 2
 queries: 20
 llm:
   backend: ollama
-  model: qwen2.5:7b-instruct
+  model: qwen2.5:3b-instruct
   base_url: http://localhost:11434
   temperature: 0.7
   max_tokens: 450
   workers: 1
+  # qwen2.5:3b mostly ignores the in-line citation rule in the user prompt; restating it as a
+  # system message with an example is the only prompt change from the OpenAI config.
+  system_prompt: >-
+    You answer questions using numbered search results. Write short sentences. Put a citation in
+    square brackets at the end of EVERY sentence, right before the period, naming the search result
+    that supports that sentence, for example: "The Duo has two boilers [2]. It costs $1,199 [2].
+    The Aria heats up in five minutes [4]." Never collect citations at the end of the answer.
 sandbox:
-  llm_rewrites: true
+  arms: [noop, aa_resample, metadata, faq_rewrite, jsonld_insert, internal_links, stats_surface,
+         keyword_stuffing, engine:reverse]
+  position_sweep: [1, 3, 5]
+  boost_sweep: [0.0, 0.02, 0.1]
+bandit:
+  greedy_steps: 2

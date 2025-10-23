@@ -19,6 +19,9 @@ class LLMConfig(BaseModel):
     max_tokens: int = 450
     workers: int = 1
     max_cost_usd: float | None = None
+    # Optional system message sent before the GEO user prompt (e.g. to get a small local model to
+    # use [n] markers at all). Recorded in the manifest; empty for the OpenAI run.
+    system_prompt: str = ""
 
 
 class SandboxConfig(BaseModel):
@@ -117,6 +120,7 @@ def build(cfg: Config):
         max_tokens=cfg.llm.max_tokens,
         base_seed=cfg.seed,
         workers=cfg.llm.workers,
+        system_prompt=cfg.llm.system_prompt,
     )
     return project, docs, queries, engine
 

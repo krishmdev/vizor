@@ -100,8 +100,10 @@ class OllamaChat:
         model: str = "qwen2.5:7b-instruct",
         base_url: str = "http://localhost:11434",
         timeout: float = 600,
+        num_ctx: int = 4096,
     ) -> None:
         self.model_id = model
+        self.num_ctx = num_ctx
         self._url = base_url.rstrip("/") + "/api/chat"
         self._http = httpx.Client(timeout=timeout)
 
@@ -119,12 +121,20 @@ class OllamaChat:
             "model": self.model_id,
             "messages": messages,
             "stream": False,
-            "options": {"temperature": temperature, "seed": seed, "num_predict": max_tokens},
+            # Ollama's default context is too small for five sources; truncation would silently
+            # drop sources from the start of the prompt.
+            "options": {
+                "temperature": temperature,
+                "seed": seed,
+                "num_predict": max_tokens,
+                "num_ctx": self.num_ctx,
+            },
         }
         r = self._http.post(self._url, json=payload)
         r.raise_for_status()
         body = r.json()
         usage = {
+            "done_reason": body.get("done_reason"),
             "prompt_tokens": body.get("prompt_eval_count", 0),
             "completion_tokens": body.get("eval_count", 0),
         }
