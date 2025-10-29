@@ -1,0 +1,8 @@
+# models.lock holds sha256 hashes of model files; entries named "tokenizer.json" etc. trip the
+# generic-api-key rule. Only that file is allowlisted.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "sha256 hashes of pinned model files"
+paths = ['''^models\.lock$''']
