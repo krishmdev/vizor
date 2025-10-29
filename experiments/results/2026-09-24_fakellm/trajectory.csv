@@ -1,0 +1,5 @@
+step,proposed,predicted_reward_pp,d_pwc_pp,d_lo,d_hi,kept,applied,heldout_pwc_pct,n_heldout
+1,keyword_stuffing,0.567154,2.53127,-0.517469,6.97608,False,none,18.9059,20
+2,metadata,0.46532,0.443965,-2.06597,2.81905,False,none,18.9059,20
+3,faq_rewrite,0.119063,1.82313,-2.03366,6.11001,False,none,18.9059,20
+4,jsonld_insert,0,0,0,0,False,none,18.9059,20

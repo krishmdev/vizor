@@ -1,0 +1,6 @@
+domain,role,answers,retrieval_rate,citation_rate,conversion,c_sov,pawc_sov,word_sov,citations_per_answer,first_cite_sentence,emphasized_rate,ignored_rate,answer_sentiment,source_sentiment
+crema-lab.example,competitor,200,0.7,0.57,0.814286,0.287575,0.297316,0.291208,1.435,1.68421,0.35,0.185714,0.0331529,0.140548
+beanbudget.example,competitor,200,0.65,0.525,0.807692,0.297595,0.280024,0.278347,1.485,1.68571,0.29,0.192308,0.386678,0.460195
+brewline.example,target,200,0.8,0.525,0.65625,0.186373,0.197158,0.202051,0.93,2.28571,0.155,0.34375,0.0563497,0.143584
+shotreport.example,competitor,200,0.65,0.405,0.623077,0.145291,0.147996,0.146212,0.725,2.24691,0.145,0.376923,0.0478544,0.225963
+grindandtamp.example,competitor,200,0.35,0.25,0.714286,0.0831663,0.0775058,0.0821815,0.415,2.62,0.06,0.285714,-0.144057,-0.119564
