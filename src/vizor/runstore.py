@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 import subprocess
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -63,9 +64,13 @@ def git_commit() -> str:
 
 
 def host_manifest(**extra: str) -> dict:
-    """Host/workload snapshot from the shared run_manifest helper when it's available."""
-    tool = Path("<local>")
-    if tool.exists():
+    """Host/workload snapshot from an external helper named by $VIZOR_RUN_MANIFEST, if set."""
+    tool = (
+        Path(os.environ.get("VIZOR_RUN_MANIFEST", ""))
+        if os.environ.get("VIZOR_RUN_MANIFEST")
+        else None
+    )
+    if tool is not None and tool.exists():
         try:
             args = [f"{k}={v}" for k, v in extra.items()]
             out = subprocess.run(
@@ -77,7 +82,12 @@ def host_manifest(**extra: str) -> dict:
     import platform
 
     return {
-        "host": {"os": platform.platform(), "python": platform.python_version()},
+        "host": {
+            "os": platform.platform(),
+            "machine": platform.machine(),
+            "python": platform.python_version(),
+            "cpu_count": os.cpu_count(),
+        },
         "extra": extra,
     }
 

@@ -139,6 +139,7 @@ def greedy_trajectory(
 
 def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     t0 = time.time()
+    commit = git_commit()
     if cfg.llm.backend != "fake" and cfg.llm.max_cost_usd is not None:
         from vizor.estimate import estimate_cost
 
@@ -388,7 +389,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         log(f"WARNING: answers came from more than one model snapshot: {models_seen}")
     manifest = {
         "vizor_version": vizor.__version__,
-        "git_commit": git_commit(),
+        "git_commit": commit,
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(t0)),
         "elapsed_s": round(time.time() - t0, 1),
         "config": cfg.model_dump(),

@@ -25,8 +25,9 @@ make serve      # API on :8000     (in another shell)
 make ui         # dashboard on :8501
 ```
 
-`make demo` runs under `offline-run` when it's available (a `sandbox-exec` wrapper that blocks
-all outbound traffic for the whole process tree), and `make offline-check` proves the block is
+Set `VIZOR_OFFLINE_RUN` to a wrapper that blocks outbound traffic for a whole process tree (on
+macOS, a `sandbox-exec` profile that denies `network-outbound` except localhost), and
+`make demo`, `make serve` and `make ui` run inside it. `make offline-check` proves the block is
 real: the egress canary must fail inside the wrapper and succeed outside it. The same demo with no
 model downloads at all is `vizor demo --config configs/ci.yaml`.
 
