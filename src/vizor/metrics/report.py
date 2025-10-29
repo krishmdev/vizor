@@ -59,7 +59,11 @@ def load(d: Path) -> dict:
 
 def label(r: dict) -> str:
     m = r["manifest"]
-    return "FakeLLM (pipeline check)" if m.get("llm_is_fake") else m["llm_model"]
+    if m.get("llm_is_fake"):
+        return "FakeLLM (pipeline check)"
+    if m["config"]["llm"]["backend"] == "ollama":
+        return f"{m['llm_model']} via Ollama (small local model, reduced design)"
+    return m["llm_model"]
 
 
 def header_md(r: dict) -> str:
@@ -77,7 +81,16 @@ def header_md(r: dict) -> str:
         f"- Sentiment: `{m['sentiment_backend']}`; PAWC decay: {m['decay']}",
         f"- {m['n_queries']} queries x {m['samples']} samples, {m['n_docs']} pages",
     ]
-    if usage:
+    if m["config"]["llm"]["backend"] == "ollama":
+        lines.append(
+            "- A small local model, not a GPT-class engine. It needed an extra system message "
+            "(recorded in the manifest) before it would cite sentence by sentence."
+        )
+    if usage and m["config"]["llm"]["backend"] == "ollama":
+        lines.append(
+            f"- Local calls: {usage.get('calls', 0)} new, {usage.get('cache_hits', 0)} cached (no API spend)"
+        )
+    elif usage:
         lines.append(
             f"- API calls: {usage.get('calls', 0)} new, {usage.get('cache_hits', 0)} cached; "
             f"estimated spend ${usage.get('spent_usd', 0):.2f} (list prices)"

@@ -1,0 +1,4 @@
+boost,n_queries,retrieval_pct,pwc_pct,pwc_lo,pwc_hi,c_share_pct,cite_rate_pct,d_pwc_pp,d_lo,d_hi,p,n_set_changed,d_pwc_set_changed_pp,n_order_only,d_pwc_order_only_pp,n_unchanged,d_pwc_unchanged_pp
+0,20,75,26.9107,17.6137,35.8254,27.752,60,0,0,0,1,0,,0,,20,0
+0.02,20,75,23.1203,13.4382,33.181,21.5615,50,-3.79037,-9.85698,2.14301,0.288765,1,-31.5728,6,-7.37241,13,0
+0.1,20,80,28.6096,17.1427,41.283,29.6548,57.5,1.69886,-7.81224,11.7071,0.821471,7,11.5985,6,-7.86869,7,0
