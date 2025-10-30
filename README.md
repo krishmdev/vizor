@@ -251,6 +251,8 @@ model, and a `base_url` also covers other OpenAI-compatible servers.
 
 ## API and UI
 
+![Sandbox view: per-arm ΔPAWC with the A/A noise band](docs/sandbox.png)
+
 `vizor serve` starts FastAPI with these routes: `/health` (including the egress canary result
 when `VIZOR_EGRESS_CANARY=1`), `/project`, `/corpus/docs[/{id}]`, `POST /answer` (live query →
 sources, labels, per-sentence attribution), `POST /runs` and `POST /sandbox` (background jobs,

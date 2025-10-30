@@ -34,7 +34,8 @@ FONT_NUM = "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace"
 CSS = f"""
 <style>
 :root {{ --ink:{INK}; --ink2:{INK_2}; --muted:{MUTED}; --rule:{RULE}; --paper:{PAPER}; --panel:{PANEL}; }}
-html, body, [class*="st-"], .stMarkdown, p, li, label {{ font-family:{FONT_BODY}; color:var(--ink); }}
+html, body, .stMarkdown, p, li, label, input, textarea {{ font-family:{FONT_BODY}; color:var(--ink); }}
+[data-testid="stIconMaterial"], .material-symbols-rounded {{ font-family:"Material Symbols Rounded" !important; }}
 h1, h2, h3 {{ font-family:{FONT_BODY}; letter-spacing:-0.01em; font-weight:600; }}
 h1 {{ font-size:2.0rem !important; margin-bottom:0.2rem; }}
 code, .num {{ font-family:{FONT_NUM}; font-variant-numeric: tabular-nums; }}
@@ -290,6 +291,7 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
             text = html.escape(sent["text"])
             text = re.sub(r"\s*(\[\d+\])+\s*([.!?]?)$", r"\2", text)
             text = re.sub(r"\[\d+\]", "", text)
+            text = re.sub(r"\s+([,.;:!?])", r"\1", text)
             if cites:
                 c = colors.get(by_pos[cites[0]]["domain"], MUTED)
                 chips = "".join(
@@ -397,6 +399,7 @@ def _interval_band(fig, x, lo, hi, color, name):
         x=list(x) + list(x)[::-1],
         y=list(hi) + list(lo)[::-1],
         fill="toself",
+        mode="lines",
         fillcolor=tint(color, 0.16),
         line=dict(width=0),
         hoverinfo="skip",
@@ -427,7 +430,7 @@ def sandbox() -> None:
         fig.add_vrect(
             x0=float(aa.d_pwc_lo.iloc[0]),
             x1=float(aa.d_pwc_hi.iloc[0]),
-            fillcolor=PANEL,
+            fillcolor="#ecebe6", layer="below",
             line_width=0,
             annotation_text="A/A noise band",
             annotation_position="top left",
@@ -611,7 +614,7 @@ def optimizer() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="Vizor", page_icon=None, layout="wide", initial_sidebar_state="expanded"
+        page_title="Vizor", page_icon=None, layout="wide", initial_sidebar_state="auto"
     )
     st.markdown(CSS, unsafe_allow_html=True)
     st.sidebar.markdown(
