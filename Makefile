@@ -54,7 +54,7 @@ docker:
 
 # api + dashboard on an internal-only network: no egress from either container.
 compose-offline:
-	docker compose -f docker-compose.yml -f docker-compose.offline.yml up --build --abort-on-container-exit offline-check
+	docker compose -f docker-compose.yml -f docker-compose.offline.yml up --build --abort-on-container-exit --exit-code-from offline-check offline-check dashboard
 
 clean:
 	rm -rf runs/ci-smoke .pytest_cache .ruff_cache

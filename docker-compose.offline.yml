@@ -11,6 +11,7 @@ services:
     image: vizor:dev
     depends_on:
       api: {condition: service_healthy}
+      dashboard: {condition: service_started}
     networks: [sealed]
     entrypoint: ["python", "-c"]
     command:
@@ -24,7 +25,13 @@ services:
         req = urllib.request.Request("http://api:8000/answer", data=json.dumps({"query": "best espresso machine for milk drinks"}).encode(), headers={"content-type": "application/json"})
         a = json.load(urllib.request.urlopen(req, timeout=300))
         assert len(a["sources"]) == 5 and a["sentences"], a
-        ui = urllib.request.urlopen("http://dashboard:8501/", timeout=60).status
+        import time
+        for _ in range(60):
+            try:
+                ui = urllib.request.urlopen("http://dashboard:8501/", timeout=10).status
+                break
+            except OSError:
+                time.sleep(2)
         print("offline stack ok:", h, "answer sources:", [s["domain"] for s in a["sources"]], "ui:", ui)
 networks:
   sealed:
