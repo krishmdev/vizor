@@ -79,8 +79,8 @@ class Engine:
         salt: str = "",
     ) -> list[EngineResult]:
         queries = list(queries)
-        # Retrieval and prompt building run serially (the embedding caches aren't thread-safe);
-        # only the LLM calls fan out, and only for remote backends.
+        # Retrieval and prompt building run serially here; the embedder and reranker caches are
+        # locked, so API threads sharing them are safe too. Only the LLM calls fan out.
         prompts = {q.query_id: self.build_prompt(q, policy) for q in queries}
         jobs = [(q, k) for q in queries for k in range(samples)]
 

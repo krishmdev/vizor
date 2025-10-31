@@ -134,6 +134,7 @@ def domains_md(r: dict) -> str:
 
 def deltas_md(r: dict) -> str:
     df = r["deltas"]
+    ctrl = ("noop", "aa_resample")
     rows = [
         [
             f"`{x.arm}`",
@@ -141,29 +142,25 @@ def deltas_md(r: dict) -> str:
             _f(x.rel_pct, 0, True) if not pd.isna(x.rel_pct) else "n/a",
             _ci(x.d_csov_pp, x.d_csov_lo, x.d_csov_hi),
             _f(x.d_cite_rate_pp, 1, True),
-            _f(x.d_retrieval_pp, 1, True),
-            _f(x.d_sentiment, 3, True),
+            _f(getattr(x, "d_pwc_given_cited_pp", float("nan")), 1, True),
             _f(getattr(x, "uncited_rate_pct", float("nan")), 0),
-            _p(x.p_holm) + (" *" if getattr(x, "significant", False) else ""),
-            ("yes" if getattr(x, "beyond_aa", False) else "no")
-            if x.arm not in ("noop", "aa_resample")
-            else "",
-            str(int(x.n_queries)),
+            _f(x.d_sentiment, 3, True),
+            _p(x.p_holm) + (" *" if getattr(x, "significant", False) else "")
+            if x.arm not in ctrl
+            else "control",
+            f"{int(x.n_queries)} / {int(getattr(x, 'n_units', x.n_queries))}",
         ]
         for x in df.itertuples()
     ]
-    aa = df[df.arm == "aa_resample"]
     note = (
-        "Test: Wilcoxon signed-rank on per-query deltas, Holm-adjusted across the non-control arms; "
-        "`*` marks p(Holm) < 0.05. The bootstrap CI is descriptive. `noop` and `aa_resample` are controls "
-        "outside the Holm family. Page arms that read the tracked queries are cross-fitted: built from one "
-        "half of the queries, scored on the other."
+        "Verdict rule: an arm has an effect if its Holm-adjusted Wilcoxon p is below 0.05 (`*`); "
+        "the 95% CIs are descriptive. `noop` and `aa_resample` are controls outside the Holm family. "
+        "Page arms edit each query's focus page and are tested at the level of (fold, page) units, "
+        "because queries served by the same edited page are not independent; `n` is queries / units. "
+        "Arms that read the tracked queries are cross-fitted (built from one half of the queries, "
+        'scored on the other). "ΔPAWC if cited" compares only answers that cited anything, '
+        "so an arm that breaks citation formatting shows up in the uncited rate instead."
     )
-    if len(aa):
-        note += (
-            f" A/A noise band (re-sampled unchanged prompts): {_ci(aa.d_pwc_pp.iloc[0], aa.d_pwc_lo.iloc[0], aa.d_pwc_hi.iloc[0])} pp; "
-            "'Beyond A/A' says whether an arm's mean falls outside that band."
-        )
     return (
         note
         + "\n\n"
@@ -174,11 +171,10 @@ def deltas_md(r: dict) -> str:
                 "Rel Δ %",
                 "ΔC-SoV pp [95% CI]",
                 "Δ cited pp",
-                "Δ retrieved pp",
-                "Δ sentiment",
+                "ΔPAWC if cited pp",
                 "Uncited answers %",
+                "Δ sentiment",
                 "p (Holm)",
-                "Beyond A/A",
                 "n",
             ],
             rows,
@@ -196,13 +192,22 @@ def position_md(r: dict) -> str:
             if x.position != df.position.iloc[0]
             else "ref",
             _f(x.cite_rate_pct, 0),
-            _p(x.p) if x.position != df.position.iloc[0] else "",
+            (_p(x.p_holm) + (" *" if _sig(x) else ""))
+            if x.position != df.position.iloc[0] and hasattr(x, "p_holm")
+            else "",
             str(int(x.n_queries)),
         ]
         for x in df.itertuples()
     ]
     return _table(
-        ["Target slot", "PAWC share % [95% CI]", "Δ vs slot 1 pp [95% CI]", "Cited %", "p", "n"],
+        [
+            "Target slot",
+            "PAWC share % [95% CI]",
+            "Δ vs slot 1 pp [95% CI]",
+            "Cited %",
+            "p (Holm, sweeps)",
+            "n",
+        ],
         rows,
     )
 
@@ -216,7 +221,9 @@ def boost_md(r: dict) -> str:
             _lvl(x.pwc_pct, x.pwc_lo, x.pwc_hi),
             _ci(x.d_pwc_pp, x.d_lo, x.d_hi) if x.boost != 0 else "ref",
             _f(x.cite_rate_pct, 0),
-            _p(x.p) if x.boost != 0 else "",
+            (_p(x.p_holm) + (" *" if _sig(x) else ""))
+            if x.boost != 0 and hasattr(x, "p_holm")
+            else "",
             _cls(x, "set_changed") if x.boost != 0 else "",
             _cls(x, "order_only") if x.boost != 0 else "",
             _cls(x, "unchanged") if x.boost != 0 else "",
@@ -233,7 +240,7 @@ def boost_md(r: dict) -> str:
                 "PAWC share % [95% CI]",
                 "Δ vs w=0 pp [95% CI]",
                 "Cited %",
-                "p",
+                "p (Holm, sweeps)",
                 "Set changed",
                 "Order only",
                 "Unchanged",
@@ -251,42 +258,63 @@ def _cls(x, c: str) -> str:
     return f"{int(n)}: {_f(d, 1, True)}" if n else "0"
 
 
+def _sig(x) -> bool:
+    return bool(getattr(x, "significant", False)) and not pd.isna(
+        getattr(x, "p_holm", float("nan"))
+    )
+
+
 def claim_md(r: dict) -> str:
-    """Plain statements of what the sweeps measured, for the 'small changes, big shifts' claim."""
+    """What the sweeps and arms measured, stated only through the Holm verdict rule and the MDE."""
     m, pos, boost, deltas = r["manifest"], r["position"], r["boost"], r["deltas"]
-    out = []
     if m.get("llm_is_fake"):
         return (
             f"- FakeLLM applies an explicit −{m.get('fake_llm_position_prior') or 0.05:g} per-slot position "
             "penalty; this sweep recovers that built-in prior and is not evidence about real models."
         )
+    mde = m.get("mde") or {}
+    out = []
     if pos is not None and len(pos) > 1:
-        first, last = pos.iloc[0], pos.iloc[-1]
-        ratio = f", {_f(first.pwc_pct / last.pwc_pct, 1)}x" if last.pwc_pct > 0 else ""
-        delta = _ci(last.d_pwc_vs_first_pp, last.d_lo, last.d_hi)
+        slots = ", ".join(f"slot {int(x.position)} {_f(x.pwc_pct)}%" for x in pos.itertuples())
+        sig = [x for x in pos.iloc[1:].itertuples() if _sig(x)]
+        if sig:
+            detail = "; ".join(
+                f"slot {int(x.position)} vs 1: {_ci(x.d_pwc_vs_first_pp, x.d_lo, x.d_hi)} pp (Holm p {_p(x.p_holm)})"
+                for x in sig
+            )
+            verdict = f"Holm-significant differences: {detail}."
+        else:
+            verdict = "No slot differs from slot 1 under the Holm rule."
         out.append(
-            f"- Context order: with identical page content, moving the target from slot "
-            f"{int(first.position)} to slot {int(last.position)} changed its PAWC share from "
-            f"{_f(first.pwc_pct)}% to {_f(last.pwc_pct)}% (Δ {delta} pp{ratio}, "
-            f"n={int(last.n_queries)} queries)."
+            f"- Context order (same pages, target forced into each slot, n={int(pos.n_queries.iloc[0])} queries): "
+            f"PAWC share {slots}. {verdict}"
         )
     if boost is not None and len(boost) > 1:
         ss = m.get("score_scale", {})
-        sig = boost[(boost.boost > 0) & ((boost.d_lo > 0) | (boost.d_hi < 0))]
-        smallest = sig.iloc[0] if len(sig) else None
-        b1 = boost[boost.boost > 0].iloc[0]
-        out.append(
-            f"- Retrieval weighting: the median spread of final scores across the top 5 was "
-            f"{_f(ss.get('median_top5_spread'), 3)} and the median gap between the 5th and 6th "
-            f"candidate {_f(ss.get('median_gap_5_6'), 3)}. A boost of {_f(b1.boost, 2)} moved target "
-            f"retrieval from {_f(boost.iloc[0].retrieval_pct, 0)}% to {_f(b1.retrieval_pct, 0)}% and PAWC "
-            f"share by {_ci(b1.d_pwc_pp, b1.d_lo, b1.d_hi)} pp."
-            + (
-                f" The smallest boost whose CI excludes zero was {_f(smallest.boost, 2)} "
-                f"({_ci(smallest.d_pwc_pp, smallest.d_lo, smallest.d_hi)} pp)."
-                if smallest is not None
-                else " No boost in the sweep moved PAWC share with a CI excluding zero."
+        parts = []
+        base_ret = boost.iloc[0].retrieval_pct
+        for x in boost.iloc[1:].itertuples():
+            ret = (
+                f"target retrieval unchanged at {_f(x.retrieval_pct, 0)}%"
+                if abs(x.retrieval_pct - base_ret) < 1e-9
+                else f"target retrieval {_f(base_ret, 0)}% → {_f(x.retrieval_pct, 0)}%"
             )
+            parts.append(
+                f"w={_f(x.boost, 2)}: {ret}, ΔPAWC {_ci(x.d_pwc_pp, x.d_lo, x.d_hi)} pp"
+                + (f" (Holm p {_p(x.p_holm)} *)" if _sig(x) else "")
+            )
+        sig = [x for x in boost.iloc[1:].itertuples() if _sig(x)]
+        tail = (
+            f" Smallest boost with a Holm-significant effect: {_f(sig[0].boost, 2)}."
+            if sig
+            else " No boost has a Holm-significant effect."
+        )
+        out.append(
+            f"- Retrieval weighting (final scores span {_f(ss.get('median_top5_spread'), 3)} across the top 5 "
+            f"at the median; the 5th-to-6th gap is {_f(ss.get('median_gap_5_6'), 3)}): "
+            + "; ".join(parts)
+            + "."
+            + tail
         )
     if deltas is not None:
         d = deltas.set_index("arm")
@@ -296,11 +324,61 @@ def claim_md(r: dict) -> str:
                 f"- Noise floor: re-sampling the unchanged prompts (A/A) moved PAWC share by "
                 f"{_ci(a.d_pwc_pp, a.d_pwc_lo, a.d_pwc_hi)} pp."
             )
-        if "metadata" in d.index:
-            a = d.loc["metadata"]
+        tested = deltas[~deltas.arm.isin(["noop", "aa_resample"])]
+        sig = tested[tested.get("significant", False) == True]  # noqa: E712
+        out.append(
+            f"- Page and engine arms: {len(sig)} of {len(tested)} have a Holm-significant effect"
+            + (": " + ", ".join(f"`{a}`" for a in sig.arm) if len(sig) else "")
+            + "."
+        )
+    if mde:
+        detected = bool(
+            (pos is not None and any(_sig(x) for x in pos.iloc[1:].itertuples()))
+            or (boost is not None and any(_sig(x) for x in boost.iloc[1:].itertuples()))
+            or (deltas is not None and bool(deltas.get("significant", pd.Series(dtype=bool)).any()))
+        )
+        page = (
+            f" and {_f(mde.get('page_arm_pp'))} pp for page arms ({mde.get('n_page_units')} page units)"
+            if mde.get("page_arm_pp") is not None
+            else ""
+        )
+        out.append(
+            f"- Sensitivity: at 80% power and the strictest Holm step, this run can detect mean shifts of about "
+            f"{_f(mde.get('sweep_pp'))} pp for the sweeps, {_f(mde.get('engine_arm_pp'))} pp for engine arms{page} "
+            f"(A/A per-query SD {_f(mde.get('aa_sd_per_query_pp'))} pp, n={mde.get('n_queries')}). "
+            + (
+                "Small changes producing large shifts: **detected** for the comparisons marked above."
+                if detected
+                else "Small changes producing large shifts: **not detected** at these detectable sizes. "
+                "Smaller real effects can't be ruled out."
+            )
+        )
+    bandit = r.get("bandit")
+    if bandit is not None and "eval" in bandit.columns:
+        h = bandit[bandit["eval"] == "heldout"].set_index("policy")
+        if {"linucb (frozen, contextual)", "random (expected)"} <= set(h.index):
+            c, rnd = h.loc["linucb (frozen, contextual)"], h.loc["random (expected)"]
+            fx = (
+                h.loc["best fixed arm (chosen on train)"]
+                if "best fixed arm (chosen on train)" in h.index
+                else None
+            )
+            gen = c.final_regret < rnd.final_regret and (
+                fx is None or c.final_regret <= fx.final_regret
+            )
             out.append(
-                f"- Metadata only (title + description): {_ci(a.d_pwc_pp, a.d_pwc_lo, a.d_pwc_hi)} pp, "
-                f"Holm p {_p(a.p_holm)}."
+                f"- Bandit, held out: the frozen contextual policy had regret {_f(c.final_regret, 3)} "
+                f"(±{_f(c.final_regret_ci, 3)}) vs {_f(rnd.final_regret, 3)} for random"
+                + (
+                    f" and {_f(fx.final_regret, 3)} for the best fixed arm chosen on the training half"
+                    if fx is not None
+                    else ""
+                )
+                + (
+                    ". It generalized to the held-out queries."
+                    if gen
+                    else ". It did not generalize to the held-out queries."
+                )
             )
     return "\n".join(out)
 
@@ -330,7 +408,8 @@ def bandit_md(r: dict) -> str:
         for x in df.itertuples()
     ]
     out = (
-        f"Offline replay, {m['rounds']} rounds x {m['runs']} runs; regret is in units of PAWC share "
+        f"Offline replay (in-sample: rewards drawn from the same table the policies learn from), "
+        f"{m['rounds']} rounds x {m['runs']} runs; regret is in units of PAWC share "
         f"(1.0 = 100 pp) summed over rounds. The hindsight row knows the best single arm in advance, so it "
         f"is a reference line, not a policy.\n\n"
         + _table(

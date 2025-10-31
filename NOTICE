@@ -3,7 +3,7 @@ Copyright (c) 2025-2026 Krish Maheshwari. Licensed under the MIT License (see LI
 
 This project includes material adapted from GEO: Generative Engine Optimization
 (https://github.com/GEO-optim/GEO), Copyright the GEO authors, licensed under the
-Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0):
+Apache License, Version 2.0 (full text in LICENSES/Apache-2.0.txt):
 
   - tests/reference/geo_reference.py: get_num_words and the impression_*_simple
     functions, copied unmodified from src/utils.py at commit c9e985f, used only to

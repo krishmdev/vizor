@@ -50,3 +50,15 @@ def test_word_count_excludes_markers():
 def test_urls_do_not_split():
     s = split_sentences("See brewline.example/duo for specs [1]. Done.")
     assert len(s) == 2
+
+
+def test_no_and_min_split_unless_a_number_follows():
+    assert len(split_sentences("The answer is no. The Duo is louder [1].")) == 2
+    assert len(split_sentences("Model No. 5 is quiet [1].")) == 1
+    assert len(split_sentences("Wait a min. Then pull the shot [2].")) == 2
+
+
+def test_huge_ranges_do_not_expand():
+    p = parse_answer("Everything agrees [1-5000000].", n_sources=5)
+    assert p.sentences[0].citations == (1,)
+    assert p.hallucinated == [5000000]

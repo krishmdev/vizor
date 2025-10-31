@@ -28,7 +28,6 @@ _ABBREV = {
     "inc",
     "ltd",
     "co",
-    "no",
     "approx",
     "fig",
     "st",
@@ -37,9 +36,10 @@ _ABBREV = {
     "u.s",
     "oz",
     "lb",
-    "min",
-    "max",
 }
+# Abbreviations only when a number follows ("No. 5", "min. 3 bars"); otherwise ordinary words.
+_ABBREV_BEFORE_DIGIT = {"no", "min", "max", "approx"}
+MAX_RANGE = 20
 _TRAILING = re.compile(r"([.!?])((?:\s*\[[^\]]*\d[^\]]*\])+)")
 _WORD = re.compile(r"[A-Za-z0-9]+(?:['’.][A-Za-z0-9]+)*")
 
@@ -55,7 +55,8 @@ def _expand(group: str) -> list[int]:
     for part in re.split(r"\s*,\s*", group):
         if re.search(r"[-–]", part):
             a, b = (int(x) for x in re.split(r"\s*[-–]\s*", part))
-            out.extend(range(a, b + 1) if a <= b else [a, b])
+            # [1-3] expands; a huge or reversed range is kept as its two endpoints
+            out.extend(range(a, b + 1) if a <= b <= a + MAX_RANGE else [a, b])
         elif part:
             out.append(int(part))
     return out
@@ -73,7 +74,10 @@ def _split_sentences(para: str) -> list[str]:
         end = m.end()
         before = para[start:end]
         tail = re.search(r"([A-Za-z.]+)\.$", before)
-        if tail and tail.group(1).lower().rstrip(".") in _ABBREV:
+        word = tail.group(1).lower().rstrip(".") if tail else ""
+        if word in _ABBREV:
+            continue
+        if word in _ABBREV_BEFORE_DIGIT and re.match(r"\s+\d", para[end : end + 4]):
             continue
         if re.search(r"\d\.$", before) and re.match(r"\d", para[end : end + 1] or ""):
             continue

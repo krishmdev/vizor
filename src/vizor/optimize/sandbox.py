@@ -34,7 +34,7 @@ from vizor.generate.prompt import parse_prompt
 from vizor.metrics.impression import relative_improvement
 from vizor.metrics.visibility import answer_rows
 from vizor.optimize.retrieval_policy import RELEVANCE, RetrievalPolicy
-from vizor.optimize.stats import holm, paired
+from vizor.optimize.stats import holm, paired_clustered
 from vizor.optimize.transforms import TRANSFORMS, TransformContext, apply_chain
 from vizor.types import Query, SourceDoc, stable_seed
 
@@ -47,6 +47,7 @@ TARGET_METRICS = [
     "answer_sentiment",
     "uncited",
     "n_hallucinated",
+    "imp_pwc_cited",
 ]
 CONTROLS = ("noop", "aa_resample")
 
@@ -109,6 +110,9 @@ def target_frame(rows: pd.DataFrame) -> pd.DataFrame:
         n_hallucinated=("n_hallucinated", "max"),
     )
     agg[["cited", "retrieved", "uncited"]] = agg[["cited", "retrieved", "uncited"]].astype(float)
+    # PAWC share only over answers that cited anything, to separate "cited the target less" from
+    # "stopped citing altogether" (a formatting failure).
+    agg["imp_pwc_cited"] = agg["imp_pwc"].where(agg["uncited"] == 0)
     return agg.reset_index()
 
 
@@ -246,6 +250,13 @@ class Sandbox:
             plan = [("all", queries, self.ctx)]
         return self._run_doc_arm(arm, plan)
 
+    def clusters(self, run: ArmRun, ids: pd.Index) -> np.ndarray:
+        """Unit of treatment for each query: its edited page within its fold for page arms
+        (queries sharing a page are not independent), the query itself otherwise."""
+        if run.scored_against:
+            return np.array(["|".join(run.scored_against.get(q, ("", q))) for q in ids])
+        return np.asarray(ids)
+
     def compare(self, base: ArmRun, var: ArmRun, subset: Sequence[str] | None = None) -> dict:
         b, v = base.per_query(), var.per_query()
         idx = b.index.intersection(v.index)
@@ -253,15 +264,18 @@ class Sandbox:
             idx = idx.intersection(pd.Index(subset))
         b, v = b.loc[idx], v.loc[idx]
         d = v - b
-        pwc = paired(d["imp_pwc"].to_numpy() * 100, b=self.bootstrap)
-        csov = paired(d["c_share"].to_numpy() * 100, b=self.bootstrap)
+        cl = self.clusters(var, idx)
+        pwc = paired_clustered(d["imp_pwc"].to_numpy() * 100, cl, b=self.bootstrap)
+        csov = paired_clustered(d["c_share"].to_numpy() * 100, cl, b=self.bootstrap)
         retrieved_b = b["retrieved"] > 0
         cond = d.loc[retrieved_b, "imp_pwc"] * 100
         fresh = [r for r in var.results if not r.answer.usage.get("cached", False)]
         return {
             "arm": var.arm.name,
             "kind": var.arm.kind,
-            "n_queries": pwc.n,
+            "n_queries": len(idx),
+            "n_units": pwc.n,
+            "unit": "page x fold" if var.scored_against else "query",
             "base_pwc_pct": b["imp_pwc"].mean() * 100,
             "d_pwc_pp": pwc.mean,
             "d_pwc_lo": pwc.lo,
@@ -274,8 +288,10 @@ class Sandbox:
             "d_cite_rate_pp": d["cited"].mean() * 100,
             "d_retrieval_pp": d["retrieved"].mean() * 100,
             "d_pwc_given_retrieved_pp": cond.mean() if len(cond) else np.nan,
+            "d_pwc_given_cited_pp": d["imp_pwc_cited"].mean() * 100,
             "d_sentiment": d["answer_sentiment"].mean(),
             "uncited_rate_pct": v["uncited"].mean() * 100,
+            "base_uncited_rate_pct": b["uncited"].mean() * 100,
             "d_uncited_pp": d["uncited"].mean() * 100,
             "hallucinated_per_answer": v["n_hallucinated"].mean(),
             "new_calls": len(fresh),
@@ -284,18 +300,15 @@ class Sandbox:
         }
 
     @staticmethod
-    def with_holm(rows: list[dict]) -> pd.DataFrame:
+    def with_holm(rows: list[dict], controls: Sequence[str] = CONTROLS) -> pd.DataFrame:
+        """The one verdict rule: an effect counts if its Holm-adjusted Wilcoxon p is below 0.05.
+        Controls are reported but sit outside the family."""
         df = pd.DataFrame(rows)
-        tested = ~df["arm"].isin(CONTROLS)
+        tested = ~df["arm"].isin(controls)
         df["p_holm"] = np.nan
         if tested.any():
             df.loc[tested, "p_holm"] = holm(df.loc[tested, "p"].tolist())
         df["significant"] = tested & (df["p_holm"] < 0.05)
-        aa = df[df["arm"] == "aa_resample"]
-        if len(aa):
-            lo, hi = float(aa["d_pwc_lo"].iloc[0]), float(aa["d_pwc_hi"].iloc[0])
-            df["aa_lo"], df["aa_hi"] = lo, hi
-            df["beyond_aa"] = tested & ((df["d_pwc_pp"] > hi) | (df["d_pwc_pp"] < lo))
         return df
 
 

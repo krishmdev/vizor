@@ -61,3 +61,35 @@ def holm(pvals: list[float]) -> list[float]:
         running = max(running, (m - rank) * pvals[i])
         adj[i] = min(1.0, running)
     return adj.tolist()
+
+
+def paired_clustered(
+    deltas: np.ndarray, clusters: np.ndarray, b: int = 5000, seed: int = 0
+) -> PairedResult:
+    """Paired comparison when queries share a treated unit (e.g. one edited page serves several
+    queries). The CI resamples whole clusters; the Wilcoxon test runs on cluster means. `n` is
+    the number of clusters. With one query per cluster this reduces to `paired`."""
+    d = np.asarray(deltas, dtype=float)
+    c = np.asarray(clusters)
+    ok = ~np.isnan(d)
+    d, c = d[ok], c[ok]
+    if len(d) == 0:
+        return PairedResult(0, np.nan, np.nan, np.nan, 1.0)
+    labels, inv = np.unique(c, return_inverse=True)
+    k = len(labels)
+    sums = np.bincount(inv, weights=d, minlength=k)
+    counts = np.bincount(inv, minlength=k).astype(float)
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, k, size=(b, k))
+    means = sums[idx].sum(axis=1) / counts[idx].sum(axis=1)
+    lo, hi = np.quantile(means, [0.025, 0.975])
+    return PairedResult(k, float(d.mean()), float(lo), float(hi), wilcoxon_p(sums / counts))
+
+
+def mde(sd: float, n: int, family: int, power: float = 0.8, alpha: float = 0.05) -> float:
+    """Minimum detectable mean difference for a two-sided test at the strictest Holm step
+    (alpha / family): (z_{alpha_Holm/2} + z_power) * sd / sqrt(n)."""
+    if n <= 1 or not np.isfinite(sd):
+        return float("nan")
+    z = stats.norm.ppf(1 - alpha / (2 * max(1, family))) + stats.norm.ppf(power)
+    return float(z * sd / np.sqrt(n))

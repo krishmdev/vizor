@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import threading
 from collections.abc import Sequence
 from functools import lru_cache
 from typing import Protocol
@@ -35,8 +36,13 @@ class CrossEncoderReranker:
         self._model = CrossEncoder(local_path("reranker"), max_length=max_length, device="cpu")
         self._bs = batch_size
         self._cache: dict[str, float] = {}
+        self._lock = threading.Lock()
 
     def score(self, query: str, texts: Sequence[str]) -> np.ndarray:
+        with self._lock:
+            return self._score_locked(query, texts)
+
+    def _score_locked(self, query: str, texts: Sequence[str]) -> np.ndarray:
         keys = [hashlib.sha1(f"{query}\x1f{t}".encode()).hexdigest() for t in texts]
         todo = {k: t for k, t in zip(keys, texts, strict=True) if k not in self._cache}
         if todo:

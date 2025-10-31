@@ -78,3 +78,21 @@ def test_live_common_crawl_smoke(tmp_path):
     assert cc.index_name.startswith("CC-MAIN-")
     docs = cc.ingest("commoncrawl.org/*", limit=2)
     assert all(d.url for d in docs)
+
+
+def test_range_request_must_return_206(tmp_path):
+    warc = _warc("https://crema-lab.example/aria", HTML)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("-index"):
+            lines = [CDX.splitlines()[0], CDX.splitlines()[0].replace("x.warc.gz", "y.warc.gz")]
+            return httpx.Response(200, text="\n".join(lines))
+        if "y.warc.gz" in req.url.path:
+            return httpx.Response(200, content=warc)  # ignored the Range header
+        return httpx.Response(206, content=warc)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    cc = CommonCrawl(index="CC-MAIN-2026-10", cache_dir=tmp_path, min_interval_s=0, client=client)
+    docs = cc.ingest("crema-lab.example/*")
+    assert len(docs) == 1
+    assert len(cc.errors) == 1 and "206" in cc.errors[0]

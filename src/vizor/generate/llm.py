@@ -141,8 +141,24 @@ class OllamaChat:
         return Completion(body["message"]["content"], self.model_id, usage)
 
 
+CHARS_PER_TOKEN = 3.5  # conservative for English prose, so estimates err high
+
+
+def price_for(model: str) -> tuple[float, float] | None:
+    base = next((k for k in sorted(PRICES, key=len, reverse=True) if model.startswith(k)), None)
+    return PRICES[base] if base else None
+
+
+def worst_case_cost(model: str, messages: Messages, max_tokens: int) -> float:
+    price = price_for(model)
+    if price is None:
+        return 0.0
+    prompt_tokens = sum(len(m["content"]) for m in messages) / CHARS_PER_TOKEN + 8 * len(messages)
+    return (prompt_tokens * price[0] + max_tokens * price[1]) / 1e6
+
+
 def cost_usd(model: str, usage: dict) -> float:
-    base = next((k for k in PRICES if model.startswith(k)), None)
+    base = next((k for k in sorted(PRICES, key=len, reverse=True) if model.startswith(k)), None)
     if base is None:
         return 0.0
     pin, pout = PRICES[base]
@@ -197,6 +213,7 @@ class CachedLLM:
         self.spent_usd = 0.0
         self.calls = 0
         self.hits = 0
+        self.reserved = 0.0
         self._lock = threading.Lock()
         self.ledger = SpendLedger(self.cache_dir / "ledger.json") if self.cache_dir else None
 
@@ -220,21 +237,32 @@ class CachedLLM:
                 with self._lock:
                     self.hits += 1
                 return Completion(d["text"], d["model"], d["usage"], cached=True)
+        # Reserve the worst-case cost of this call before making it, so parallel workers can't
+        # jointly overshoot the cap with calls that were all admitted under it.
+        worst = worst_case_cost(self.model_id, messages, max_tokens)
         with self._lock:
             total = self.ledger.total() if self.ledger else self.spent_usd
-            if self.max_cost_usd is not None and total >= self.max_cost_usd:
+            if self.max_cost_usd is not None and total + self.reserved + worst > self.max_cost_usd:
                 raise BudgetExceeded(
-                    f"ledger shows ${total:.3f} spent, cap ${self.max_cost_usd:.2f}"
+                    f"${total:.3f} spent + ${self.reserved + worst:.3f} in flight would pass the "
+                    f"${self.max_cost_usd:.2f} cap"
                 )
-        t0 = time.perf_counter()
-        c = self.inner.complete(messages, temperature=temperature, seed=seed, max_tokens=max_tokens)
-        c.usage["latency_s"] = round(time.perf_counter() - t0, 3)
-        c.usage["cost_usd"] = cost_usd(c.model, c.usage)
-        with self._lock:
-            self.calls += 1
-            self.spent_usd += c.usage["cost_usd"]
-            if self.ledger:
-                self.ledger.add(c.model, c.usage["cost_usd"])
+            self.reserved += worst
+        try:
+            t0 = time.perf_counter()
+            c = self.inner.complete(
+                messages, temperature=temperature, seed=seed, max_tokens=max_tokens
+            )
+            c.usage["latency_s"] = round(time.perf_counter() - t0, 3)
+            c.usage["cost_usd"] = cost_usd(c.model, c.usage)
+            with self._lock:
+                self.calls += 1
+                self.spent_usd += c.usage["cost_usd"]
+                if self.ledger:
+                    self.ledger.add(c.model, c.usage["cost_usd"])
+        finally:
+            with self._lock:
+                self.reserved -= worst
         if self.cache_dir is not None:
             p = self._path(key)
             p.parent.mkdir(parents=True, exist_ok=True)

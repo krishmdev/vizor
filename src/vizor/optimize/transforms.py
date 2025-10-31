@@ -409,7 +409,7 @@ def _rewrite(name: str) -> Callable[[SourceDoc, TransformContext], tuple[SourceD
             seed=0,
             max_tokens=1500,
         )
-        body = c.text.strip().strip("`").strip()
+        body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", c.text.strip()).strip()
         return doc.evolve(
             name, body=body
         ), f"rewrote {len(doc.body.split())} -> {len(body.split())} words"

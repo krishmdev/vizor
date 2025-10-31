@@ -32,6 +32,7 @@ from vizor.optimize.sandbox import (
     target_frame,
     two_folds,
 )
+from vizor.optimize.stats import holm, mde
 from vizor.optimize.transforms import FABRICATING, LLM_REWRITES, TransformContext
 from vizor.retrieve.chunk import flatten_jsonld
 from vizor.runstore import git_commit, host_manifest, write_csv, write_jsonl_gz
@@ -137,19 +138,63 @@ def greedy_trajectory(
     return pd.DataFrame(rows), extra_runs
 
 
+def minimum_detectable(sb: Sandbox, base: ArmRun, arm_runs: dict, sweep_family: int) -> dict:
+    """MDE at 80% power from the A/A re-sample's per-query noise: for engine arms and sweeps at
+    the query level, for page arms at the (fold, focus page) cluster level they are tested at."""
+    aa = arm_runs.get("aa_resample")
+    if aa is None:
+        return {}
+    d = (aa.per_query()["imp_pwc"] - base.per_query()["imp_pwc"]).dropna() * 100
+    page_runs = [r for r in arm_runs.values() if r.arm.kind == "doc" and r.scored_against]
+    engine_arms = [a for a, r in arm_runs.items() if r.arm.kind == "engine"]
+    out = {
+        "aa_sd_per_query_pp": float(d.std(ddof=1)),
+        "n_queries": int(len(d)),
+        "engine_arm_pp": mde(
+            float(d.std(ddof=1)), len(d), max(1, len(engine_arms) + len(page_runs))
+        ),
+        "sweep_pp": mde(float(d.std(ddof=1)), len(d), max(1, sweep_family)),
+        "power": 0.8,
+        "alpha": 0.05,
+    }
+    if page_runs:
+        units = pd.Series({q: "|".join(page_runs[0].scored_against[q]) for q in d.index})
+        cm = d.groupby(units).mean()
+        out["n_page_units"] = int(len(cm))
+        out["page_arm_pp"] = mde(float(cm.std(ddof=1)), len(cm), len(page_runs) + len(engine_arms))
+    return out
+
+
+def preflight(cfg: Config, log: Log = print) -> dict:
+    """Paid backends only start with a priced model, a cap, and an estimate that fits under the
+    cap together with what the shared ledger has already spent."""
+    from vizor.config import cache_dir
+    from vizor.estimate import estimate_cost
+    from vizor.generate.llm import SpendLedger, price_for
+
+    if price_for(cfg.llm.model) is None:
+        raise BudgetExceeded(f"no price for {cfg.llm.model!r} in PRICES; refusing a paid run")
+    if cfg.llm.max_cost_usd is None:
+        raise BudgetExceeded("llm.max_cost_usd is not set; refusing a paid run")
+    est = estimate_cost(cfg)
+    spent = SpendLedger(cache_dir() / "llm" / "ledger.json").total()
+    log(
+        f"pre-flight: estimate ${est['max_cost_usd_upper_bound']:.2f}, ledger ${spent:.2f}, "
+        f"cap ${cfg.llm.max_cost_usd:.2f}"
+    )
+    if est["max_cost_usd_upper_bound"] + spent > cfg.llm.max_cost_usd:
+        raise BudgetExceeded(
+            f"estimate ${est['max_cost_usd_upper_bound']:.2f} + spent ${spent:.2f} exceeds "
+            f"max_cost_usd ${cfg.llm.max_cost_usd:.2f}; not starting"
+        )
+    return est
+
+
 def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     t0 = time.time()
     commit = git_commit()
-    if cfg.llm.backend != "fake" and cfg.llm.max_cost_usd is not None:
-        from vizor.estimate import estimate_cost
-
-        est = estimate_cost(cfg)
-        log(f"pre-flight estimate: {est}")
-        if est["max_cost_usd_upper_bound"] > cfg.llm.max_cost_usd:
-            raise BudgetExceeded(
-                f"estimated upper bound ${est['max_cost_usd_upper_bound']:.2f} exceeds "
-                f"max_cost_usd ${cfg.llm.max_cost_usd:.2f}; not starting"
-            )
+    if cfg.llm.backend == "openai":
+        preflight(cfg, log)
     out.mkdir(parents=True, exist_ok=True)
     project, docs, queries, engine = build(cfg)
     sentiment = make_sentiment(cfg.sentiment)
@@ -239,6 +284,27 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         )
 
     deltas = Sandbox.with_holm([sb.compare(base, r) for r in arm_runs.values()])
+
+    # Sweeps are their own Holm family: every non-reference slot and boost comparison together.
+    sweep_p = []
+    if isinstance(pos_df, pd.DataFrame):
+        sweep_p += [("pos", i, p) for i, p in zip(pos_df.index[1:], pos_df.p.iloc[1:], strict=True)]
+    if isinstance(boost_df, pd.DataFrame):
+        sweep_p += [
+            ("boost", i, p) for i, p in zip(boost_df.index[1:], boost_df.p.iloc[1:], strict=True)
+        ]
+    if sweep_p:
+        adj = holm([p for _, _, p in sweep_p])
+        for df_name, df in (("pos", pos_df), ("boost", boost_df)):
+            if isinstance(df, pd.DataFrame):
+                df["p_holm"] = np.nan
+                for (name, i, _), q in zip(sweep_p, adj, strict=True):
+                    if name == df_name:
+                        df.loc[i, "p_holm"] = q
+                df["significant"] = df["p_holm"] < 0.05
+
+    mde_info = minimum_detectable(sb, base, arm_runs, len(sweep_p))
+    log(f"minimum detectable effects: {mde_info}")
     log(
         "arms:\n"
         + deltas[["arm", "d_pwc_pp", "d_pwc_lo", "d_pwc_hi", "p_holm"]]
@@ -416,6 +482,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "page_arm_scope": "focus page per query",
         "model_pins": {k: f"{v.repo}@{v.revision}" for k, v in PINS.items()},
         "score_scale": score_scale(base),
+        "mde": mde_info,
         "llm_usage": llm_stats,
         "skipped_due_to_budget": skipped,
         "host": host_manifest(holder=Path(out).name, llm=engine.llm.model_id, device="cpu"),

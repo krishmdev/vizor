@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import threading
 from collections.abc import Sequence
 from functools import lru_cache
 from typing import Literal, Protocol
@@ -35,11 +36,17 @@ class _CachedEmbedder:
 
     def __init__(self) -> None:
         self._cache: dict[tuple[str, str], np.ndarray] = {}
+        # Instances are shared (lru_cache) across API request and job threads.
+        self._lock = threading.RLock()
 
     def _encode(self, texts: list[str], kind: Kind) -> np.ndarray:
         raise NotImplementedError
 
     def encode(self, texts: Sequence[str], kind: Kind = "passage") -> np.ndarray:
+        with self._lock:
+            return self._encode_locked(texts, kind)
+
+    def _encode_locked(self, texts: Sequence[str], kind: Kind) -> np.ndarray:
         keys = [(kind, hashlib.sha1(t.encode()).hexdigest()) for t in texts]
         missing = {k: t for k, t in zip(keys, texts, strict=True) if k not in self._cache}
         if missing:

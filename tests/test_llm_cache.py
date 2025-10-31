@@ -46,3 +46,12 @@ def test_price_table():
         "gpt-4o-mini-2024-07-18", {"prompt_tokens": 2000, "completion_tokens": 300}
     ) == pytest.approx(0.00048)
     assert cost_usd("fake", {"prompt_tokens": 10}) == 0.0
+
+
+def test_worst_case_reservation_blocks_before_calling(tmp_path):
+    inner = Paid()
+    llm = CachedLLM(inner, tmp_path, max_cost_usd=0.0001)
+    big = [{"role": "user", "content": "x" * 20000}]
+    with pytest.raises(BudgetExceeded):
+        llm.complete(big, temperature=0.7, seed=1, max_tokens=450)
+    assert inner.calls == 0 and llm.reserved == 0

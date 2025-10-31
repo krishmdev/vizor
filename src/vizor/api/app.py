@@ -186,7 +186,8 @@ def answer(req: AnswerRequest) -> AnswerOut:
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
     q = Query("live-" + stable_id(req.query, 8), req.query, "live")
-    # The embedding and rerank caches aren't thread-safe, so transforms and retrieval run locked.
+    # Serializes live answers so concurrent requests don't rebuild the cascade in parallel; the
+    # embedder/reranker caches themselves are locked.
     with _lock:
         if req.arms:
             ctx = TransformContext({d.doc_id: d for d in docs}, queries, engine.cascade.embedder)

@@ -413,7 +413,8 @@ def sandbox() -> None:
         "Sandbox",
         "What changes the target's share",
         "Each arm edits the target site's pages (or the engine's retrieval) and re-runs the same queries with the "
-        "same seeds. Intervals are paired-bootstrap 95% CIs over queries; p-values are Wilcoxon with Holm correction. "
+        "same seeds. An arm counts as an effect only if its Holm-adjusted Wilcoxon p is below 0.05; the intervals are "
+        "descriptive paired-bootstrap 95% CIs. "
         "The A/A row re-samples unchanged prompts: read every other arm against it.",
     )
     exp = pick_experiment()
@@ -430,14 +431,19 @@ def sandbox() -> None:
         fig.add_vrect(
             x0=float(aa.d_pwc_lo.iloc[0]),
             x1=float(aa.d_pwc_hi.iloc[0]),
-            fillcolor="#ecebe6", layer="below",
+            fillcolor="#ecebe6",
+            layer="below",
             line_width=0,
             annotation_text="A/A noise band",
             annotation_position="top left",
             annotation_font=dict(size=11, color=MUTED),
         )
     fig.add_vline(x=0, line=dict(color=INK_2, width=1))
-    sig = (d.d_pwc_lo > 0) | (d.d_pwc_hi < 0)
+    sig = (
+        d["significant"].fillna(False).astype(bool)
+        if "significant" in d
+        else pd.Series(False, index=d.index)
+    )
     col = [SERIES[0] if s else MUTED for s in sig]
     fig.add_scatter(
         x=d.d_pwc_pp,
@@ -461,7 +467,7 @@ def sandbox() -> None:
     fig.update_xaxes(ticksuffix=" pp")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     st.markdown(
-        '<p class="note">Blue: CI excludes zero. Gray: CI includes zero.</p>',
+        '<p class="note">Blue: Holm-adjusted Wilcoxon p &lt; 0.05 (the verdict rule). Gray: not significant, or a control. Bars are descriptive 95% CIs; page arms are tested per edited page.</p>',
         unsafe_allow_html=True,
     )
 
@@ -555,10 +561,10 @@ def sandbox() -> None:
 def optimizer() -> None:
     header(
         "Optimizer",
-        "Learning which fix to apply",
+        "Choosing which fix to apply",
         "A contextual bandit picks one page optimization per query context and observes the measured change in PAWC "
-        "share. Evaluated by offline replay over the sandbox's reward table; regret is measured against the best arm "
-        "for each query.",
+        "share. The replay curves are in-sample (rewards come from the table the policies learn from); the held-out "
+        "table below is the real test of whether a learned choice carries over to new queries.",
     )
     exp = pick_experiment()
     if exp is None:

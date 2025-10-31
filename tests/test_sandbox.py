@@ -86,7 +86,17 @@ def test_holm_excludes_controls(sandbox):
     df = Sandbox.with_holm(rows).set_index("arm")
     assert df.loc[["noop", "aa_resample"], "p_holm"].isna().all()
     assert df.loc[["faq_rewrite", "jsonld_insert"], "p_holm"].notna().all()
-    assert "beyond_aa" in df.columns
+    assert "beyond_aa" not in df.columns
+    assert (df["significant"] == (df["p_holm"] < 0.05)).all()
+
+
+def test_page_arms_are_tested_per_edited_page(sandbox):
+    cmp = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("faq_rewrite")))
+    units = {"|".join(v) for v in sandbox.run(Arm.parse("faq_rewrite")).scored_against.values()}
+    assert cmp["unit"] == "page x fold" and cmp["n_units"] == len(units) < cmp["n_queries"]
+    eng = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("engine:reverse")))
+    assert eng["unit"] == "query" and eng["n_units"] == eng["n_queries"]
+    assert "d_pwc_given_cited_pp" in cmp
 
 
 def test_position_sweep_places_target(sandbox):

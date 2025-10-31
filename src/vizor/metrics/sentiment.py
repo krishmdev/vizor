@@ -8,6 +8,7 @@ when the model files are not available (CI, or before `make models`).
 from __future__ import annotations
 
 import hashlib
+import threading
 from collections.abc import Sequence
 from typing import Protocol
 
@@ -25,11 +26,16 @@ class _Cached:
 
     def __init__(self) -> None:
         self._cache: dict[str, float] = {}
+        self._lock = threading.Lock()
 
     def _score(self, texts: list[str]) -> list[float]:
         raise NotImplementedError
 
     def __call__(self, texts: Sequence[str]) -> list[float]:
+        with self._lock:
+            return self._call_locked(texts)
+
+    def _call_locked(self, texts: Sequence[str]) -> list[float]:
         keys = [hashlib.sha1(t.encode()).hexdigest() for t in texts]
         todo = [(k, t) for k, t in zip(keys, texts, strict=True) if k not in self._cache]
         if todo:

@@ -24,6 +24,7 @@ from vizor.types import SourceDoc
 
 INDEX_ROOT = "https://index.commoncrawl.org"
 DATA_ROOT = "https://data.commoncrawl.org"
+MAX_RECORD_BYTES = 5_000_000
 USER_AGENT = "vizor/0.2 (research; +https://github.com/krishmdev/vizor)"
 
 
@@ -108,6 +109,7 @@ class CommonCrawl:
         self.cache = (cache_dir or default_cache()) / "warc"
         self.min_interval_s = min_interval_s
         self._last = 0.0
+        self.errors: list[str] = []
         self.index_name = self.resolve_index(index)
 
     def _wait(self) -> None:
@@ -127,6 +129,22 @@ class CommonCrawl:
         r = self.http.get(url, **kw)
         r.raise_for_status()
         return r
+
+    def _range(self, url: str, headers: dict, length: int) -> bytes:
+        """Stream a byte range. Anything but 206 Partial Content (e.g. a server ignoring Range and
+        sending the whole 1 GB WARC file) is refused, and reading stops at the requested length."""
+        self._wait()
+        with self.http.stream("GET", url, headers=headers) as r:
+            if r.status_code in (429, 500, 502, 503, 504):
+                r.raise_for_status()
+            if r.status_code != 206:
+                raise ValueError(f"expected 206 for a range request, got {r.status_code}")
+            buf = bytearray()
+            for chunk in r.iter_bytes():
+                buf += chunk
+                if len(buf) > length:
+                    raise ValueError("server sent more bytes than the requested range")
+            return bytes(buf)
 
     def resolve_index(self, index: str) -> str:
         if index != "latest":
@@ -154,8 +172,10 @@ class CommonCrawl:
         path = self.cache / f"{key}.warc.gz"
         if path.exists():
             return path.read_bytes()
+        if rec.length > MAX_RECORD_BYTES:
+            raise ValueError(f"record of {rec.length} bytes is over the {MAX_RECORD_BYTES} cap")
         headers = {"Range": f"bytes={rec.offset}-{rec.offset + rec.length - 1}"}
-        data = self._get(f"{DATA_ROOT}/{rec.filename}", headers=headers).content
+        data = self._range(f"{DATA_ROOT}/{rec.filename}", headers, rec.length)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return data
@@ -163,7 +183,11 @@ class CommonCrawl:
     def ingest(self, pattern: str, limit: int = 10, role: str = "competitor") -> list[SourceDoc]:
         docs = []
         for rec in self.search(pattern, limit):
-            parsed = parse_warc(self.fetch(rec))
+            try:
+                parsed = parse_warc(self.fetch(rec))
+            except (ValueError, OSError, httpx.HTTPError) as e:
+                self.errors.append(f"{rec.url}: {type(e).__name__}: {e}")
+                continue
             if parsed is None or parsed[2] != 200:
                 continue
             uri, html, _ = parsed
