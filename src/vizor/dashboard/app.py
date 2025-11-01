@@ -808,7 +808,7 @@ def optimizer() -> None:
     for k in range(1, len(ends)):
         ends[k][0] = max(ends[k][0], ends[k - 1][0] + gap)
     for y, pol, color in ends:
-        label = pol + (" (reference)" if "hindsight" in pol else "")
+        label = pol
         fig.add_annotation(
             x=t_max,
             y=y,
