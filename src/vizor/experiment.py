@@ -138,7 +138,9 @@ def greedy_trajectory(
     return pd.DataFrame(rows), extra_runs
 
 
-def minimum_detectable(sb: Sandbox, base: ArmRun, arm_runs: dict, sweep_family: int) -> dict:
+def minimum_detectable(
+    sb: Sandbox, base: ArmRun, arm_runs: dict, sweep_family: int, n_sweep: int | None = None
+) -> dict:
     """MDE at 80% power from the A/A re-sample's per-query noise: for engine arms and sweeps at
     the query level, for page arms at the (fold, focus page) cluster level they are tested at."""
     aa = arm_runs.get("aa_resample")
@@ -153,7 +155,8 @@ def minimum_detectable(sb: Sandbox, base: ArmRun, arm_runs: dict, sweep_family: 
         "engine_arm_pp": mde(
             float(d.std(ddof=1)), len(d), max(1, len(engine_arms) + len(page_runs))
         ),
-        "sweep_pp": mde(float(d.std(ddof=1)), len(d), max(1, sweep_family)),
+        "sweep_pp": mde(float(d.std(ddof=1)), n_sweep or len(d), max(1, sweep_family)),
+        "n_sweep_queries": n_sweep or int(len(d)),
         "power": 0.8,
         "alpha": 0.05,
     }
@@ -262,7 +265,12 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             log(f"arm {spec} done ({time.time() - t0:.0f}s)")
     all_runs += list(arm_runs.values())
 
-    pos_df = attempt("position_sweep", lambda: position_sweep(sb, cfg.sandbox.position_sweep))
+    from vizor.config import _balanced
+
+    sweep_qs = _balanced(queries, cfg.sandbox.sweep_queries) if cfg.sandbox.sweep_queries else None
+    pos_df = attempt(
+        "position_sweep", lambda: position_sweep(sb, cfg.sandbox.position_sweep, sweep_qs)
+    )
     if pos_df:
         pos_df, pos_runs = pos_df
         all_runs += list(pos_runs.values())
@@ -272,7 +280,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             .round(2)
             .to_string(index=False)
         )
-    boost_df = attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep))
+    boost_df = attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep, sweep_qs))
     if boost_df:
         boost_df, boost_runs = boost_df
         all_runs += [r for w, r in boost_runs.items() if w != 0]
@@ -303,7 +311,9 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
                         df.loc[i, "p_holm"] = q
                 df["significant"] = df["p_holm"] < 0.05
 
-    mde_info = minimum_detectable(sb, base, arm_runs, len(sweep_p))
+    mde_info = minimum_detectable(
+        sb, base, arm_runs, len(sweep_p), n_sweep=len(sweep_qs) if sweep_qs else None
+    )
     log(f"minimum detectable effects: {mde_info}")
     log(
         "arms:\n"

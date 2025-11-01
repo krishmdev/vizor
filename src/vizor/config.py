@@ -44,6 +44,8 @@ class SandboxConfig(BaseModel):
     position_sweep: list[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5])
     boost_sweep: list[float] = Field(default_factory=lambda: [0.0, 0.02, 0.05, 0.1])
     bootstrap: int = 5000
+    # Run the position and boost sweeps on a balanced subset of this many queries (None = all).
+    sweep_queries: int | None = None
 
 
 class BanditConfig(BaseModel):

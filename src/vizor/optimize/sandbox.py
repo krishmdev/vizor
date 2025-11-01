@@ -318,11 +318,14 @@ def level_ci(values: np.ndarray, b: int = 5000) -> tuple[float, float, float]:
     return bootstrap_ci(np.asarray(values, dtype=float), b=b)
 
 
-def position_sweep(sb: Sandbox, positions: Sequence[int]) -> tuple[pd.DataFrame, dict[int, ArmRun]]:
+def position_sweep(
+    sb: Sandbox, positions: Sequence[int], queries: Sequence[Query] | None = None
+) -> tuple[pd.DataFrame, dict[int, ArmRun]]:
     """Force exactly one target page into slot p (1..5), everything else unchanged."""
     runs = {
         p: sb.run(
-            Arm(f"engine:target_at:{p}", "engine", policy=RetrievalPolicy.parse(f"target_at:{p}"))
+            Arm(f"engine:target_at:{p}", "engine", policy=RetrievalPolicy.parse(f"target_at:{p}")),
+            queries=queries,
         )
         for p in positions
     }
@@ -351,15 +354,19 @@ def position_sweep(sb: Sandbox, positions: Sequence[int]) -> tuple[pd.DataFrame,
     return pd.DataFrame(out), runs
 
 
-def boost_sweep(sb: Sandbox, boosts: Sequence[float]) -> tuple[pd.DataFrame, dict[float, ArmRun]]:
+def boost_sweep(
+    sb: Sandbox, boosts: Sequence[float], queries: Sequence[Query] | None = None
+) -> tuple[pd.DataFrame, dict[float, ArmRun]]:
     """Add w to the target pages' final retrieval score (sigmoid of the cross-encoder logit)."""
     runs: dict[float, ArmRun] = {}
+    query_ids = {q.query_id for q in (queries or sb.queries)}
     for w in boosts:
         if w == 0 and sb.baseline is not None:
             runs[w] = sb.baseline
         else:
             runs[w] = sb.run(
-                Arm(f"engine:boost:{w:g}", "engine", policy=RetrievalPolicy(target_boost=w))
+                Arm(f"engine:boost:{w:g}", "engine", policy=RetrievalPolicy(target_boost=w)),
+                queries=queries,
             )
     ref = runs[boosts[0]]
 
@@ -367,13 +374,14 @@ def boost_sweep(sb: Sandbox, boosts: Sequence[float]) -> tuple[pd.DataFrame, dic
         return {
             r.answer.query_id: [s.doc_id for s in r.answer.sources]
             for r in run.results
-            if r.answer.sample == 0
+            if r.answer.sample == 0 and r.answer.query_id in query_ids
         }
 
     ref_src = source_lists(ref)
     out = []
     for w, run in runs.items():
         pq = run.per_query()
+        pq = pq.loc[pq.index.isin(query_ids)]
         src = source_lists(run)
         cls = {}
         for qid, docs in src.items():
@@ -386,9 +394,9 @@ def boost_sweep(sb: Sandbox, boosts: Sequence[float]) -> tuple[pd.DataFrame, dic
         d_q = (pq["imp_pwc"] - ref.per_query()["imp_pwc"]) * 100
         by_cls = {}
         for c in ("set_changed", "order_only", "unchanged"):
-            ids = [q for q, k in cls.items() if k == c and q in d_q.index]
-            by_cls[f"n_{c}"] = len(ids)
-            by_cls[f"d_pwc_{c}_pp"] = float(d_q.loc[ids].mean()) if ids else np.nan
+            matching_ids = [q for q, k in cls.items() if k == c and q in d_q.index]
+            by_cls[f"n_{c}"] = len(matching_ids)
+            by_cls[f"d_pwc_{c}_pp"] = float(d_q.loc[matching_ids].mean()) if matching_ids else np.nan
         mean, lo, hi = level_ci(pq["imp_pwc"].to_numpy() * 100, sb.bootstrap)
         cmp = sb.compare(ref, run) if w != boosts[0] else None
         out.append(
