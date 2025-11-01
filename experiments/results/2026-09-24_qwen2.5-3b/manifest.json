@@ -1,0 +1,126 @@
+{
+  "vizor_version": "0.2.0",
+  "git_commit": "38ef511",
+  "started": "2026-09-25T00:57:33-0400",
+  "elapsed_s": 357.5,
+  "config": {
+    "project": "data/demo/project.yaml",
+    "embedder": "bge",
+    "reranker": "cross-encoder",
+    "index": "auto",
+    "sentiment": "auto",
+    "decay": "paper",
+    "samples": 2,
+    "queries": 20,
+    "seed": 0,
+    "llm": {
+      "backend": "ollama",
+      "model": "qwen2.5:3b-instruct",
+      "base_url": "http://localhost:11434",
+      "temperature": 0.7,
+      "max_tokens": 450,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "You answer questions using numbered search results. Write short sentences. Put a citation in square brackets at the end of EVERY sentence, right before the period, naming the search result that supports that sentence. Format example, with made-up facts unrelated to any question: \"The Harrow bicycle weighs 9 kg [2]. It ships in three colours [2]. The Linden has a steel frame [4].\" Never collect citations at the end of the answer."
+    },
+    "sandbox": {
+      "arms": [
+        "noop",
+        "aa_resample",
+        "metadata",
+        "faq_rewrite",
+        "jsonld_insert",
+        "internal_links",
+        "stats_surface",
+        "keyword_stuffing",
+        "engine:reverse"
+      ],
+      "llm_rewrites": false,
+      "allow_fabrication": false,
+      "position_sweep": [
+        1,
+        3,
+        5
+      ],
+      "boost_sweep": [
+        0.0,
+        0.02,
+        0.1
+      ],
+      "bootstrap": 5000,
+      "sweep_queries": null
+    },
+    "bandit": {
+      "rounds": 2000,
+      "runs": 20,
+      "greedy_steps": 2
+    }
+  },
+  "project": "home-espresso-demo",
+  "n_docs": 22,
+  "n_queries": 20,
+  "samples": 2,
+  "embedder_id": "sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7",
+  "reranker_id": "cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44",
+  "index_backend": "numpy",
+  "llm_model": "qwen2.5:3b-instruct",
+  "llm_is_fake": false,
+  "fake_llm_position_prior": null,
+  "models_seen": [
+    "qwen2.5:3b-instruct"
+  ],
+  "single_model_snapshot": true,
+  "system_fingerprints": {},
+  "prompt_instruction_sha256": "29ee6ad65d4659bd",
+  "system_prompt": "You answer questions using numbered search results. Write short sentences. Put a citation in square brackets at the end of EVERY sentence, right before the period, naming the search result that supports that sentence. Format example, with made-up facts unrelated to any question: \"The Harrow bicycle weighs 9 kg [2]. It ships in three colours [2]. The Linden has a steel frame [4].\" Never collect citations at the end of the answer.",
+  "seed_scheme": "sha256(base_seed, query_id, sample, salt)[:8] & 0x7fffffff",
+  "base_seed": 0,
+  "sentiment_backend": "hf/cardiffnlp/twitter-roberta-base-sentiment-latest/3216a57f2a0d/p_pos-p_neg",
+  "decay": "paper",
+  "transform_query_scope": "crossfit-2",
+  "page_arm_scope": "focus page per query",
+  "model_pins": {
+    "embedder": "BAAI/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2@233902d25c440f23af6f7d6e94d2946bac0bee0a",
+    "sentiment": "cardiffnlp/twitter-roberta-base-sentiment-latest@3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7"
+  },
+  "score_scale": {
+    "median_top5_spread": 0.1916533363565065,
+    "median_gap_5_6": 0.03592332876200227,
+    "score_range": [
+      0.0,
+      1.0
+    ]
+  },
+  "mde": {
+    "aa_sd_per_query_pp": 18.292672382300864,
+    "n_queries": 20,
+    "engine_arm_pp": 14.627107614438426,
+    "sweep_pp": 13.659068074250415,
+    "n_sweep_queries": 20,
+    "power": 0.8,
+    "alpha": 0.05,
+    "n_page_units": 4,
+    "page_arm_pp": 18.097545392899843
+  },
+  "llm_usage": {
+    "calls": 83,
+    "cache_hits": 557,
+    "spent_usd": 0.0,
+    "ledger_total_usd": 0.0
+  },
+  "skipped_due_to_budget": [],
+  "host": {
+    "host": {
+      "os": "macOS-26.5.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "python": "3.11.13",
+      "cpu_count": 10
+    },
+    "extra": {
+      "holder": "2026-09-24_qwen2.5-3b",
+      "llm": "qwen2.5:3b-instruct",
+      "device": "cpu"
+    }
+  }
+}

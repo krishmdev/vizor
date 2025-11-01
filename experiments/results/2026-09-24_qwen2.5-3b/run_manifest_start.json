@@ -1,0 +1,29 @@
+{
+  "recorded_at": "2026-09-25T00:57:30-0400",
+  "host": {
+    "chip": "Apple M1 Pro",
+    "ram_gb": 16.0,
+    "os": "Darwin 26.5.1",
+    "python": "3.14.6",
+    "power": "Now drawing from 'AC Power'"
+  },
+  "exclusive_compute": {
+    "held": true,
+    "holder": "vizor-ollama"
+  },
+  "load": {
+    "loadavg": [
+      "9.97",
+      "13.87",
+      "12.80"
+    ],
+    "cpu_usage": "CPU usage: 23.63% user, 22.0% sys, 54.36% idle",
+    "docker_containers_running": 4,
+    "swap": "total = 12288.00M  used = 10610.50M  free = 1677.50M  (encrypted)"
+  },
+  "extra": {
+    "holder": "vizor-ollama",
+    "model": "qwen2.5:3b-instruct",
+    "OLLAMA_NUM_PARALLEL": "1"
+  }
+}

@@ -1,0 +1,41 @@
+query_id,query,intent,fold,focus_doc,focus_url
+info-01,what is a dual boiler espresso machine,informational,2,78fe7822dce4,https://brewline.example/duo
+info-02,how does a PID controller improve espresso,informational,1,51bdfc4e8d73,https://brewline.example/solo
+info-03,what grind size should I use for espresso,informational,2,78fe7822dce4,https://brewline.example/duo
+info-04,how much coffee should I use for a double shot,informational,1,1fa865d2cca6,https://brewline.example/guides/dialing-in
+info-05,what does pre-infusion do on an espresso machine,informational,1,78fe7822dce4,https://brewline.example/duo
+info-06,how long should an espresso shot take,informational,1,78fe7822dce4,https://brewline.example/duo
+info-07,what water hardness is best for an espresso machine,informational,1,78fe7822dce4,https://brewline.example/duo
+info-08,why does grinder retention matter for espresso,informational,2,0aa9f5629077,https://brewline.example/mill-64
+info-09,what is the difference between flat and conical burrs,informational,2,0aa9f5629077,https://brewline.example/mill-64
+info-10,how often should I descale an espresso machine,informational,2,22cef5b34a1f,https://brewline.example/support/descaling
+comp-01,brewline duo vs crema lab aria dual,comparison,2,78fe7822dce4,https://brewline.example/duo
+comp-02,single boiler vs dual boiler espresso machine,comparison,1,78fe7822dce4,https://brewline.example/duo
+comp-03,brewline solo vs crema lab aria,comparison,2,51bdfc4e8d73,https://brewline.example/solo
+comp-04,best espresso machine for milk drinks,comparison,2,78fe7822dce4,https://brewline.example/duo
+comp-05,which home espresso machine heats up fastest,comparison,1,78fe7822dce4,https://brewline.example/duo
+comp-06,is a dual boiler espresso machine worth the extra cost,comparison,1,78fe7822dce4,https://brewline.example/duo
+comp-07,best espresso grinder under 500 dollars,comparison,1,0aa9f5629077,https://brewline.example/mill-64
+comp-08,brewline mill 64 vs crema lab nano,comparison,1,0aa9f5629077,https://brewline.example/mill-64
+comp-09,most temperature stable home espresso machine,comparison,2,51bdfc4e8d73,https://brewline.example/solo
+comp-10,best espresso machine for beginners,comparison,2,51bdfc4e8d73,https://brewline.example/solo
+tran-01,buy a dual boiler espresso machine,transactional,1,78fe7822dce4,https://brewline.example/duo
+tran-02,best espresso machine deals,transactional,1,0aa9f5629077,https://brewline.example/mill-64
+tran-03,cheap espresso machine that makes good espresso,transactional,1,0aa9f5629077,https://brewline.example/mill-64
+tran-04,brewline duo price,transactional,2,78fe7822dce4,https://brewline.example/duo
+tran-05,crema lab aria price and warranty,transactional,2,78fe7822dce4,https://brewline.example/duo
+tran-06,espresso machine with a three year warranty,transactional,2,78fe7822dce4,https://brewline.example/duo
+tran-07,where to buy a home espresso grinder,transactional,2,0aa9f5629077,https://brewline.example/mill-64
+tran-08,espresso starter kit for beginners,transactional,2,51bdfc4e8d73,https://brewline.example/solo
+tran-09,best espresso machine under 500 dollars,transactional,1,78fe7822dce4,https://brewline.example/duo
+tran-10,espresso machine with fast steam for lattes,transactional,1,78fe7822dce4,https://brewline.example/duo
+trou-01,why is my espresso sour,troubleshooting,2,1fa865d2cca6,https://brewline.example/guides/dialing-in
+trou-02,why is my espresso bitter,troubleshooting,2,1fa865d2cca6,https://brewline.example/guides/dialing-in
+trou-03,espresso shot running too fast,troubleshooting,2,1fa865d2cca6,https://brewline.example/guides/dialing-in
+trou-04,espresso machine not reaching pressure,troubleshooting,2,51bdfc4e8d73,https://brewline.example/solo
+trou-05,how to fix channeling in espresso,troubleshooting,1,78fe7822dce4,https://brewline.example/duo
+trou-06,espresso machine taking a long time to heat up,troubleshooting,1,78fe7822dce4,https://brewline.example/duo
+trou-07,how to descale a dual boiler espresso machine,troubleshooting,1,22cef5b34a1f,https://brewline.example/support/descaling
+trou-08,espresso grinder clumping,troubleshooting,1,0aa9f5629077,https://brewline.example/mill-64
+trou-09,milk not frothing properly with the steam wand,troubleshooting,2,78fe7822dce4,https://brewline.example/duo
+trou-10,espresso machine leaking from the group head,troubleshooting,1,78fe7822dce4,https://brewline.example/duo

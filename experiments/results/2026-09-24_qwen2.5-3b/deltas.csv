@@ -1,0 +1,10 @@
+arm,kind,n_queries,n_units,unit,base_pwc_pct,d_pwc_pp,d_pwc_lo,d_pwc_hi,p,rel_pct,d_csov_pp,d_csov_lo,d_csov_hi,d_cite_rate_pp,d_retrieval_pp,d_pwc_given_retrieved_pp,d_pwc_given_cited_pp,d_sentiment,uncited_rate_pct,base_uncited_rate_pct,d_uncited_pp,hallucinated_per_answer,new_calls,new_cost_usd,transform_scope,p_holm,significant
+noop,doc,20,4,page x fold,21.9463,0,0,0,1,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,none,,False
+aa_resample,aa,20,20,query,21.9463,2.7191,-5.57376,9.73015,0.123082,12.3898,1.82891,-6.49899,8.76192,0,0,3.62547,5.9426,0.0483399,10,5,5,0,0,0,none,,False
+metadata,doc,20,7,page x fold,21.9463,-0.73911,-8.32159,8.42575,1,-3.36781,-2.53274,-10.577,6.7472,-2.5,0,-0.98548,2.42034,-0.114803,12.5,5,7.5,0,0,0,crossfit-2,1,False
+faq_rewrite,doc,20,7,page x fold,21.9463,0.873645,-4.5945,8.38592,0.40625,3.98083,-0.979167,-5.87121,7.11538,0,0,1.16486,2.95622,-0.0276598,5,5,0,0,0,0,crossfit-2,1,False
+jsonld_insert,doc,20,4,page x fold,21.9463,-3.73908,-6.99577,3.65699,0.75,-17.0374,-3.60417,-7.2973,4.71154,-5,0,-4.98544,0.912854,-0.138614,12.5,5,7.5,0,0,0,none,1,False
+internal_links,doc,20,4,page x fold,21.9463,1.35296,-2.64064,8.76963,0.5,6.16485,0.993056,-3.04487,8.49206,2.5,0,1.80394,5.37458,0.0123897,10,5,5,0,0,0,none,1,False
+stats_surface,doc,20,4,page x fold,21.9463,0.283172,-1.65084,3.84667,1,1.2903,0.666667,-0.608974,3.87821,7.5,0,0.377563,5.25773,0.0253528,10,5,5,0,0,0,none,1,False
+keyword_stuffing,doc,20,7,page x fold,21.9463,1.05989,-2.54091,7.41764,1,4.82947,0.678571,-3.59375,8.54663,5,0,1.41319,3.30945,0.00332918,10,5,5,0,0,0,crossfit-2,1,False
+engine:reverse,engine,20,20,query,21.9463,5.43642,-12.6937,25.0269,0.778823,24.7715,4.97917,-12.7505,24.2708,2.5,0,7.24856,3.769,-0.143115,0,5,-5,0,0,0,none,1,False

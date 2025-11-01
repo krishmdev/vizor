@@ -334,26 +334,38 @@ def claim_md(r: dict) -> str:
             + "."
         )
     if mde:
-        detected = bool(
-            (pos is not None and any(_sig(x) for x in pos.iloc[1:].itertuples()))
-            or (boost is not None and any(_sig(x) for x in boost.iloc[1:].itertuples()))
-            or (deltas is not None and bool(deltas.get("significant", pd.Series(dtype=bool)).any()))
+        pos_sig = pos is not None and any(_sig(x) for x in pos.iloc[1:].itertuples())
+        boost_sig = boost is not None and any(_sig(x) for x in boost.iloc[1:].itertuples())
+        page_rows = deltas[deltas["kind"] == "doc"] if deltas is not None else None
+        page_sig = page_rows is not None and bool(page_rows["significant"].any())
+
+        def lever(name: str, hit: bool, size) -> str:
+            return f"{name}: {'**detected**' if hit else f'not detected (MDE ≈ {_f(size)} pp)'}"
+
+        units = (
+            f", {mde.get('n_page_units')} page units" if mde.get("page_arm_pp") is not None else ""
         )
-        page = (
-            f" and {_f(mde.get('page_arm_pp'))} pp for page arms ({mde.get('n_page_units')} page units)"
-            if mde.get("page_arm_pp") is not None
-            else ""
-        )
+        wmax = f"w ≤ {_f(boost.boost.max(), 2)}" if boost is not None else "boosts"
         out.append(
-            f"- Sensitivity: at 80% power and the strictest Holm step, this run can detect mean shifts of about "
-            f"{_f(mde.get('sweep_pp'))} pp for the sweeps, {_f(mde.get('engine_arm_pp'))} pp for engine arms{page} "
-            f"(A/A per-query SD {_f(mde.get('aa_sd_per_query_pp'))} pp, n={mde.get('n_queries')}). "
-            + (
-                "Small changes producing large shifts: **detected** for the comparisons marked above."
-                if detected
-                else "Small changes producing large shifts: **not detected** at these detectable sizes. "
-                "Smaller real effects can't be ruled out."
+            f"- Sensitivity (80% power, strictest Holm step, A/A per-query SD "
+            f"{_f(mde.get('aa_sd_per_query_pp'))} pp, n={mde.get('n_queries')} queries{units}). "
+            + "; ".join(
+                [
+                    lever(
+                        "moving the target between first and last slot",
+                        pos_sig,
+                        mde.get("sweep_pp"),
+                    ),
+                    lever(f"small retrieval boosts ({wmax})", boost_sig, mde.get("sweep_pp")),
+                    lever(
+                        "page edits (metadata, FAQ, JSON-LD, links, stats, keywords)",
+                        page_sig,
+                        mde.get("page_arm_pp") or mde.get("engine_arm_pp"),
+                    ),
+                ]
             )
+            + ". Only the boosts and page edits are small changes; moving a source from first to "
+            "last is a large one. A non-detection rules out effects above the MDE, not smaller ones."
         )
     bandit = r.get("bandit")
     if bandit is not None and "eval" in bandit.columns:
@@ -365,7 +377,7 @@ def claim_md(r: dict) -> str:
                 if "best fixed arm (chosen on train)" in h.index
                 else None
             )
-            gen = c.final_regret < rnd.final_regret and (
+            gen = c.final_regret + c.final_regret_ci < rnd.final_regret and (
                 fx is None or c.final_regret <= fx.final_regret
             )
             out.append(
@@ -377,9 +389,9 @@ def claim_md(r: dict) -> str:
                     else ""
                 )
                 + (
-                    ". It generalized to the held-out queries."
+                    ". It beat random on the held-out queries by more than its 95% interval."
                     if gen
-                    else ". It did not generalize to the held-out queries."
+                    else ". On the held-out queries it is not distinguishable from random."
                 )
             )
     return "\n".join(out)
