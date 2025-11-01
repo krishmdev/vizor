@@ -256,7 +256,12 @@ def heldout(
     test: Sequence[int],
 ) -> pd.DataFrame:
     """Fit on the train contexts (every arm's observed reward), freeze, and score the frozen
-    choices on the test contexts. Mean regret per decision, in PAWC share."""
+    choices on the test contexts. Returns regret summed over the test contexts (one decision
+    each), in PAWC share, with a 95% interval for that sum.
+
+    Caveat for cross-fitted arms: a train query's reward was measured on a page edited with the
+    *other* fold's queries, i.e. the test queries, so test-query text leaks into the training
+    rewards. The check is a split of contexts, not a fully independent replication."""
     mu = rewards.mean(axis=2)
     oracle = mu.max(axis=1)
     ridge = LinUCB(arms, contexts.shape[1], alpha=0.0)
