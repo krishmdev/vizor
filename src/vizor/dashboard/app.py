@@ -22,7 +22,7 @@ API = os.environ.get("VIZOR_API", "http://localhost:8000").rstrip("/")
 INK, INK_2, MUTED, RULE, PAPER, PANEL = (
     "#1d1c1a",
     "#52514e",
-    "#8a8983",
+    "#6b6a65",
     "#e4e2dc",
     "#fbfaf7",
     "#f3f1ec",
@@ -67,7 +67,8 @@ code, .num {{ font-family:{FONT_NUM}; font-variant-numeric: tabular-nums; }}
 .sent {{ padding:0.1rem 0.15rem; border-radius:3px; box-decoration-break:clone; -webkit-box-decoration-break:clone;
          background:linear-gradient(transparent 62%, var(--tint) 62%); }}
 .sent.none {{ background:none; color:var(--ink2); }}
-.cite {{ font:600 0.72rem {FONT_NUM}; color:#fff; background:var(--c); border-radius:3px; padding:0.05rem 0.28rem; margin-left:0.12rem; vertical-align:0.12rem; }}
+.cite {{ font:600 0.72rem {FONT_NUM}; color:var(--ink); background:#fff; border:1.5px solid var(--c); border-radius:3px; padding:0 0.26rem; margin-left:0.12rem; vertical-align:0.12rem; }}
+code {{ color:var(--ink2); background:var(--panel); border-radius:3px; padding:0 0.25rem; }}
 .bar {{ display:flex; gap:2px; height:14px; border-radius:4px; overflow:hidden; margin:0.3rem 0 0.2rem; }}
 .bar span {{ display:block; height:100%; }}
 .legend {{ display:flex; flex-wrap:wrap; gap:0.3rem 1rem; font:0.8rem {FONT_NUM}; color:var(--ink2); }}
@@ -200,9 +201,8 @@ def titled(text: str, exp: dict) -> str:
 
 
 def no_experiments() -> None:
-    st.info(
-        "No experiment results yet. Run `vizor demo` (keyless) or start one from the Sandbox view."
-    )
+    st.info("No experiment results yet. Run `vizor demo` (keyless), or start a small one here.")
+    job_form()
 
 
 # ------------------------------------------------------------------ views
@@ -332,10 +332,23 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
             for s in a["sources"]
             if s["pwc_share"] > 0
         )
+        present = []
+        for s_ in a["sources"]:
+            if s_["domain"] not in present:
+                present.append(s_["domain"])
+        legend = "".join(
+            f'<span><i style="background:{colors.get(d_, MUTED)}"></i>{html.escape(d_)}</span>'
+            for d_ in present
+        )
         st.markdown(
-            f'<div class="kicker">PAWC share of this answer</div><div class="bar">{segs}</div>',
+            f'<div class="kicker">PAWC share of this answer</div><div class="bar" role="img" '
+            f'aria-label="PAWC share by source">{segs}</div><div class="legend">{legend}</div>',
             unsafe_allow_html=True,
         )
+        if not any(s_["role"] == "target" for s_ in a["sources"]):
+            st.info("The target site wasn't retrieved into this prompt, so it can't be cited here.")
+        shares = [round(s_["pwc_share"], 4) for s_ in a["sources"] if s_["pwc_share"] > 0]
+        tied = {x for x in shares if shares.count(x) > 1}
         cards = []
         for s in a["sources"]:
             c = colors.get(s["domain"], MUTED)
@@ -344,7 +357,7 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
                 f'<div class="src {s["label"]}" style="--c:{c}">'
                 f'<span class="idx">[{s["position"]}]</span>'
                 f'<span class="dom">{html.escape(s["domain"])}<span class="badge {s["label"]}">{s["label"]}</span>{tgt}</span>'
-                f'<span class="share">{s["pwc_share"]:.0%}</span>'
+                f'<span class="share">{s["pwc_share"]:.0%}{" (tie)" if round(s["pwc_share"], 4) in tied else ""}</span>'
                 f'<span class="ttl" title="{html.escape(s["title"])}">{html.escape(s["title"] or s["url"])} · '
                 f"score {s['final_score']:.2f} · {s['citations']} cite{'s' if s['citations'] != 1 else ''}</span></div>"
             )
@@ -362,7 +375,8 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
                 c = colors.get(by_pos[cites[0]]["domain"], MUTED)
                 chips = "".join(
                     f'<span class="cite" style="--c:{colors.get(by_pos[k]["domain"], MUTED)}" '
-                    f'title="{html.escape(by_pos[k]["domain"])}">{k}</span>'
+                    f'title="{html.escape(by_pos[k]["domain"])}" '
+                    f'aria-label="cites source {k}, {html.escape(by_pos[k]["domain"])}">{k}</span>'
                     for k in cites
                 )
                 parts.append(f'<span class="sent" style="--tint:{tint(c)}">{text}</span>{chips} ')
@@ -386,17 +400,6 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
                 for s in a["sentences"]
             ]
             st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-    present = {s["domain"] for s in a["sources"]}
-    st.markdown(
-        '<div class="legend">'
-        + "".join(
-            f'<span><i style="background:{c}"></i>{html.escape(d)}</span>'
-            for d, c in colors.items()
-            if d in present
-        )
-        + "</div>",
-        unsafe_allow_html=True,
-    )
 
 
 def inspector() -> None:
@@ -406,7 +409,8 @@ def inspector() -> None:
         "Each sentence is underlined in the colour of the source it cites first; chips show every citation. "
         "Sources are labelled emphasized (largest PAWC share), cited, or ignored (shown to the model, never cited).",
     )
-    proj = api_or_stop("/project")
+    with st.spinner("Loading retrieval models…"):
+        proj = api_or_stop("/project")
     colors = domain_colors(proj["domains"])
     mode = st.sidebar.radio("Answers from", ["Stored experiment", "Live query"], horizontal=False)
     if mode == "Live query":
@@ -429,7 +433,7 @@ def inspector() -> None:
                     "keyword_stuffing",
                 ],
             )
-            go_ = st.form_submit_button("Answer")
+            go_ = st.form_submit_button("Answer", type="primary")
         if go_:
             with st.spinner("Retrieving, reranking and generating…"):
                 try:
@@ -690,23 +694,27 @@ def sandbox() -> None:
             lineterm="",
             n=1,
         )
-        st.code("\n".join(diff) or "(no change)", language="diff")
+        st.code("\n".join(diff) or "(no change)", language="diff", wrap_lines=True)
     else:
         st.markdown('<p class="note">No page arms in this experiment.</p>', unsafe_allow_html=True)
 
     with st.expander("Table view"):
         st.dataframe(d.iloc[::-1], hide_index=True, use_container_width=True)
     with st.expander("Run a new sandbox experiment"):
-        with st.form("job"):
-            nq = st.slider("Queries", 4, 40, 8)
-            ns = st.slider("Samples per query", 1, 5, 2)
-            ok = st.form_submit_button("Start")
-        if ok:
-            try:
-                job = post("/sandbox", {"queries": nq, "samples": ns})
-                st.success(f"Started {job['job_id']}. It appears in the experiment list when done.")
-            except (RuntimeError, httpx.HTTPError) as err:
-                st.error(str(err))
+        job_form()
+
+
+def job_form() -> None:
+    with st.form("job"):
+        nq = st.slider("Queries", 4, 40, 8)
+        ns = st.slider("Samples per query", 1, 5, 2)
+        ok = st.form_submit_button("Start", type="primary")
+    if ok:
+        try:
+            job = post("/sandbox", {"queries": nq, "samples": ns})
+            st.success(f"Started {job['job_id']}. It appears under Local runs when done.")
+        except (RuntimeError, httpx.HTTPError) as err:
+            st.error(str(err))
 
 
 def optimizer() -> None:
@@ -857,9 +865,13 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     if os.environ.get("VIZOR_EGRESS_CANARY") == "1":
-        st.sidebar.markdown(
-            f'<div class="note">egress: {egress_state()}</div>', unsafe_allow_html=True
-        )
+        state = egress_state()
+        if state == "blocked":
+            st.sidebar.markdown(f'<div class="note">egress: {state}</div>', unsafe_allow_html=True)
+        else:
+            st.sidebar.warning(
+                f"Offline mode requested, but outbound network is reachable ({state})."
+            )
     pages = [
         st.Page(overview, title="Overview", default=True),
         st.Page(inspector, title="Answer inspector", url_path="inspector"),
