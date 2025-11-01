@@ -73,7 +73,7 @@ def header_md(r: dict) -> str:
         f"- Results: `{r['dir'].as_posix()}` (git {m.get('git_commit')}, {m.get('started', '')[:10]})",
         f"- Answer model: `{m['llm_model']}`"
         + (
-            " (deterministic extractive stand-in: a pipeline check, not model evidence)"
+            " (deterministic extractive stand-in; pipeline check, not model evidence)"
             if m.get("llm_is_fake")
             else ""
         ),
@@ -83,8 +83,8 @@ def header_md(r: dict) -> str:
     ]
     if m["config"]["llm"]["backend"] == "ollama":
         lines.append(
-            "- A small local model, not a GPT-class engine. It needed an extra system message "
-            "(recorded in the manifest) before it would cite sentence by sentence."
+            "- This is a small local model. It needed an extra system message (recorded in the "
+            "manifest) to cite sentence by sentence."
         )
     if usage and m["config"]["llm"]["backend"] == "ollama":
         lines.append(
@@ -153,13 +153,14 @@ def deltas_md(r: dict) -> str:
         for x in df.itertuples()
     ]
     note = (
-        "Verdict rule: an arm has an effect if its Holm-adjusted Wilcoxon p is below 0.05 (`*`); "
-        "the 95% CIs are descriptive. `noop` and `aa_resample` are controls outside the Holm family. "
-        "Page arms edit each query's focus page and are tested at the level of (fold, page) units, "
-        "because queries served by the same edited page are not independent; `n` is queries / units. "
-        "Arms that read the tracked queries are cross-fitted (built from one half of the queries, "
-        'scored on the other). "ΔPAWC if cited" compares only answers that cited anything, '
-        "so an arm that breaks citation formatting shows up in the uncited rate instead."
+        "An arm counts as having an effect when its Holm-adjusted Wilcoxon p-value is below "
+        "0.05 (`*`). The 95% confidence intervals are descriptive. `noop` and `aa_resample` are "
+        "controls and are excluded from the Holm family. Page arms change each query's focus page. "
+        "They are tested across (fold, page) units because queries that share an edited page are "
+        "not independent; `n` reports queries / units. Arms that use the tracked queries are "
+        "cross-fitted: built on one half of the queries and scored on the other. "
+        '"ΔPAWC if cited" counts only answers with citations. Citation-format failures instead '
+        "appear in the uncited rate."
     )
     return (
         note
@@ -231,8 +232,9 @@ def boost_md(r: dict) -> str:
         for x in df.itertuples()
     ]
     return (
-        "Per-query classes compare the boosted source list with w=0: a different set of sources, the same "
-        "sources in a different order, or no change. Each class cell is `n queries: mean ΔPAWC pp`.\n\n"
+        "For each query, these classes compare the boosted source list with w=0: a different set "
+        "of sources, the same sources in a different order, or no change. Each cell shows "
+        "`n queries: mean ΔPAWC pp`.\n\n"
         + _table(
             [
                 "Boost w",
@@ -408,10 +410,10 @@ def bandit_md(r: dict) -> str:
         for x in df.itertuples()
     ]
     out = (
-        f"Offline replay (in-sample: rewards drawn from the same table the policies learn from), "
-        f"{m['rounds']} rounds x {m['runs']} runs; regret is in units of PAWC share "
-        f"(1.0 = 100 pp) summed over rounds. The hindsight row knows the best single arm in advance, so it "
-        f"is a reference line, not a policy.\n\n"
+        f"Offline replay uses rewards from the same table the policies learn from. It runs "
+        f"{m['rounds']} rounds x {m['runs']} runs. Regret is summed over rounds in PAWC share "
+        f"(1.0 = 100 pp). The hindsight row knows the best single arm in advance and serves as "
+        f"a reference, not a policy.\n\n"
         + _table(
             [
                 "Policy",
@@ -424,8 +426,8 @@ def bandit_md(r: dict) -> str:
     )
     if len(held):
         out += (
-            "\n\nHeld-out check: fit on fold-1 queries, freeze, score the frozen choices on fold-2 queries "
-            "(regret summed over held-out queries, one decision each).\n\n"
+            "\n\nHeld-out check: the policy is fit on fold-1 queries, then frozen and scored on "
+            "fold-2 queries. Regret is summed over held-out queries, with one decision per query.\n\n"
             + _table(
                 ["Policy", "Held-out regret", "Mean reward pp", "Most chosen arm"],
                 [
@@ -452,8 +454,8 @@ def trajectory_md(r: dict) -> str:
         for x in df.itertuples()
     ]
     return (
-        f"Held-out queries: {int(df.n_heldout.iloc[0])}. An arm is kept only if the lower 95% bound "
-        f"on its held-out ΔPAWC is above zero.\n\n"
+        f"Held-out queries: {int(df.n_heldout.iloc[0])}. The loop keeps an arm only when the lower "
+        f"95% confidence bound on held-out ΔPAWC is above zero.\n\n"
         + _table(
             [
                 "Step",
@@ -512,9 +514,8 @@ def write_results(dirs: list[Path], out: Path, readme: Path | None = None) -> No
         write_summary(r["dir"])
     body = [
         "# Results",
-        "Generated by `vizor report` from the directories under `experiments/results/`. "
-        "Every number below is read from those files; see `experiments/README.md` for how to "
-        "reproduce them.",
+        "`vizor report` builds this page from the run directories under `experiments/results/`. "
+        "All numbers come from those files. See `experiments/README.md` for reproduction steps.",
     ]
     body += [summary_md(r, level=2) for r in results]
     out.parent.mkdir(parents=True, exist_ok=True)

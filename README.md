@@ -1,17 +1,15 @@
 # Vizor
 
-Vizor measures how an LLM answer engine surfaces, prioritizes and cites competing sources, and
-runs controlled experiments on what changes that. It retrieves pages, builds a source-tagged
-prompt, has a model write an answer with inline `[n]` citations, and scores every source with
-the impression metrics from the GEO paper (Aggarwal et al., KDD 2024). A sandbox then edits the
-target site's pages (metadata, FAQ, JSON-LD, internal links and so on) or the engine's retrieval
-order, re-runs the same queries with the same seeds, and reports the shift with paired
-confidence intervals. A contextual bandit tries to choose which edit to apply for each query, and
-a held-out check tests whether those choices carry over to new queries.
+Vizor tests how changes to a page or retrieval order affect which sources an LLM answer engine
+cites. It retrieves pages, puts source labels in the prompt, asks a model for an answer with
+inline `[n]` citations, and scores each source with impression metrics from the GEO paper
+(Aggarwal et al., KDD 2024). The sandbox edits a target site's metadata, FAQ, JSON-LD, or
+internal links, or changes retrieval order. It then runs the same queries with the same seeds
+and reports paired confidence intervals. A contextual bandit chooses edits by query; a held-out
+check tests whether those choices carry over to new queries.
 
-This repo was formerly RL-MCA-GEO. It is a rebuild: the earlier code asked the model to report
-its own PAWC and filled gaps with random numbers, so none of it was kept except the pieces listed
-under Credits.
+This repository was formerly RL-MCA-GEO. The earlier code asked the model to report its own
+PAWC and filled gaps with random numbers. This rebuild keeps only the pieces listed under Credits.
 
 ![Answer inspector](docs/inspector.png)
 
@@ -26,16 +24,16 @@ make serve      # API on :8000     (in another shell)
 make ui         # dashboard on :8501
 ```
 
-Set `VIZOR_OFFLINE_RUN` to a wrapper that blocks outbound traffic for a whole process tree (on
-macOS, a `sandbox-exec` profile that denies `network-outbound` except localhost), and
-`make demo`, `make serve` and `make ui` run inside it. `make offline-check` proves the block is
-real: the egress canary must fail inside the wrapper and succeed outside it. The same demo with no
-model downloads at all is `vizor demo --config configs/ci.yaml`.
+Set `VIZOR_OFFLINE_RUN` to a wrapper that blocks outbound traffic for the whole process tree.
+On macOS, use a `sandbox-exec` profile that denies `network-outbound` except localhost. Then
+`make demo`, `make serve`, and `make ui` run inside it. `make offline-check` checks the block:
+the egress canary must fail inside the wrapper and succeed outside it. To run the demo without
+downloading models, use `vizor demo --config configs/ci.yaml`.
 
-The keyless demo writes answers with **FakeLLM**, a deterministic extractive stand-in that picks
-source sentences by embedding similarity and applies a fixed −0.05 per-slot position penalty. It
-exists so the whole pipeline runs in CI and offline. Its numbers say nothing about real models,
-and every report, table and dashboard page that shows them says so.
+The keyless demo uses **FakeLLM** to write answers. This deterministic extractive stand-in picks
+source sentences by embedding similarity and applies a fixed −0.05 per-slot position penalty.
+It lets the pipeline run in CI and offline. Its numbers say nothing about real models, a limit
+also stated in the reports, tables, and dashboard.
 
 ## How it works
 
@@ -55,8 +53,8 @@ flowchart LR
   SB --> B[contextual bandit, replay regret, greedy loop]
 ```
 
-The retrieval, generation and attribution stages form a cascade ("MCA" in the old name). The RL
-part is the contextual bandit.
+Retrieval, generation, and attribution form the cascade ("MCA" in the old name). The contextual
+bandit is the RL part.
 
 **Retrieval.** Pages become passages: head (title, description, headings), 120-word body windows
 with 30-word overlap, one passage per FAQ pair, flattened JSON-LD, and a related-links line.
@@ -115,17 +113,17 @@ descriptive. The position sweep forces one target page into
 slots 1 to 5. The boost sweep adds w to the target pages' final score and splits queries by
 whether the source set changed, only the order changed, or nothing changed.
 
-**Bandit.** Contexts are the tracked queries, with 13 features of the focus page and query: FAQ,
-JSON-LD, meta description length, words, links, the target's baseline retrieval, citation and
-PAWC rates on that query (taken from the A/A re-sample so they don't share noise with the reward),
-and the intent. Arms are the page edits. The reward is the change in the target's PAWC share, and
-the reward table comes straight from the sandbox runs, so evaluation costs no extra calls. The
-policies are LinUCB (Sherman–Morrison updates), linear Thompson sampling, ε-greedy, a bias-only
-LinUCB ablation and random. They are compared by offline replay (2000 rounds × 20 runs) against
-the per-query oracle. That replay is in-sample, so the held-out check is the real test: fit on
-one half of the queries, freeze, and score the other half. A greedy loop then applies the bandit's proposals one at a time and keeps an edit only
-if the held-out CI lower bound is above zero. This is a contextual bandit with replay evaluation,
-not deep RL.
+**Bandit.** The tracked queries are contexts. Each has 13 features of the focus page and query:
+FAQ, JSON-LD, meta description length, words, links, intent, and the target's baseline retrieval,
+citation, and PAWC rates. Those rates come from the A/A re-sample so they do not share noise with
+the reward. The arms are page edits, and the reward is the change in the target's PAWC share.
+The reward table comes from the sandbox runs, so evaluation costs no extra calls. The policies
+are LinUCB (Sherman-Morrison updates), linear Thompson sampling, ε-greedy, a bias-only LinUCB
+ablation, and random. Offline replay compares them with the per-query oracle over 2000 rounds ×
+20 runs. Because that replay is in-sample, the held-out check fits on one half of the queries,
+freezes the policy, and scores the other half. A greedy loop then applies the bandit's proposals
+one at a time. It keeps an edit only if the held-out CI lower bound is above zero. This is a
+contextual bandit with replay evaluation, not deep RL.
 
 ## Results
 

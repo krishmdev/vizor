@@ -1,6 +1,6 @@
 # Experiments
 
-Each directory under `results/` is one run of `vizor demo` or `vizor experiment`:
+Each directory under `results/` contains one run of `vizor demo` or `vizor experiment`:
 
 | File | Contents |
 |---|---|
@@ -17,8 +17,8 @@ Each directory under `results/` is one run of `vizor demo` or `vizor experiment`
 | `summary.md` | the generated report for this directory |
 | `run_manifest_*.json` | host state (swap, top processes, lease holder) around a real-model run |
 
-`vizor recompute <dir>` re-parses every raw answer and recomputes the attribution rows without
-calling a model; it must report `match`. `vizor report` rebuilds `RESULTS.md` and the README
+`vizor recompute <dir>` re-parses each raw answer and recomputes the attribution rows without
+calling a model. It must report `match`. `vizor report` rebuilds `RESULTS.md` and the README
 results block from these directories.
 
 Reproduce:
@@ -30,5 +30,5 @@ vizor experiment --config configs/openai.yaml --out experiments/results/<date>_g
 vizor report
 ```
 
-Real-model responses are cached under `.cache/llm/` by (model, messages, temperature, seed), so a
-rerun with the same config and code costs nothing and returns the same answers.
+Real-model responses are cached under `.cache/llm/` by model, messages, temperature, and seed.
+With the same config and code, a rerun costs nothing and returns the same answers.

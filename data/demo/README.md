@@ -1,8 +1,8 @@
 # Demo corpus
 
 Everything in this folder is synthetic. The five sites are fictional brands on RFC 2606 `.example`
-domains, written for this repo so the sandbox has something controlled to measure. Product names
-(Brewline Duo, Crema Lab Aria, Kettleworks K3, and so on), prices and test numbers are invented.
+domains, written to give the sandbox a controlled corpus. Product names (Brewline Duo, Crema Lab
+Aria, Kettleworks K3, and others), prices, and test numbers are invented.
 
 | Domain | Role | Pages | Character |
 |---|---|---|---|
@@ -12,6 +12,6 @@ domains, written for this repo so the sandbox has something controlled to measur
 | beanbudget.example | competitor | 4 | Thin affiliate pages |
 | grindandtamp.example | competitor | 3 | Hobbyist blog |
 
-`queries.jsonl` has 40 queries, 10 for each intent (informational, comparison, transactional,
-troubleshooting). They were written by hand; `vizor queries generate` builds a set like this from a
-real corpus with an LLM.
+`queries.jsonl` contains 40 queries, 10 for each intent (informational, comparison,
+transactional, troubleshooting). They were written by hand. `vizor queries generate` can build a
+similar set from a real corpus with an LLM.

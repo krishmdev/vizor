@@ -1,6 +1,6 @@
 # Verification log
 
-What was checked on this machine (Apple M1 Pro, 16 GB, macOS), and how.
+This log records checks run on this machine (Apple M1 Pro, 16 GB, macOS) and how they were done.
 
 ## 2026-09-23
 
@@ -14,8 +14,8 @@ What was checked on this machine (Apple M1 Pro, 16 GB, macOS), and how.
 - **Pinned models**: `vizor models fetch --write-lock` downloaded bge-small-en-v1.5@5c38ec7,
   ms-marco-MiniLM-L-6-v2@233902d and twitter-roberta-base-sentiment-latest@3216a57 into `.models/`
   and recorded the sha256 of every file in `models.lock`. `vizor models verify` re-checks them.
-- **Offline runtime**: the keyless demo ran under a sandbox-exec wrapper (outbound
-  network denied) with the real retrieval and sentiment models and FakeLLM answers, producing
+- **Offline runtime**: the keyless demo ran under a sandbox-exec wrapper that denied outbound
+  network access. It used the real retrieval and sentiment models with FakeLLM answers, producing
   `experiments/results/2026-09-24_fakellm`. With `VIZOR_EGRESS_CANARY=1`, the API started under
   the same wrapper and reported `"egress": "blocked"` on `/health`, and the dashboard reported
   the same in its sidebar.

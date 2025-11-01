@@ -396,7 +396,9 @@ def boost_sweep(
         for c in ("set_changed", "order_only", "unchanged"):
             matching_ids = [q for q, k in cls.items() if k == c and q in d_q.index]
             by_cls[f"n_{c}"] = len(matching_ids)
-            by_cls[f"d_pwc_{c}_pp"] = float(d_q.loc[matching_ids].mean()) if matching_ids else np.nan
+            by_cls[f"d_pwc_{c}_pp"] = (
+                float(d_q.loc[matching_ids].mean()) if matching_ids else np.nan
+            )
         mean, lo, hi = level_ci(pq["imp_pwc"].to_numpy() * 100, sb.bootstrap)
         cmp = sb.compare(ref, run) if w != boosts[0] else None
         out.append(
