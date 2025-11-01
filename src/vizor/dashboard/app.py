@@ -728,37 +728,98 @@ def optimizer() -> None:
         st.info("This experiment has no bandit replay.")
         return
     summ = pd.DataFrame(e["bandit_summary"])
-    order = ["linucb(a=0.1)", "lints(v=0.1)", "eps-greedy(0.1)", "best-fixed-arm", "random"]
-    shown = [p for p in order if p in set(curve.policy)]
-    colors = {p: SERIES[i] for i, p in enumerate(shown)}
-    fig = figure(380)
-    for p in shown:
-        c = curve[curve.policy == p]
-        _interval_band(fig, c.t, c.lo, c.hi, colors[p], p)
+    if "eval" not in summ:
+        summ["eval"] = "replay"
+    replay_s, held = summ[summ["eval"] == "replay"], summ[summ["eval"] == "heldout"]
+
+    def table(df: pd.DataFrame, regret_label: str) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "Policy": df.policy,
+                regret_label: [
+                    f"{r * 100:.1f} ± {c * 100:.1f}" if c == c else f"{r * 100:.1f}"
+                    for r, c in zip(df.final_regret, df.final_regret_ci, strict=True)
+                ],
+                "Mean reward (pp)": df.mean_reward_pp.round(2),
+                "Most chosen arm": [
+                    f"{a} ({sh:.0%})" if isinstance(a, str) and a else ""
+                    for a, sh in zip(df.top_arm, df.top_arm_share, strict=True)
+                ],
+            }
+        )
+
+    if len(held):
+        st.markdown(f"### {titled('Held-out check', exp)}")
+        st.markdown(
+            '<p class="note">Fit on one half of the queries, freeze, score the other half. This is the test '
+            "of whether a learned choice carries over. Regret is summed over held-out queries, in pp of PAWC share.</p>",
+            unsafe_allow_html=True,
+        )
+        st.dataframe(
+            table(held, "Held-out regret (pp, ±95% CI)"), hide_index=True, use_container_width=True
+        )
+
+    # the best of the configured LinUCB alphas, plus one of each other policy family
+    linucb = replay_s[replay_s.policy.str.match(r"linucb\(a=")]
+    best_lin = linucb.sort_values("final_regret").policy.iloc[0] if len(linucb) else None
+    wanted = [best_lin, "lints(v=0.1)", "eps-greedy(0.1)", "linucb-bias-only(a=0.1)", "random"]
+    shown = [x for x in wanted if x and x in set(curve.policy)]
+    reference = [x for x in curve.policy.unique() if "hindsight" in x]
+    colors = {x: SERIES[k] for k, x in enumerate(shown)}
+    fig = figure(400)
+    t_max = int(curve.t.max())
+    ends = []
+    for pol in shown + reference:
+        c = curve[curve.policy == pol]
+        ref = pol in reference
+        color = MUTED if ref else colors[pol]
+        if not ref:
+            _interval_band(fig, c.t, c.lo * 100, c.hi * 100, color, pol)
         fig.add_scatter(
             x=c.t,
-            y=c.cum_regret,
+            y=c.cum_regret * 100,
             mode="lines",
-            name=p,
-            line=dict(color=colors[p], width=2),
-            hovertemplate=p + "<br>t=%{x}: %{y:.2f}<extra></extra>",
+            name=pol,
+            showlegend=False,
+            line=dict(color=color, width=1.5 if ref else 2),
+            hovertemplate=pol + "<br>round %{x}: %{y:.0f} pp<extra></extra>",
         )
-        last = c.iloc[-1]
+        ends.append([float(c.cum_regret.iloc[-1] * 100), pol, color])
+    # nudge end labels apart so they don't overlap
+    ends.sort()
+    gap = max(1.0, max(e_[0] for e_ in ends) * 0.045)
+    for k in range(1, len(ends)):
+        ends[k][0] = max(ends[k][0], ends[k - 1][0] + gap)
+    for y, pol, color in ends:
+        label = pol + (" (reference)" if "hindsight" in pol else "")
         fig.add_annotation(
-            x=last.t,
-            y=last.cum_regret,
-            text=p,
+            x=t_max,
+            y=y,
+            text=label,
             showarrow=False,
             xanchor="left",
             xshift=6,
-            font=dict(size=11, color=INK_2),
+            font=dict(size=11, color=color if color != MUTED else INK_2),
         )
-    fig.update_xaxes(title="round")
-    fig.update_yaxes(title="cumulative regret (PAWC share)", rangemode="tozero")
-    fig.update_layout(margin=dict(r=110))
-    st.markdown("### Cumulative regret, mean of replay runs with 95% band")
+    fig.update_xaxes(title="round", range=[0, t_max])
+    fig.update_yaxes(title="cumulative regret (pp of PAWC share)", rangemode="tozero")
+    fig.update_layout(margin=dict(r=210))
+    fig.update_annotations(selector=dict(xanchor="left"), captureevents=False)
+    st.markdown(f"### {titled('Replay regret (in-sample)', exp)}")
+    st.markdown(
+        f'<p class="note">Mean of replay runs with 95% band. LinUCB is shown at its best configured alpha '
+        f"({html.escape(best_lin or '-')}); grey is the best single arm chosen in hindsight, a reference "
+        "line rather than a policy.</p>",
+        unsafe_allow_html=True,
+    )
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    st.dataframe(summ, hide_index=True, use_container_width=True)
+    with st.expander("Replay table and curve data"):
+        st.dataframe(
+            table(replay_s, "Cumulative regret (pp, ±95% CI)"),
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.dataframe(curve, hide_index=True, use_container_width=True)
     traj = pd.DataFrame(e["trajectory"])
     if len(traj):
         st.markdown("### Greedy loop on held-out queries")
@@ -767,7 +828,23 @@ def optimizer() -> None:
             "only if the lower 95% bound of its held-out ΔPAWC is above zero.</p>",
             unsafe_allow_html=True,
         )
-        st.dataframe(traj, hide_index=True, use_container_width=True)
+        st.dataframe(
+            pd.DataFrame(
+                {
+                    "Step": traj.step,
+                    "Proposed": traj.proposed,
+                    "Predicted (pp)": traj.predicted_reward_pp.round(2),
+                    "Held-out ΔPAWC (pp)": [
+                        f"{m:+.2f} [{lo:+.2f}, {hi:+.2f}]"
+                        for m, lo, hi in zip(traj.d_pwc_pp, traj.d_lo, traj.d_hi, strict=True)
+                    ],
+                    "Kept": ["✓" if k else "–" for k in traj.kept],
+                    "Applied so far": traj.applied,
+                }
+            ),
+            hide_index=True,
+            use_container_width=True,
+        )
 
 
 def main() -> None:
