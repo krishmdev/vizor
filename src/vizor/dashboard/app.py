@@ -581,6 +581,47 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         st.markdown(f'<p class="note">{msg} ' + "; ".join(extra) + ".</p>", unsafe_allow_html=True)
 
 
+def sweep_chart(df: pd.DataFrame, xcol: str, dcol: str, xtitle: str, xname: str) -> None:
+    """Measured points only (no lines through unmeasured slots), CI whiskers, and the Holm verdict
+    of each comparison against the reference point, marked by shape and * as well as colour."""
+    sig = df.get("significant", pd.Series(False, index=df.index)).fillna(False).astype(bool)
+    sig.iloc[0] = False
+    fig = figure(300)
+    for mask, color, symbol, name in (
+        (~sig, MUTED, "circle", "not significant vs reference"),
+        (sig, SERIES[0], "diamond", "Holm p < 0.05 vs reference"),
+    ):
+        rows = df[mask]
+        if not len(rows):
+            continue
+        fig.add_scatter(
+            x=rows[xcol],
+            y=rows.pwc_pct,
+            mode="markers+text",
+            name=name,
+            text=["*" if s else "" for s in sig[mask]],
+            textposition="top center",
+            textfont=dict(size=16, color=SERIES[0]),
+            marker=dict(size=11, color=color, symbol=symbol),
+            error_y=dict(
+                type="data",
+                symmetric=False,
+                array=rows.pwc_hi - rows.pwc_pct,
+                arrayminus=rows.pwc_pct - rows.pwc_lo,
+                color=INK_2,
+                thickness=1.5,
+                width=6,
+            ),
+            customdata=rows[[dcol, "d_lo", "d_hi"]].to_numpy(),
+            hovertemplate=f"{xname}=%{{x}}: %{{y:.1f}}%<br>Δ vs reference %{{customdata[0]:+.1f}} pp "
+            "[%{customdata[1]:+.1f}, %{customdata[2]:+.1f}]<extra></extra>",
+        )
+    fig.update_xaxes(title=xtitle, tickvals=list(df[xcol]))
+    fig.update_yaxes(ticksuffix="%", rangemode="tozero", title="PAWC share")
+    fig.update_layout(legend=dict(y=1.12))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 def sandbox() -> None:
     header(
         "Sandbox",
@@ -601,50 +642,31 @@ def sandbox() -> None:
     forest(d, sens, exp)
 
     c1, c2 = st.columns(2, gap="large")
+    p = pd.DataFrame(e["position_sweep"])
+    b = pd.DataFrame(e["boost_sweep"])
     with c1:
-        st.markdown("### Position sweep")
+        st.markdown(f"### {titled('Position sweep: vs slot 1', exp)}")
         st.markdown(
-            '<p class="note">Same pages, target forced into slot 1–5 of the prompt.</p>',
+            '<p class="note">Same pages; the target is forced into each measured slot of the prompt.</p>',
             unsafe_allow_html=True,
         )
-        p = pd.DataFrame(e["position_sweep"])
         if len(p):
-            fig = figure(300)
-            _interval_band(fig, p.position, p.pwc_lo, p.pwc_hi, SERIES[0], "ci")
-            fig.add_scatter(
-                x=p.position,
-                y=p.pwc_pct,
-                mode="lines+markers",
-                line=dict(color=SERIES[0], width=2),
-                marker=dict(size=8),
-                showlegend=False,
-                hovertemplate="slot %{x}: %{y:.1f}%<extra></extra>",
+            sweep_chart(
+                p, "position", "d_pwc_vs_first_pp", "slot of the target in the prompt", "slot"
             )
-            fig.update_xaxes(dtick=1, title="slot of the target in the prompt")
-            fig.update_yaxes(ticksuffix="%", rangemode="tozero", title="PAWC share")
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     with c2:
-        st.markdown("### Boost sweep")
+        st.markdown(f"### {titled('Boost sweep: vs w=0', exp)}")
         st.markdown(
-            '<p class="note">w added to the target pages\' final retrieval score (0–1 scale).</p>',
+            '<p class="note">w is added to the target pages\' final retrieval score (0–1 scale).</p>',
             unsafe_allow_html=True,
         )
-        b = pd.DataFrame(e["boost_sweep"])
         if len(b):
-            fig = figure(300)
-            _interval_band(fig, b.boost, b.pwc_lo, b.pwc_hi, SERIES[0], "ci")
-            fig.add_scatter(
-                x=b.boost,
-                y=b.pwc_pct,
-                mode="lines+markers",
-                line=dict(color=SERIES[0], width=2),
-                marker=dict(size=8),
-                showlegend=False,
-                hovertemplate="w=%{x}: %{y:.1f}%<extra></extra>",
-            )
-            fig.update_xaxes(title="boost w")
-            fig.update_yaxes(ticksuffix="%", rangemode="tozero", title="PAWC share")
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            sweep_chart(b, "boost", "d_pwc_pp", "boost w", "w")
+    with st.expander("Sweep tables"):
+        if len(p):
+            st.dataframe(p, hide_index=True, use_container_width=True)
+        if len(b):
+            st.dataframe(b, hide_index=True, use_container_width=True)
 
     st.markdown("### Page diffs")
     diffs = api_or_stop(f"/experiments/{exp['id']}/diffs")
