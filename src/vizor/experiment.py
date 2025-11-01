@@ -35,7 +35,7 @@ from vizor.optimize.sandbox import (
 from vizor.optimize.stats import holm, mde
 from vizor.optimize.transforms import FABRICATING, LLM_REWRITES, TransformContext
 from vizor.retrieve.chunk import flatten_jsonld
-from vizor.runstore import git_commit, host_manifest, write_csv, write_jsonl_gz
+from vizor.runstore import git_commit, host_manifest, src_tree, write_csv, write_jsonl_gz
 
 Log = Callable[[str], None]
 
@@ -195,7 +195,7 @@ def preflight(cfg: Config, log: Log = print) -> dict:
 
 def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     t0 = time.time()
-    commit = git_commit()
+    commit, tree = git_commit(), src_tree()
     if cfg.llm.backend == "openai":
         preflight(cfg, log)
     out.mkdir(parents=True, exist_ok=True)
@@ -466,6 +466,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     manifest = {
         "vizor_version": vizor.__version__,
         "git_commit": commit,
+        "src_tree": tree,
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(t0)),
         "elapsed_s": round(time.time() - t0, 1),
         "config": cfg.model_dump(),

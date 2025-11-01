@@ -63,6 +63,17 @@ def git_commit() -> str:
         return "unknown"
 
 
+def src_tree() -> str:
+    """Git tree hash of src/ at HEAD: names the code even if commit hashes are later rewritten."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD:src"], capture_output=True, text=True, timeout=5
+        )
+        return out.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 def host_manifest(**extra: str) -> dict:
     """Host/workload snapshot from an external helper named by $VIZOR_RUN_MANIFEST, if set."""
     tool = (

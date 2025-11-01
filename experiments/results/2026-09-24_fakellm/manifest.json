@@ -1,6 +1,6 @@
 {
   "vizor_version": "0.2.0",
-  "git_commit": "38ef511",
+  "git_commit": "b9f509a",
   "started": "2026-09-25T01:03:34-0400",
   "elapsed_s": 48.0,
   "config": {
@@ -121,5 +121,8 @@
       "llm": "fake-extractive/v1/BAAI/bge-small-en-v1.5",
       "device": "cpu"
     }
-  }
+  },
+  "git_commit_recorded": "38ef511",
+  "src_tree": "7dce379c6b9e8686c9d85e13a53a30dcc361b7ec",
+  "provenance_note": "git_commit_recorded is the hash HEAD had when the run started; history was later rewritten (commit messages only), so git_commit and src_tree name the same code in the current history. src_tree is the git tree hash of src/ and survives message-only rewrites."
 }

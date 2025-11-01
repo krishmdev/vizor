@@ -4,7 +4,7 @@ Each directory under `results/` contains one run of `vizor demo` or `vizor exper
 
 | File | Contents |
 |---|---|
-| `manifest.json` | config, git commit, embedder/reranker/LLM ids, model pins, seeds, prompt hash, system prompt, LLM usage and spend, host snapshot |
+| `manifest.json` | config, git commit and `src_tree` (git tree hash of `src/`, which survives history rewrites that only touch commit messages), embedder/reranker/LLM ids, model pins, seeds, prompt hash, system prompt, LLM usage and spend, host snapshot |
 | `responses.jsonl.gz` | every answer: arm, query, sample, seed, sources with scores, raw model text, parsed sentences, usage |
 | `prompts.jsonl.gz` | each distinct prompt once, keyed by the hash stored with each answer |
 | `rows.csv.gz` | one row per answer x domain: retrieved, cited, markers, PAWC/word/position shares, sentiment |

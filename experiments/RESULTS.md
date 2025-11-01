@@ -4,7 +4,7 @@
 
 ## qwen2.5:3b-instruct via Ollama (small local model, reduced design)
 
-- Results: `experiments/results/2026-09-24_qwen2.5-3b` (git 38ef511, 2026-09-25)
+- Results: `experiments/results/2026-09-24_qwen2.5-3b` (git b9f509a, 2026-09-25)
 - Answer model: `qwen2.5:3b-instruct`
 - Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
 - Sentiment: `hf/cardiffnlp/twitter-roberta-base-sentiment-latest/3216a57f2a0d/p_pos-p_neg`; PAWC decay: paper
@@ -103,7 +103,7 @@ Held-out queries: 10. The loop keeps an arm only when the lower 95% confidence b
 
 ## FakeLLM (pipeline check)
 
-- Results: `experiments/results/2026-09-24_fakellm` (git 38ef511, 2026-09-25)
+- Results: `experiments/results/2026-09-24_fakellm` (git b9f509a, 2026-09-25)
 - Answer model: `fake-extractive/v1/BAAI/bge-small-en-v1.5` (deterministic extractive stand-in; pipeline check, not model evidence)
 - Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
 - Sentiment: `hf/cardiffnlp/twitter-roberta-base-sentiment-latest/3216a57f2a0d/p_pos-p_neg`; PAWC decay: paper
