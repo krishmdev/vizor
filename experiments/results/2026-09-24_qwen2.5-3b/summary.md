@@ -94,5 +94,5 @@ Held-out queries: 10. The loop keeps an arm only when the lower 95% confidence b
 
 | Step | Proposed | Predicted pp | Held-out ΔPAWC pp [95% CI] | Decision | Applied so far | Held-out PAWC % |
 |---|---|---|---|---|---|---|
-| 1 | `internal_links` | +3.20 | +0.7 [-5.4, +7.1] | rejected | `none` | 23.7 |
-| 2 | `metadata` | +0.77 | -4.6 [-11.6, +20.3] | rejected | `none` | 23.7 |
+| 1 | `internal_links` | +3.20 | +0.68 [-5.35, +7.15] | rejected | `none` | 23.7 |
+| 2 | `metadata` | +0.77 | -4.58 [-11.63, +20.34] | rejected | `none` | 23.7 |

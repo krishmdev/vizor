@@ -490,7 +490,7 @@ def trajectory_md(r: dict) -> str:
             str(int(x.step)),
             f"`{x.proposed}`",
             _f(x.predicted_reward_pp, 2, True),
-            _ci(x.d_pwc_pp, x.d_lo, x.d_hi),
+            _ci(x.d_pwc_pp, x.d_lo, x.d_hi, 2),
             "kept" if x.kept else "rejected",
             f"`{x.applied}`",
             _f(x.heldout_pwc_pct),

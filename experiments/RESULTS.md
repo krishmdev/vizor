@@ -98,8 +98,8 @@ Held-out queries: 10. The loop keeps an arm only when the lower 95% confidence b
 
 | Step | Proposed | Predicted pp | Held-out ΔPAWC pp [95% CI] | Decision | Applied so far | Held-out PAWC % |
 |---|---|---|---|---|---|---|
-| 1 | `internal_links` | +3.20 | +0.7 [-5.4, +7.1] | rejected | `none` | 23.7 |
-| 2 | `metadata` | +0.77 | -4.6 [-11.6, +20.3] | rejected | `none` | 23.7 |
+| 1 | `internal_links` | +3.20 | +0.68 [-5.35, +7.15] | rejected | `none` | 23.7 |
+| 2 | `metadata` | +0.77 | -4.58 [-11.63, +20.34] | rejected | `none` | 23.7 |
 
 
 ## FakeLLM (pipeline check)
@@ -194,7 +194,7 @@ Held-out queries: 20. The loop keeps an arm only when the lower 95% confidence b
 
 | Step | Proposed | Predicted pp | Held-out ΔPAWC pp [95% CI] | Decision | Applied so far | Held-out PAWC % |
 |---|---|---|---|---|---|---|
-| 1 | `keyword_stuffing` | +0.40 | +2.9 [+0.0, +5.0] | kept | `keyword_stuffing` | 21.2 |
-| 2 | `faq_rewrite` | +0.35 | -0.9 [-6.3, +1.7] | rejected | `keyword_stuffing` | 21.2 |
-| 3 | `metadata` | +0.01 | +1.3 [-2.7, +3.6] | rejected | `keyword_stuffing` | 21.2 |
-| 4 | `jsonld_insert` | +0.00 | +0.0 [+0.0, +0.0] | rejected | `keyword_stuffing` | 21.2 |
+| 1 | `keyword_stuffing` | +0.40 | +2.94 [+0.02, +4.99] | kept | `keyword_stuffing` | 21.2 |
+| 2 | `faq_rewrite` | +0.35 | -0.91 [-6.35, +1.75] | rejected | `keyword_stuffing` | 21.2 |
+| 3 | `metadata` | +0.01 | +1.31 [-2.72, +3.57] | rejected | `keyword_stuffing` | 21.2 |
+| 4 | `jsonld_insert` | +0.00 | +0.00 [+0.00, +0.00] | rejected | `keyword_stuffing` | 21.2 |
