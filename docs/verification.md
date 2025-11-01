@@ -23,12 +23,12 @@ This log records checks run on this machine (Apple M1 Pro, 16 GB, macOS) and how
   `--network none` reported blocked for every target. The positive control on the default network
   reached all three. The keyless demo (8 queries x 2 samples, real retrieval models mounted
   read-only) ran inside `--network none`.
-- **Sealed compose stack** (`make compose-offline`, run under the compute lease): api and
+- **Sealed compose stack** (`make compose-offline`, run exclusively on the machine): api and
   dashboard on an `internal: true` network. The checker container saw egress blocked, `/health`
   reported `"egress": "blocked"` from the API process, `/answer` returned 5 sources, and the
   dashboard served HTTP 200.
 - **CI workflow**: linted with actionlint. It has not run on GitHub.
-- **qwen2.5:3b-instruct via Ollama** (local, under the compute lease): 20 queries x 2 samples,
+- **qwen2.5:3b-instruct via Ollama** (local, run exclusively on the machine): 20 queries x 2 samples,
   422 new calls, 218 cache hits, 31 minutes. Before the run, 8 test answers showed the model citing
   only 6 of 52 sentences with the shared prompt. A system message restating the citation rule (in
   `configs/ollama.yaml`, recorded in the manifest) raised that to 34 of 36. Results are in

@@ -7,10 +7,6 @@
     "python": "3.14.6",
     "power": "Now drawing from 'AC Power'"
   },
-  "exclusive_compute": {
-    "held": true,
-    "holder": "vizor-ollama"
-  },
   "load": {
     "loadavg": [
       "5.94",
@@ -22,7 +18,7 @@
     "swap": "total = 14336.00M  used = 13909.56M  free = 426.44M  (encrypted)"
   },
   "extra": {
-    "holder": "vizor-ollama",
     "model": "qwen2.5:3b-instruct"
-  }
+  },
+  "exclusive_run": true
 }

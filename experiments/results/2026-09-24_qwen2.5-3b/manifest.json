@@ -118,7 +118,6 @@
       "cpu_count": 10
     },
     "extra": {
-      "holder": "2026-09-24_qwen2.5-3b",
       "llm": "qwen2.5:3b-instruct",
       "device": "cpu"
     }

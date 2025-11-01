@@ -15,7 +15,7 @@ Each directory under `results/` contains one run of `vizor demo` or `vizor exper
 | `queries.csv` | cross-fitting fold and focus page per query |
 | `diffs.json` | before/after text of every edited page, by arm and fold |
 | `summary.md` | the generated report for this directory |
-| `run_manifest_*.json` | host state (swap, top processes, lease holder) around a real-model run |
+| `run_manifest_*.json` | host state (chip, RAM, load, swap; whether the run was exclusive) around a real-model run |
 
 `vizor recompute <dir>` re-parses each raw answer and recomputes the attribution rows without
 calling a model. It must report `match`. `vizor report` rebuilds `RESULTS.md` and the README

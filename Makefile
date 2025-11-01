@@ -1,9 +1,10 @@
 # Two phases: `make setup` needs the network once (locked deps + pinned models); everything
-# else runs offline. Set VIZOR_OFFLINE_RUN to a wrapper that denies outbound network for a whole
-# process tree (on macOS, a sandbox-exec script; see README) to run the demo and servers inside it.
+# else runs offline. On macOS, OFFLINE_WRAPPER=scripts/offline-run runs the demo and servers
+# inside a sandbox-exec profile (scripts/offline.sb) that denies outbound network except localhost.
 PY      := .venv/bin/python
 VIZOR   := .venv/bin/vizor
-OFFLINE ?= $(VIZOR_OFFLINE_RUN)
+OFFLINE_WRAPPER ?=
+OFFLINE := $(OFFLINE_WRAPPER)
 DATE    := $(shell date +%F)
 
 .PHONY: setup models verify-models lint test test-models demo demo-ci offline-check serve ui \

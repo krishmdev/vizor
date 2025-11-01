@@ -496,7 +496,7 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "mde": mde_info,
         "llm_usage": llm_stats,
         "skipped_due_to_budget": skipped,
-        "host": host_manifest(holder=Path(out).name, llm=engine.llm.model_id, device="cpu"),
+        "host": host_manifest(llm=engine.llm.model_id, device="cpu"),
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
     log(f"wrote {out} in {time.time() - t0:.0f}s {llm_stats}")

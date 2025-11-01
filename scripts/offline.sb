@@ -1,0 +1,6 @@
+(version 1)
+; macOS sandbox-exec profile: deny all outbound network except localhost and unix sockets.
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(allow network-outbound (remote unix-socket))

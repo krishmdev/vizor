@@ -24,9 +24,9 @@ make serve      # API on :8000     (in another shell)
 make ui         # dashboard on :8501
 ```
 
-Set `VIZOR_OFFLINE_RUN` to a wrapper that blocks outbound traffic for the whole process tree.
-On macOS, use a `sandbox-exec` profile that denies `network-outbound` except localhost. Then
-`make demo`, `make serve`, and `make ui` run inside it. `make offline-check` checks the block:
+On macOS, `OFFLINE_WRAPPER=scripts/offline-run make demo` runs the demo inside
+`scripts/offline.sb`, a macOS sandbox-exec profile that denies outbound network except localhost,
+for the whole process tree (the same works for `make serve` and `make ui`). `make offline-check` checks the block:
 the egress canary must fail inside the wrapper and succeed outside it. To run the demo without
 downloading models, use `vizor demo --config configs/ci.yaml`.
 

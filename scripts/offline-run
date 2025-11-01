@@ -1,0 +1,8 @@
+#!/bin/sh
+# Run a command (and every child process) with outbound network denied except localhost, provider
+# keys unset and Hugging Face in offline mode. macOS only (sandbox-exec).
+#   scripts/offline-run vizor demo
+here="$(cd "$(dirname "$0")" && pwd)"
+exec env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u GEMINI_API_KEY \
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 \
+  sandbox-exec -f "$here/offline.sb" "$@"

@@ -117,7 +117,6 @@
       "cpu_count": 10
     },
     "extra": {
-      "holder": "2026-09-24_fakellm",
       "llm": "fake-extractive/v1/BAAI/bge-small-en-v1.5",
       "device": "cpu"
     }
