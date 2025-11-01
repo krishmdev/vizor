@@ -6,7 +6,8 @@ prompt, has a model write an answer with inline `[n]` citations, and scores ever
 the impression metrics from the GEO paper (Aggarwal et al., KDD 2024). A sandbox then edits the
 target site's pages (metadata, FAQ, JSON-LD, internal links and so on) or the engine's retrieval
 order, re-runs the same queries with the same seeds, and reports the shift with paired
-confidence intervals. A contextual bandit learns which edit to apply where.
+confidence intervals. A contextual bandit tries to choose which edit to apply for each query, and
+a held-out check tests whether those choices carry over to new queries.
 
 This repo was formerly RL-MCA-GEO. It is a rebuild: the earlier code asked the model to report
 its own PAWC and filled gaps with random numbers, so none of it was kept except the pieces listed
@@ -106,9 +107,11 @@ seed per (query, sample).
 
 Arms that read the tracked queries (metadata, FAQ, keyword stuffing) are cross-fitted. They are
 built from one half of the queries and scored on the other, so no page is edited with the exact
-query it is then scored on. The unit of analysis is the query (mean over samples). The test is a
-Wilcoxon signed-rank on per-query deltas, Holm-adjusted across the real arms, and the paired
-bootstrap 95% CI (B = 5000) is descriptive. The position sweep forces one target page into
+query it is then scored on. Deltas are per query (mean over samples). Queries served by the same
+edited page aren't independent, so page arms are tested on (fold, page) units: the bootstrap
+resamples units, and the Wilcoxon test runs on unit means. The verdict is the Holm-adjusted
+Wilcoxon p across the real arms, with the sweeps forming a second Holm family. The 95% CIs are
+descriptive. The position sweep forces one target page into
 slots 1 to 5. The boost sweep adds w to the target pages' final score and splits queries by
 whether the source set changed, only the order changed, or nothing changed.
 
@@ -119,8 +122,8 @@ and the intent. Arms are the page edits. The reward is the change in the target'
 the reward table comes straight from the sandbox runs, so evaluation costs no extra calls. The
 policies are LinUCB (Sherman–Morrison updates), linear Thompson sampling, ε-greedy, a bias-only
 LinUCB ablation and random. They are compared by offline replay (2000 rounds × 20 runs) against
-the per-query oracle, plus a held-out check: fit on one half of the queries, freeze, score the
-other half. A greedy loop then applies the bandit's proposals one at a time and keeps an edit only
+the per-query oracle. That replay is in-sample, so the held-out check is the real test: fit on
+one half of the queries, freeze, and score the other half. A greedy loop then applies the bandit's proposals one at a time and keeps an edit only
 if the held-out CI lower bound is above zero. This is a contextual bandit with replay evaluation,
 not deep RL.
 
@@ -216,19 +219,29 @@ Per-query classes compare the boosted source list with w=0: a different set of s
 - FakeLLM applies an explicit −0.05 per-slot position penalty; this sweep recovers that built-in prior and is not evidence about real models.
 <!-- results:end -->
 
-**Reading these results.** The claim this project set out to test is that small changes in
-retrieval weighting, context order or page metadata cause disproportionately large changes in
-what the model cites. In the one real-model run so far (the small local model above, 20 queries
-× 2 samples), that claim is **not supported**. No page arm, boost or slot change moved the
-target's PAWC share with a Holm-adjusted p below 0.05. The largest point estimates sit inside or
-near the A/A band, which is what re-sampling unchanged prompts produces by chance. At this
-sample size the run can only detect shifts well beyond that band, so a null here is weak
-evidence. The FakeLLM tables do show large position effects, but FakeLLM is built with a
-position penalty, so those numbers only confirm the sweep code works.
+**Reading these results.** The question this project set out to test is whether small changes
+in retrieval weighting, context order or page metadata produce disproportionately large changes
+in what the model cites. Each real-model block above ends with a generated verdict under one rule:
+an effect counts only if its Holm-adjusted Wilcoxon p is below 0.05. The verdict also states the
+smallest shift the run could detect (MDE at 80% power), which comes from the A/A re-sample's
+noise. A "not detected" verdict means no effect larger than that MDE. It does not rule out
+smaller ones. The FakeLLM tables show large position effects only because FakeLLM is built with
+a position penalty, so they confirm the sweep code works and nothing more.
 
-The gpt-4o-mini run is set up but has not been run yet. `vizor estimate -c configs/openai.yaml`
-puts it at up to 4,800 calls and about $2.13 at list prices. The run refuses to start above its
-$3 cap, and a shared spend ledger enforces the cap across processes. With `OPENAI_API_KEY` set,
+The local run uses one prompt change from the OpenAI config. qwen2.5:3b mostly ignored the
+in-line citation rule, so `configs/ollama.yaml` adds this system message (its example facts are
+made up and not from the corpus):
+
+> You answer questions using numbered search results. Write short sentences. Put a citation in
+> square brackets at the end of EVERY sentence, right before the period, naming the search
+> result that supports that sentence. Format example, with made-up facts unrelated to any
+> question: "The Harrow bicycle weighs 9 kg [2]. It ships in three colours [2]. The Linden has a
+> steel frame [4]." Never collect citations at the end of the answer.
+
+The gpt-4o-mini run is configured but has not been run yet. `vizor estimate -c configs/openai.yaml`
+bounds it at 4,800 answer calls plus 20 rewrite calls, about $2.90 at list prices. The run refuses
+to start if that bound plus what the shared spend ledger has already recorded exceeds its $3 cap,
+and every call reserves its worst-case cost before it is sent. With `OPENAI_API_KEY` set,
 it is one command:
 
 ```sh
@@ -277,7 +290,7 @@ src/vizor/
   api/ dashboard/  experiment.py cli.py models.py embed.py summarize.py queries.py
 data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
 experiments/    committed results and RESULTS.md
-tests/          284 offline tests, incl. vendored GEO reference functions
+tests/          292 offline tests, incl. vendored GEO reference functions
 ```
 
 ## Limitations
@@ -287,8 +300,10 @@ tests/          284 offline tests, incl. vendored GEO reference functions
   notice.
 - One synthetic vertical, 22 short pages and 40 queries. Effects of a few percentage points are
   near the resolution of these samples, and the confidence intervals should be read that way.
-- The local-model run uses a 3B model with a reduced design (20 queries × 2 samples). It needed an
-  extra system message before it would cite sentence by sentence. It shows how a small local model
+- The local-model run uses a 3B model with a reduced design (20 queries × 2 samples), and the
+  20 queries map to only a handful of edited pages, so page-arm tests have few units and little
+  power. It also needed the extra system message quoted above before it would cite in-line, and
+  even then it doesn't cite every sentence. It shows how a small local model
   behaves in this sandbox, not how GPT-class engines behave.
 - OpenAI's `seed` is best effort, so common random numbers give little variance reduction there.
   The A/A arm, not `noop`, is the right noise reference for real-model runs.
