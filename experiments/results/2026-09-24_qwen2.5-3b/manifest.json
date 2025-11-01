@@ -127,6 +127,7 @@
     "boost_n_queries": 20,
     "boost_pp": 13.65906268679195,
     "n_page_units": 7,
+    "n_page_units_min": 4,
     "page_arms_testable": false,
     "min_exact_p_page_units": 0.015625,
     "page_arm_pp": null

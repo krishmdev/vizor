@@ -373,9 +373,11 @@ def claim_md(r: dict) -> str:
             ),
         ]
         k = sens.get("n_page_units")
+        kmin = sens.get("n_page_units_min", k)
+        units_txt = f"{kmin}–{k}" if kmin is not None and kmin != k else f"{k}"
         if k is not None and not sens.get("page_arms_testable"):
             levers.append(
-                f"page edits: **untestable at this design** ({k} independent page units; the minimum "
+                f"page edits: **untestable at this design** ({units_txt} independent page units per arm; the minimum "
                 f"achievable Holm p is {_f(min(1.0, sens['min_exact_p_page_units'] * sens['arm_holm_family']), 3)}, "
                 f"above 0.05 at any effect size)"
             )

@@ -185,7 +185,7 @@ For each query, these classes compare the boosted source list with w=0: a differ
 - Retrieval weighting (final scores span 0.192 across the top 5 at the median; the 5th-to-6th gap is 0.036): w=0.02: target retrieval unchanged at 75%, ΔPAWC -3.8 [-14.0, +4.7] pp; w=0.10: target retrieval 75% → 80%, ΔPAWC -1.7 [-10.7, +6.4] pp. No boost has a Holm-significant effect.
 - Noise floor: re-sampling the unchanged prompts (A/A) moved PAWC share by +2.7 [-5.6, +9.7] pp.
 - Page and engine arms: 0 of 7 have a Holm-significant effect.
-- Sensitivity (80% power, strictest Holm step; A/A per-query SD 18.3 pp; slot sweep n=19, boost sweep n=20 queries). Moving the target from slot 1 to slot 5: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits: **untestable at this design** (7 independent page units; the minimum achievable Holm p is 0.109, above 0.05 at any effect size). Only the boosts and page edits are small changes; moving a source to the last slot is a large one. An effect the size of the MDE would be detected with 80% power; smaller ones could be missed. The sweep MDE uses the A/A per-query SD as its noise scale, so it is approximate for slot and boost comparisons, which have their own variance.
+- Sensitivity (80% power, strictest Holm step; A/A per-query SD 18.3 pp; slot sweep n=19, boost sweep n=20 queries). Moving the target from slot 1 to slot 5: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits: **untestable at this design** (4–7 independent page units per arm; the minimum achievable Holm p is 0.109, above 0.05 at any effect size). Only the boosts and page edits are small changes; moving a source to the last slot is a large one. An effect the size of the MDE would be detected with 80% power; smaller ones could be missed. The sweep MDE uses the A/A per-query SD as its noise scale, so it is approximate for slot and boost comparisons, which have their own variance.
 - Bandit, held out: the frozen contextual policy had regret 1.778 (±1.194) vs 1.970 for random and 2.508 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
 
 #### FakeLLM (pipeline check)
@@ -329,7 +329,9 @@ tests/          292 offline tests, incl. vendored GEO reference functions
 - The local-model run uses a 3B model with a reduced design (20 queries × 2 samples), and the
   20 queries map to only a handful of edited pages. With that few independent units, an exact
   Wilcoxon test can't pass the Holm threshold at any effect size, so the local run has no power
-  for page edits and its report says "not testable" instead of giving an MDE. It also needed the extra system message quoted above before it would cite in-line, and
+  for page edits and its report says "not testable" instead of giving an MDE. The FakeLLM demo's page arms
+  that aren't cross-fitted have the same problem (5 units each), and the dashboard marks them the
+  same way. It also needed the extra system message quoted above before it would cite in-line, and
   even then it doesn't cite every sentence. It shows how a small local model
   behaves in this sandbox, not how GPT-class engines behave.
 - OpenAI's `seed` is best effort, so common random numbers give little variance reduction there.

@@ -61,8 +61,12 @@ def sensitivity(run_dir: Path) -> dict:
         q = pd.read_csv(qfile).set_index("query_id")
         units = q.loc[d.index, "fold"].astype(str) + "|" + q.loc[d.index, "focus_doc"].astype(str)
         cm = d.groupby(units).mean()
-        k = int(len(cm))
+        # arms that aren't cross-fitted edit each page once for both folds, so they have fewer
+        # units than the fold x page count; test reachability at the largest unit count any arm has
+        per_arm = page_arms["n_units"] if "n_units" in page_arms else pd.Series([len(cm)])
+        k = int(per_arm.max())
         out["n_page_units"] = k
+        out["n_page_units_min"] = int(per_arm.min())
         out["page_arms_testable"] = reachable(k, arm_family)
         out["min_exact_p_page_units"] = min_exact_wilcoxon_p(k)
         out["page_arm_pp"] = (
