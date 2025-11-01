@@ -69,3 +69,47 @@ def sensitivity(run_dir: Path) -> dict:
             mde(float(cm.std(ddof=1)), k, arm_family) if out["page_arms_testable"] else None
         )
     return out
+
+
+def position_robustness(run_dir: Path) -> dict:
+    """How much the last-slot result depends on analysis choices: the slot-1 vs last-slot delta
+    per focus page, an exact Wilcoxon on those page means, and the Holm p the last slot would get
+    if the sweeps shared one family with the arms."""
+    from vizor.optimize.stats import holm, wilcoxon_p
+
+    run_dir = Path(run_dir)
+    pos_path = run_dir / "position_sweep.csv"
+    if not pos_path.exists() or not (run_dir / "queries.csv").exists():
+        return {}
+    pos = pd.read_csv(pos_path)
+    first, last = int(pos.position.iloc[0]), int(pos.position.iloc[-1])
+    rows = pd.read_csv(run_dir / "rows.csv.gz")
+    t = rows[rows.role == "target"]
+
+    def per_query(arm: str) -> pd.DataFrame:
+        a = t[t.arm == arm]
+        return a.groupby("query_id").agg(pwc=("imp_pwc", "mean"), retrieved=("retrieved", "max"))
+
+    a, b = per_query(f"engine:target_at:{first}"), per_query(f"engine:target_at:{last}")
+    forced = a.index[a.retrieved.astype(bool)]
+    d = (b.loc[forced, "pwc"] - a.loc[forced, "pwc"]) * 100
+    q = pd.read_csv(run_dir / "queries.csv").set_index("query_id")
+    by_page = d.groupby(q.loc[d.index, "focus_url"]).mean()
+    deltas = pd.read_csv(run_dir / "deltas.csv")
+    tested = deltas[~deltas.arm.isin(CONTROLS)]
+    boost = (
+        pd.read_csv(run_dir / "boost_sweep.csv") if (run_dir / "boost_sweep.csv").exists() else None
+    )
+    sweep_p = list(pos.p.iloc[1:]) + (list(boost.p.iloc[1:]) if boost is not None else [])
+    joint = holm(list(tested.p) + sweep_p)
+    return {
+        "first_slot": first,
+        "last_slot": last,
+        "n_queries": int(len(d)),
+        "per_page_delta_pp": {k.rsplit("/", 1)[-1]: float(v) for k, v in by_page.items()},
+        "n_pages": int(len(by_page)),
+        "page_level_p": wilcoxon_p(by_page.to_numpy()),
+        "raw_p": float(pos.p.iloc[-1]),
+        "joint_family_size": len(joint),
+        "joint_holm_p": float(joint[len(tested) + len(pos) - 2]),
+    }
