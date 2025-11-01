@@ -352,7 +352,7 @@ def claim_md(r: dict) -> str:
             + "; ".join(
                 [
                     lever(
-                        "moving the target between first and last slot",
+                        "Moving the target between first and last slot",
                         pos_sig,
                         mde.get("sweep_pp"),
                     ),

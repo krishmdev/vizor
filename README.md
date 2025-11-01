@@ -173,7 +173,7 @@ For each query, these classes compare the boosted source list with w=0: a differ
 - Retrieval weighting (final scores span 0.192 across the top 5 at the median; the 5th-to-6th gap is 0.036): w=0.02: target retrieval unchanged at 75%, ΔPAWC -3.8 [-14.0, +4.7] pp; w=0.10: target retrieval 75% → 80%, ΔPAWC -1.7 [-10.7, +6.4] pp. No boost has a Holm-significant effect.
 - Noise floor: re-sampling the unchanged prompts (A/A) moved PAWC share by +2.7 [-5.6, +9.7] pp.
 - Page and engine arms: 0 of 7 have a Holm-significant effect.
-- Sensitivity (80% power, strictest Holm step, A/A per-query SD 18.3 pp, n=20 queries, 4 page units). moving the target between first and last slot: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits (metadata, FAQ, JSON-LD, links, stats, keywords): not detected (MDE ≈ 18.1 pp). Only the boosts and page edits are small changes; moving a source from first to last is a large one. A non-detection rules out effects above the MDE, not smaller ones.
+- Sensitivity (80% power, strictest Holm step, A/A per-query SD 18.3 pp, n=20 queries, 4 page units). Moving the target between first and last slot: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits (metadata, FAQ, JSON-LD, links, stats, keywords): not detected (MDE ≈ 18.1 pp). Only the boosts and page edits are small changes; moving a source from first to last is a large one. A non-detection rules out effects above the MDE, not smaller ones.
 - Bandit, held out: the frozen contextual policy had regret 1.778 (±1.194) vs 1.970 for random and 2.508 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
 
 #### FakeLLM (pipeline check)
