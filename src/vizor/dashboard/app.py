@@ -61,6 +61,8 @@ code, .num {{ font-family:{FONT_NUM}; font-variant-numeric: tabular-nums; }}
 .badge.cited {{ border:1px solid var(--ink); color:var(--ink); }}
 .badge.ignored {{ border:1px dashed var(--muted); color:var(--muted); }}
 .badge.target {{ background:#e8f0fb; color:#1c5cab; }}
+.badge.fake {{ background:#fdf6e3; color:#6b4e00; border:1px solid #e9c46a; }}
+.runline {{ color:var(--ink2); font-size:0.9rem; margin:-0.4rem 0 1rem 0; }}
 .answer {{ font-size:1.08rem; line-height:1.85; background:#fff; border:1px solid var(--rule); border-radius:8px; padding:1.1rem 1.3rem; }}
 .sent {{ padding:0.1rem 0.15rem; border-radius:3px; box-decoration-break:clone; -webkit-box-decoration-break:clone;
          background:linear-gradient(transparent 62%, var(--tint) 62%); }}
@@ -171,10 +173,30 @@ def pick_experiment() -> dict | None:
     exps = [e for e in api_or_stop("/experiments") if e["kind"] == "experiment"]
     if not exps:
         return None
-    exps.sort(key=lambda e: (bool(e["is_fake_llm"]), e["location"] != "results", e["id"]))
-    labels = [f"{e['id']}  ·  {'FakeLLM' if e['is_fake_llm'] else e['llm_model']}" for e in exps]
-    i = st.sidebar.selectbox("Experiment", range(len(exps)), format_func=lambda k: labels[k])
-    return exps[i]
+    committed = [e for e in exps if e["location"] == "results"]
+    local = [e for e in exps if e["location"] != "results"]
+    groups = {"Committed results": committed, "Local runs": local}
+    names = [g for g, v in groups.items() if v]
+    group = st.sidebar.radio("Runs", names, horizontal=True) if len(names) > 1 else names[0]
+    choices = sorted(groups[group], key=lambda e: (bool(e["is_fake_llm"]), e["id"]))
+    labels = [f"{e['id']}  ·  {'FakeLLM' if e['is_fake_llm'] else e['llm_model']}" for e in choices]
+    i = st.sidebar.selectbox("Experiment", range(len(choices)), format_func=lambda k: labels[k])
+    return choices[i]
+
+
+def run_line(exp: dict) -> None:
+    """Which run the page shows, directly under the heading."""
+    model = "FakeLLM" if exp["is_fake_llm"] else html.escape(exp["llm_model"] or "")
+    badge = '<span class="badge fake">FakeLLM · pipeline check</span>' if exp["is_fake_llm"] else ""
+    st.markdown(
+        f'<p class="runline"><code>{html.escape(exp["id"])}</code> · {model} · '
+        f"{exp['n_queries']} queries × {exp['samples']} samples{badge}</p>",
+        unsafe_allow_html=True,
+    )
+
+
+def titled(text: str, exp: dict) -> str:
+    return text + (" · FakeLLM pipeline check" if exp["is_fake_llm"] else "")
 
 
 def no_experiments() -> None:
@@ -195,6 +217,7 @@ def overview() -> None:
     exp = pick_experiment()
     if exp is None:
         return no_experiments()
+    run_line(exp)
     e = api_or_stop(f"/experiments/{exp['id']}")
     m = e["manifest"]
     fake_banner(m.get("llm_is_fake", False))
@@ -211,26 +234,34 @@ def overview() -> None:
 
     left, right = st.columns([3, 2], gap="large")
     with left:
-        st.markdown("### Share of the answer")
+        st.markdown(f"### {titled('Share of the answer', exp)}")
         st.markdown(
             '<p class="note">Two views of share. C-SoV counts citation markers; PAWC weights each '
             "cited sentence by its length and how early it appears.</p>",
             unsafe_allow_html=True,
         )
         d = df.sort_values("pawc_sov")
-        fig = figure(60 + 46 * len(d))
+        ylab = [
+            f"<b>{x} (target)</b>" if r == "target" else x
+            for x, r in zip(d.domain, d.role, strict=True)
+        ]
+        fig = figure(80 + 46 * len(d))
         for metric, name, op in [
             ("c_sov", "Citation share of voice", 0.45),
             ("pawc_sov", "PAWC share", 1.0),
         ]:
             fig.add_bar(
-                y=d.domain,
+                y=ylab,
                 x=d[metric] * 100,
                 orientation="h",
                 name=name,
+                showlegend=False,
                 marker=dict(color=[colors[x] for x in d.domain], opacity=op, cornerradius=4),
                 hovertemplate="%{y}<br>" + name + ": %{x:.1f}%<extra></extra>",
             )
+        # legend swatches for the two encodings (the bars themselves are coloured by domain)
+        for name, op in [("Citation share of voice (light)", 0.45), ("PAWC share (solid)", 1.0)]:
+            fig.add_bar(y=[None], x=[None], name=name, marker=dict(color=INK_2, opacity=op))
         fig.update_layout(barmode="group", bargap=0.35, bargroupgap=0.08)
         fig.update_xaxes(ticksuffix="%", rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -238,15 +269,50 @@ def overview() -> None:
         st.markdown("### Funnel per domain")
         tbl = pd.DataFrame(
             {
-                "Domain": df.domain,
-                "Retrieved": (df.retrieval_rate * 100).round(0),
-                "Cited": (df.citation_rate * 100).round(0),
-                "Cited if retrieved": (df.conversion * 100).round(0),
-                "First cite (sentence)": df.first_cite_sentence.round(2),
-                "Answer sentiment": df.answer_sentiment.round(2),
+                "Domain": [
+                    f"{x} ★" if r == "target" else x
+                    for x, r in zip(df.domain, df.role, strict=True)
+                ],
+                "Retr.": df.retrieval_rate * 100,
+                "Cited": df.citation_rate * 100,
+                "Conv.": df.conversion * 100,
+                "PAWC": df.pawc_sov * 100,
+                "C-SoV": df.c_sov * 100,
+                "1st cite": df.first_cite_sentence,
+                "Sent.": df.answer_sentiment,
             }
         )
-        st.dataframe(tbl, hide_index=True, use_container_width=True)
+
+        def pct(label: str, helptext: str):
+            return st.column_config.NumberColumn(label, help=helptext, format="%.0f%%")
+
+        st.dataframe(
+            tbl,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Domain": st.column_config.TextColumn("Domain", help="★ marks the target site"),
+                "Retr.": pct("Retr.", "Share of answers whose prompt included this domain"),
+                "Cited": pct("Cited", "Share of answers citing this domain at least once"),
+                "Conv.": pct("Conv.", "Cited when retrieved"),
+                "PAWC": st.column_config.NumberColumn(
+                    "PAWC", help="Mean PAWC share of the answer", format="%.1f%%"
+                ),
+                "C-SoV": st.column_config.NumberColumn(
+                    "C-SoV", help="Share of all citation markers", format="%.1f%%"
+                ),
+                "1st cite": st.column_config.NumberColumn(
+                    "1st cite", help="Mean sentence of first citation", format="%.2f"
+                ),
+                "Sent.": st.column_config.NumberColumn(
+                    "Sent.", help="PAWC-weighted sentiment of citing sentences", format="%+.2f"
+                ),
+            },
+        )
+        st.markdown(
+            '<p class="note">★ target site. Hover a header for its definition.</p>',
+            unsafe_allow_html=True,
+        )
     st.markdown(
         f'<p class="note">{m["n_queries"]} queries × {m["samples"]} samples · retrieval '
         f"<code>{html.escape(m['embedder_id'])}</code> + <code>{html.escape(m['reranker_id'])}</code> · answers "
@@ -376,6 +442,7 @@ def inspector() -> None:
     exp = pick_experiment()
     if exp is None:
         return no_experiments()
+    run_line(exp)
     fake_banner(exp["is_fake_llm"])
     e = api_or_stop(f"/experiments/{exp['id']}")
     arms = ["baseline"] + [d["arm"] for d in e["deltas"] if d["arm"] != "noop"]
@@ -420,6 +487,7 @@ def sandbox() -> None:
     exp = pick_experiment()
     if exp is None:
         return no_experiments()
+    run_line(exp)
     fake_banner(exp["is_fake_llm"])
     e = api_or_stop(f"/experiments/{exp['id']}")
     d = pd.DataFrame(e["deltas"])
@@ -569,6 +637,7 @@ def optimizer() -> None:
     exp = pick_experiment()
     if exp is None:
         return no_experiments()
+    run_line(exp)
     fake_banner(exp["is_fake_llm"])
     e = api_or_stop(f"/experiments/{exp['id']}")
     curve = pd.DataFrame(e["bandit_curve"])
@@ -632,7 +701,7 @@ def main() -> None:
             f'<div class="note">egress: {egress_state()}</div>', unsafe_allow_html=True
         )
     pages = [
-        st.Page(overview, title="Overview", url_path="overview", default=True),
+        st.Page(overview, title="Overview", default=True),
         st.Page(inspector, title="Answer inspector", url_path="inspector"),
         st.Page(sandbox, title="Sandbox", url_path="sandbox"),
         st.Page(optimizer, title="Optimizer", url_path="optimizer"),
