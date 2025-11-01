@@ -92,17 +92,6 @@
       1.0
     ]
   },
-  "mde": {
-    "aa_sd_per_query_pp": 18.292672382300864,
-    "n_queries": 20,
-    "engine_arm_pp": 14.627107614438426,
-    "sweep_pp": 13.659068074250415,
-    "n_sweep_queries": 20,
-    "power": 0.8,
-    "alpha": 0.05,
-    "n_page_units": 4,
-    "page_arm_pp": 18.097545392899843
-  },
   "llm_usage": {
     "calls": 83,
     "cache_hits": 557,
@@ -124,5 +113,22 @@
   },
   "git_commit_recorded": "38ef511",
   "src_tree": "7dce379c6b9e8686c9d85e13a53a30dcc361b7ec",
-  "provenance_note": "git_commit_recorded is the hash HEAD had when the run started; history was later rewritten (commit messages only), so git_commit and src_tree name the same code in the current history. src_tree is the git tree hash of src/ and survives message-only rewrites."
+  "provenance_note": "git_commit_recorded is the hash HEAD had when the run started; history was later rewritten (commit messages only), so git_commit and src_tree name the same code in the current history. src_tree is the git tree hash of src/ and survives message-only rewrites.",
+  "sensitivity": {
+    "aa_sd_per_query_pp": 18.292665167239623,
+    "n_queries": 20,
+    "arm_holm_family": 7,
+    "power": 0.8,
+    "alpha": 0.05,
+    "engine_arm_pp": 14.44606535154252,
+    "sweep_holm_family": 4,
+    "position_n_queries": 19,
+    "position_pp": 14.013902626422622,
+    "boost_n_queries": 20,
+    "boost_pp": 13.65906268679195,
+    "n_page_units": 7,
+    "page_arms_testable": false,
+    "min_exact_p_page_units": 0.015625,
+    "page_arm_pp": null
+  }
 }

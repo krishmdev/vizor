@@ -9,7 +9,7 @@
 - Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
 - Sentiment: `hf/cardiffnlp/twitter-roberta-base-sentiment-latest/3216a57f2a0d/p_pos-p_neg`; PAWC decay: paper
 - 20 queries x 2 samples, 22 pages
-- This is a small local model. It needed an extra system message (recorded in the manifest) to cite sentence by sentence.
+- This is a small local model. It needed an extra system message (recorded in the manifest) to cite in-line.
 - Local calls: 83 new, 557 cached (no API spend)
 
 ### Baseline visibility
@@ -62,7 +62,7 @@ For each query, these classes compare the boosted source list with w=0: a differ
 - Retrieval weighting (final scores span 0.192 across the top 5 at the median; the 5th-to-6th gap is 0.036): w=0.02: target retrieval unchanged at 75%, ΔPAWC -3.8 [-14.0, +4.7] pp; w=0.10: target retrieval 75% → 80%, ΔPAWC -1.7 [-10.7, +6.4] pp. No boost has a Holm-significant effect.
 - Noise floor: re-sampling the unchanged prompts (A/A) moved PAWC share by +2.7 [-5.6, +9.7] pp.
 - Page and engine arms: 0 of 7 have a Holm-significant effect.
-- Sensitivity (80% power, strictest Holm step, A/A per-query SD 18.3 pp, n=20 queries, 4 page units). Moving the target between first and last slot: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits (metadata, FAQ, JSON-LD, links, stats, keywords): not detected (MDE ≈ 18.1 pp). Only the boosts and page edits are small changes; moving a source from first to last is a large one. A non-detection rules out effects above the MDE, not smaller ones.
+- Sensitivity (80% power, strictest Holm step; A/A per-query SD 18.3 pp; slot sweep n=19, boost sweep n=20 queries). Moving the target from slot 1 to slot 5: **detected**; small retrieval boosts (w ≤ 0.10): not detected (MDE ≈ 13.7 pp); page edits: **not testable** with 7 independent page units (the smallest exact Wilcoxon p is 0.0156, above 0.05 after Holm across 7 arms, at any effect size). Only the boosts and page edits are small changes; moving a source to the last slot is a large one. A non-detection rules out effects above the MDE, not smaller ones.
 - Bandit, held out: the frozen contextual policy had regret 1.778 (±1.194) vs 1.970 for random and 2.508 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
 
 ### Bandit replay

@@ -32,7 +32,8 @@ from vizor.optimize.sandbox import (
     target_frame,
     two_folds,
 )
-from vizor.optimize.stats import holm, mde
+from vizor.optimize.sensitivity import sensitivity
+from vizor.optimize.stats import holm
 from vizor.optimize.transforms import FABRICATING, LLM_REWRITES, TransformContext
 from vizor.retrieve.chunk import flatten_jsonld
 from vizor.runstore import git_commit, host_manifest, src_tree, write_csv, write_jsonl_gz
@@ -136,36 +137,6 @@ def greedy_trajectory(
             }
         )
     return pd.DataFrame(rows), extra_runs
-
-
-def minimum_detectable(
-    sb: Sandbox, base: ArmRun, arm_runs: dict, sweep_family: int, n_sweep: int | None = None
-) -> dict:
-    """MDE at 80% power from the A/A re-sample's per-query noise: for engine arms and sweeps at
-    the query level, for page arms at the (fold, focus page) cluster level they are tested at."""
-    aa = arm_runs.get("aa_resample")
-    if aa is None:
-        return {}
-    d = (aa.per_query()["imp_pwc"] - base.per_query()["imp_pwc"]).dropna() * 100
-    page_runs = [r for r in arm_runs.values() if r.arm.kind == "doc" and r.scored_against]
-    engine_arms = [a for a, r in arm_runs.items() if r.arm.kind == "engine"]
-    out = {
-        "aa_sd_per_query_pp": float(d.std(ddof=1)),
-        "n_queries": int(len(d)),
-        "engine_arm_pp": mde(
-            float(d.std(ddof=1)), len(d), max(1, len(engine_arms) + len(page_runs))
-        ),
-        "sweep_pp": mde(float(d.std(ddof=1)), n_sweep or len(d), max(1, sweep_family)),
-        "n_sweep_queries": n_sweep or int(len(d)),
-        "power": 0.8,
-        "alpha": 0.05,
-    }
-    if page_runs:
-        units = pd.Series({q: "|".join(page_runs[0].scored_against[q]) for q in d.index})
-        cm = d.groupby(units).mean()
-        out["n_page_units"] = int(len(cm))
-        out["page_arm_pp"] = mde(float(cm.std(ddof=1)), len(cm), len(page_runs) + len(engine_arms))
-    return out
 
 
 def preflight(cfg: Config, log: Log = print) -> dict:
@@ -310,17 +281,6 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
                     if name == df_name:
                         df.loc[i, "p_holm"] = q
                 df["significant"] = df["p_holm"] < 0.05
-
-    mde_info = minimum_detectable(
-        sb, base, arm_runs, len(sweep_p), n_sweep=len(sweep_qs) if sweep_qs else None
-    )
-    log(f"minimum detectable effects: {mde_info}")
-    log(
-        "arms:\n"
-        + deltas[["arm", "d_pwc_pp", "d_pwc_lo", "d_pwc_hi", "p_holm"]]
-        .round(3)
-        .to_string(index=False)
-    )
 
     # Bandit over page arms only; engine interventions aren't something a site owner controls.
     b_arms = [a for a, r in arm_runs.items() if r.arm.kind == "doc"]
@@ -493,11 +453,12 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "page_arm_scope": "focus page per query",
         "model_pins": {k: f"{v.repo}@{v.revision}" for k, v in PINS.items()},
         "score_scale": score_scale(base),
-        "mde": mde_info,
         "llm_usage": llm_stats,
         "skipped_due_to_budget": skipped,
         "host": host_manifest(llm=engine.llm.model_id, device="cpu"),
     }
+    manifest["sensitivity"] = sensitivity(out)
+    log(f"sensitivity: {manifest['sensitivity']}")
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
     log(f"wrote {out} in {time.time() - t0:.0f}s {llm_stats}")
     return out

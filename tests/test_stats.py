@@ -62,3 +62,15 @@ def test_mde_formula():
     # z_{0.025} + z_{0.8} = 1.95996 + 0.84162
     assert mde(10.0, 25, 1) == pytest.approx((1.959964 + 0.841621) * 10 / 5, rel=1e-5)
     assert mde(10.0, 25, 5) > mde(10.0, 25, 1)
+
+
+def test_exact_wilcoxon_floor_and_reachability():
+    from scipy import stats as sps
+
+    from vizor.optimize.sensitivity import min_exact_wilcoxon_p, reachable
+
+    for k in (4, 7, 9):
+        assert sps.wilcoxon(np.arange(1, k + 1), method="exact").pvalue == pytest.approx(
+            min_exact_wilcoxon_p(k)
+        )
+    assert not reachable(4, 1) and not reachable(7, 7) and reachable(12, 7)
