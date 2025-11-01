@@ -81,15 +81,15 @@ Offline replay uses rewards from the same table the policies learn from. It runs
 | best fixed arm (hindsight) | 344.96 ± 4.13 | +1.32 | `internal_links` (100%) |
 | oracle | 0.00 ± 0.00 | +18.69 |  |
 
-Held-out check: the policy is fit on fold-1 queries, then frozen and scored on fold-2 queries. Regret is summed over held-out queries, with one decision per query.
+Held-out check: the policy is fit on fold-1 queries, then frozen and scored on fold-2 queries. Regret is summed over held-out queries, with one decision per query. Caveat: for the cross-fitted arms (metadata, FAQ, keyword stuffing) the fold-1 rewards were measured on pages built from fold-2 query text, so this is a split of contexts rather than a fully independent test.
 
-| Policy | Held-out regret | Mean reward pp | Most chosen arm |
+| Policy | Held-out regret (±95% CI) | Mean reward pp | Most chosen arm |
 |---|---|---|---|
-| linucb (frozen, contextual) | 1.778 | +2.72 | `internal_links` (40%) |
-| linucb-bias-only (frozen) | 2.508 | -4.58 | `metadata` (100%) |
-| best fixed arm (chosen on train) | 2.508 | -4.58 | `metadata` (100%) |
-| random (expected) | 1.970 | +0.79 |  |
-| oracle | 0.000 | +20.50 |  |
+| linucb (frozen, contextual) | 1.778 ± 1.194 | +2.72 | `internal_links` (40%) |
+| linucb-bias-only (frozen) | 2.508 ± 1.718 | -4.58 | `metadata` (100%) |
+| best fixed arm (chosen on train) | 2.508 ± 1.718 | -4.58 | `metadata` (100%) |
+| random (expected) | 1.970 ± n/a | +0.79 |  |
+| oracle | 0.000 ± 0.000 | +20.50 |  |
 
 ### Greedy optimization loop
 
@@ -177,15 +177,15 @@ Offline replay uses rewards from the same table the policies learn from. It runs
 | best fixed arm (hindsight) | 95.20 ± 1.60 | +1.77 | `keyword_stuffing` (100%) |
 | oracle | 0.00 ± 0.00 | +6.57 |  |
 
-Held-out check: the policy is fit on fold-1 queries, then frozen and scored on fold-2 queries. Regret is summed over held-out queries, with one decision per query.
+Held-out check: the policy is fit on fold-1 queries, then frozen and scored on fold-2 queries. Regret is summed over held-out queries, with one decision per query. Caveat: for the cross-fitted arms (metadata, FAQ, keyword stuffing) the fold-1 rewards were measured on pages built from fold-2 query text, so this is a split of contexts rather than a fully independent test.
 
-| Policy | Held-out regret | Mean reward pp | Most chosen arm |
+| Policy | Held-out regret (±95% CI) | Mean reward pp | Most chosen arm |
 |---|---|---|---|
-| linucb (frozen, contextual) | 0.793 | +3.23 | `faq_rewrite` (30%) |
-| linucb-bias-only (frozen) | 0.852 | +2.94 | `keyword_stuffing` (100%) |
-| best fixed arm (chosen on train) | 0.852 | +2.94 | `keyword_stuffing` (100%) |
-| random (expected) | 1.420 | +0.10 |  |
-| oracle | 0.000 | +7.20 |  |
+| linucb (frozen, contextual) | 0.793 ± 0.473 | +3.23 | `faq_rewrite` (30%) |
+| linucb-bias-only (frozen) | 0.852 ± 0.522 | +2.94 | `keyword_stuffing` (100%) |
+| best fixed arm (chosen on train) | 0.852 ± 0.522 | +2.94 | `keyword_stuffing` (100%) |
+| random (expected) | 1.420 ± n/a | +0.10 |  |
+| oracle | 0.000 ± 0.000 | +7.20 |  |
 
 ### Greedy optimization loop
 

@@ -450,11 +450,19 @@ def bandit_md(r: dict) -> str:
     if len(held):
         out += (
             "\n\nHeld-out check: the policy is fit on fold-1 queries, then frozen and scored on "
-            "fold-2 queries. Regret is summed over held-out queries, with one decision per query.\n\n"
+            "fold-2 queries. Regret is summed over held-out queries, with one decision per query. "
+            "Caveat: for the cross-fitted arms (metadata, FAQ, keyword stuffing) the fold-1 rewards were "
+            "measured on pages built from fold-2 query text, so this is a split of contexts rather than "
+            "a fully independent test.\n\n"
             + _table(
-                ["Policy", "Held-out regret", "Mean reward pp", "Most chosen arm"],
+                ["Policy", "Held-out regret (±95% CI)", "Mean reward pp", "Most chosen arm"],
                 [
-                    [x.policy, _f(x.final_regret, 3), _f(x.mean_reward_pp, 2, True), arm_cell(x)]
+                    [
+                        x.policy,
+                        f"{_f(x.final_regret, 3)} ± {_f(x.final_regret_ci, 3)}",
+                        _f(x.mean_reward_pp, 2, True),
+                        arm_cell(x),
+                    ]
                     for x in held.itertuples()
                 ],
             )
