@@ -17,6 +17,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from vizor.optimize.sensitivity import reachable
+
 API = os.environ.get("VIZOR_API", "http://localhost:8000").rstrip("/")
 
 INK, INK_2, MUTED, RULE, PAPER, PANEL = (
@@ -496,6 +498,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
     fig = figure(90 + 40 * len(d))
     fig.add_vline(x=0, line=dict(color=INK_2, width=1))
     page_ok = sens.get("page_arms_testable", True)
+    family = int(sens.get("arm_holm_family") or len(d[d.kind != "aa"]))
     for kind, key in (("engine", "engine_arm_pp"), ("doc", "page_arm_pp")):
         m = sens.get(key)
         rows = d[d.kind == kind]
@@ -545,7 +548,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         units = int(getattr(x, "n_units", x.n_queries) or x.n_queries)
         if x.kind == "aa":
             txt = f"control · n={int(x.n_queries)}"
-        elif x.kind == "doc" and not page_ok:
+        elif x.kind == "doc" and not reachable(units, family):
             txt = f"not testable at {units} units"
         else:
             txt = f"p={x.p_holm:.3f}{' *' if bool(getattr(x, 'significant', False)) else ''} · n={int(x.n_queries)}"
@@ -578,11 +581,17 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         )
     if sens.get("n_page_units") is not None:
         extra.append(
-            f"page arms tested on {sens['n_page_units']} (fold, page) units"
+            f"page arms tested on {sens.get('n_page_units_min', sens['n_page_units'])}–{sens['n_page_units']} page units"
             + ("" if page_ok else ", too few for any Holm-significant result")
         )
     if len(tested):
-        st.markdown(f'<p class="note">{msg} ' + "; ".join(extra) + ".</p>", unsafe_allow_html=True)
+        st.markdown(
+            f'<p class="note">{msg} '
+            + "; ".join(extra).capitalize()[:1]
+            + "; ".join(extra)[1:]
+            + ".</p>",
+            unsafe_allow_html=True,
+        )
 
 
 def sweep_chart(df: pd.DataFrame, xcol: str, dcol: str, xtitle: str, xname: str) -> None:
