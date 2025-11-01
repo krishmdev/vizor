@@ -1,7 +1,8 @@
 # Vizor
 
 Vizor tests how changes to a page or retrieval order affect which sources an LLM answer engine
-cites. It retrieves pages, puts source labels in the prompt, asks a model for an answer with
+cites, using a simulated answer engine over a small synthetic corpus (22 pages on 5 fictional
+sites). It retrieves pages, puts source labels in the prompt, asks a model for an answer with
 inline `[n]` citations, and scores each source with impression metrics from the GEO paper
 (Aggarwal et al., KDD 2024). The sandbox edits a target site's metadata, FAQ, JSON-LD, or
 internal links, or changes retrieval order. It then runs the same queries with the same seeds
@@ -79,7 +80,17 @@ position i (zero-based) and the citations C(s) of each sentence:
 So a sentence's words are split equally among its citations. `decay="reference"` uses
 exp(−i/(N−1)) instead, which is what the authors' released code does. The test suite checks the
 implementation against a hand-computed example and against the authors' own functions (vendored
-under `tests/reference/`) on 200 random citation patterns. Beyond PAWC, per domain: Citation
+under `tests/reference/`) on 200 random citation patterns. Three deliberate differences from the
+reference code outside those tests:
+
+- an answer that cites nothing gives every source 0, not 1/n (`no_citation="uniform"` restores
+  1/n);
+- word counts include tokens of 2 characters or fewer (`wordcount="geo_reference"` drops them, as
+  `get_num_words` does);
+- a citation to a source index that wasn't in the prompt is dropped and counted as hallucinated,
+  so it doesn't enter |C(s)|. The reference code keeps it in the divisor, and a `[0]` there
+  silently credits the last source.
+ Beyond PAWC, per domain: Citation
 Share-of-Voice (share of all `[n]` markers), citation rate, first-citation position, retrieved →
 cited conversion, and an emphasized / cited / ignored label for each source in each answer.
 Sentiment comes from `cardiffnlp/twitter-roberta-base-sentiment-latest` (P(pos) − P(neg)), both
@@ -225,9 +236,23 @@ in retrieval weighting, context order or page metadata produce disproportionatel
 in what the model cites. Each real-model block above ends with a generated verdict under one rule:
 an effect counts only if its Holm-adjusted Wilcoxon p is below 0.05. The verdict also states the
 smallest shift the run could detect (MDE at 80% power), which comes from the A/A re-sample's
-noise. A "not detected" verdict means no effect larger than that MDE. It does not rule out
-smaller ones. The FakeLLM tables show large position effects only because FakeLLM is built with
+noise. An effect as large as the MDE would be detected with 80% power; smaller ones could be
+missed. Page edits in the local run get no MDE at all. With so few independent page units, no
+effect size can reach the threshold, so the verdict says "untestable at this design". The FakeLLM tables show large position effects only because FakeLLM is built with
 a position penalty, so they confirm the sweep code works and nothing more.
+
+The one significant result in the local run, target PAWC share falling when it is moved from the
+first to the last slot, is fragile. The generated block shows the per-page deltas and the
+page-level and single-family p-values. An earlier run with a different system message, whose
+example sentences quoted corpus facts, got a smaller, non-significant slot-5 delta. That run is
+in history as commit "results: qwen2.5:3b local run (20 queries x 2 samples), raw responses
+included" (`experiments/results/2026-09-23_qwen2.5-3b/position_sweep.csv`: −9.8 pp, raw p
+0.116). It was removed because of that prompt, not because of its result.
+
+What has not been run: the GEO LLM rewrite arms (`fluency`, `authoritative` and the rest). They
+run only with a real model and `llm_rewrites: true`, and no committed run has them. The planned
+40 queries × 5 samples design with a real model hasn't been run either. The local run is
+20 queries × 2 samples.
 
 The local run uses one prompt change from the OpenAI config. qwen2.5:3b mostly ignored the
 in-line citation rule, so `configs/ollama.yaml` adds this system message (its example facts are
