@@ -122,6 +122,9 @@ def count_words(sentence: str, mode: str = "alnum") -> int:
 
 
 def parse_answer(text: str, n_sources: int, wordcount: str = "alnum") -> ParsedAnswer:
+    """Split into sentences and collect valid citations. Indices outside 1..n_sources are dropped
+    and returned as `hallucinated`, so they don't count toward |C(s)|. GEO's reference code keeps
+    them in the divisor (and a [0] there wraps around to the last source)."""
     sentences: list[CitedSentence] = []
     hallucinated: list[int] = []
     for pos, s in enumerate(split_sentences(text)):
