@@ -64,12 +64,17 @@ def git_commit() -> str:
 
 
 def src_tree() -> str:
-    """Git tree hash of src/ at HEAD: names the code even if commit hashes are later rewritten."""
+    """Git tree hash of src/ at HEAD, plus "+dirty" if src/ has uncommitted changes: names the
+    code even if commit hashes are later rewritten."""
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD:src"], capture_output=True, text=True, timeout=5
         )
-        return out.stdout.strip() or "unknown"
+        tree = out.stdout.strip() or "unknown"
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "src"], capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+        return tree + ("+dirty" if dirty else "")
     except (OSError, subprocess.SubprocessError):
         return "unknown"
 

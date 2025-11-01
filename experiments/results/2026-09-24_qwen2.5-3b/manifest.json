@@ -113,7 +113,7 @@
   },
   "git_commit_recorded": "38ef511",
   "src_tree": "7dce379c6b9e8686c9d85e13a53a30dcc361b7ec",
-  "provenance_note": "git_commit_recorded is the hash HEAD had when the run started; history was later rewritten (commit messages only), so git_commit and src_tree name the same code in the current history. src_tree is the git tree hash of src/ and survives message-only rewrites.",
+  "provenance_note": "History was rewritten after this run; the commit hashes and dates in git don't reflect when the run happened. git_commit_recorded is the hash HEAD had when it started. Rely on src_tree (the git tree hash of src/) and the file hashes in this directory.",
   "sensitivity": {
     "aa_sd_per_query_pp": 18.292665167239623,
     "n_queries": 20,
