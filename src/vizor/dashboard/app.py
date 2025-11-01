@@ -475,6 +475,112 @@ def _interval_band(fig, x, lo, hi, color, name):
     )
 
 
+def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
+    """Per-arm ΔPAWC with descriptive CIs, grouped controls / page arms / engine arms, with the
+    Holm verdict and n written beside each row so significance is never colour-only."""
+    d = d[d.arm != "noop"].copy()
+    group = {"aa": "Control", "doc": "Page arm", "engine": "Engine arm"}
+    d["group"] = d.kind.map(group).fillna("Engine arm")
+    order = {"Control": 0, "Page arm": 1, "Engine arm": 2}
+    d = d.sort_values(
+        by=["group", "d_pwc_pp"], key=lambda c: c.map(order) if c.name == "group" else c
+    )
+    d["label"] = d.group + " · " + d.arm
+    labels = list(d.label)[::-1]  # plotly draws the first category at the bottom
+    sig = d.get("significant", pd.Series(False, index=d.index)).fillna(False).astype(bool)
+    st.markdown(f"### {titled('ΔPAWC share of the target', exp)}")
+    fig = figure(90 + 40 * len(d))
+    fig.add_vline(x=0, line=dict(color=INK_2, width=1))
+    page_ok = sens.get("page_arms_testable", True)
+    for kind, key in (("engine", "engine_arm_pp"), ("doc", "page_arm_pp")):
+        m = sens.get(key)
+        rows = d[d.kind == kind]
+        if m and len(rows):
+            for sign in (-1, 1):
+                fig.add_scatter(
+                    x=[sign * m] * len(rows),
+                    y=rows.label,
+                    mode="markers",
+                    showlegend=False,
+                    marker=dict(symbol="line-ns", size=16, line=dict(color=MUTED, width=1.5)),
+                    hovertemplate=f"MDE ±{m:.1f} pp (80% power)<extra></extra>",
+                )
+    for mask, symbol, color, name in (
+        (sig, "diamond", SERIES[0], "Holm p < 0.05"),
+        (~sig & (d.kind != "aa"), "circle", MUTED, "not significant"),
+        (d.kind == "aa", "circle-open", INK_2, "A/A control (noise)"),
+    ):
+        rows = d[mask]
+        if not len(rows):
+            continue
+        fig.add_scatter(
+            x=rows.d_pwc_pp,
+            y=rows.label,
+            mode="markers",
+            name=name,
+            marker=dict(
+                size=11,
+                symbol=symbol,
+                color=color,
+                line=dict(color=color if "open" in symbol else "#fff", width=2),
+            ),
+            error_x=dict(
+                type="data",
+                symmetric=False,
+                array=rows.d_pwc_hi - rows.d_pwc_pp,
+                arrayminus=rows.d_pwc_pp - rows.d_pwc_lo,
+                color=INK_2,
+                thickness=1.5,
+                width=0,
+            ),
+            customdata=rows[["d_pwc_lo", "d_pwc_hi", "p_holm", "n_queries"]].to_numpy(),
+            hovertemplate="%{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
+            "<br>Holm p %{customdata[2]:.3f} · n=%{customdata[3]}<extra></extra>",
+        )
+    for x in d.itertuples():
+        units = int(getattr(x, "n_units", x.n_queries) or x.n_queries)
+        if x.kind == "aa":
+            txt = f"control · n={int(x.n_queries)}"
+        elif x.kind == "doc" and not page_ok:
+            txt = f"not testable at {units} units"
+        else:
+            txt = f"p={x.p_holm:.3f}{' *' if bool(getattr(x, 'significant', False)) else ''} · n={int(x.n_queries)}"
+            if x.kind == "doc":
+                txt += f"/{units}"
+        fig.add_annotation(
+            x=1.0,
+            xref="paper",
+            xanchor="left",
+            xshift=10,
+            y=x.label,
+            text=txt,
+            showarrow=False,
+            font=dict(size=11, color=INK_2),
+        )
+    fig.update_yaxes(categoryorder="array", categoryarray=labels)
+    fig.update_xaxes(ticksuffix=" pp", title="ΔPAWC, pp (95% bootstrap CI)")
+    fig.update_layout(margin=dict(r=190), legend=dict(y=1.08))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    tested = d[d.kind != "aa"]
+    msg = (
+        "No arm is distinguishable from zero at this sample size (Holm-adjusted Wilcoxon, α = 0.05)."
+        if not sig.any()
+        else f"{int(sig.sum())} arm(s) pass the Holm rule, marked ◆ and *."
+    )
+    extra = []
+    if sens.get("engine_arm_pp"):
+        extra.append(
+            f"grey ticks = ±MDE (80% power): {sens['engine_arm_pp']:.1f} pp for engine arms"
+        )
+    if sens.get("n_page_units") is not None:
+        extra.append(
+            f"page arms tested on {sens['n_page_units']} (fold, page) units"
+            + ("" if page_ok else ", too few for any Holm-significant result")
+        )
+    if len(tested):
+        st.markdown(f'<p class="note">{msg} ' + "; ".join(extra) + ".</p>", unsafe_allow_html=True)
+
+
 def sandbox() -> None:
     header(
         "Sandbox",
@@ -491,53 +597,8 @@ def sandbox() -> None:
     fake_banner(exp["is_fake_llm"])
     e = api_or_stop(f"/experiments/{exp['id']}")
     d = pd.DataFrame(e["deltas"])
-    aa = d[d.arm == "aa_resample"]
-    d = d.iloc[::-1]
-    st.markdown("### ΔPAWC share of the target, percentage points")
-    fig = figure(70 + 38 * len(d))
-    if len(aa):
-        fig.add_vrect(
-            x0=float(aa.d_pwc_lo.iloc[0]),
-            x1=float(aa.d_pwc_hi.iloc[0]),
-            fillcolor="#ecebe6",
-            layer="below",
-            line_width=0,
-            annotation_text="A/A noise band",
-            annotation_position="top left",
-            annotation_font=dict(size=11, color=MUTED),
-        )
-    fig.add_vline(x=0, line=dict(color=INK_2, width=1))
-    sig = (
-        d["significant"].fillna(False).astype(bool)
-        if "significant" in d
-        else pd.Series(False, index=d.index)
-    )
-    col = [SERIES[0] if s else MUTED for s in sig]
-    fig.add_scatter(
-        x=d.d_pwc_pp,
-        y=d.arm,
-        mode="markers",
-        marker=dict(size=10, color=col, line=dict(color="#fff", width=2)),
-        error_x=dict(
-            type="data",
-            symmetric=False,
-            array=d.d_pwc_hi - d.d_pwc_pp,
-            arrayminus=d.d_pwc_pp - d.d_pwc_lo,
-            color=INK_2,
-            thickness=1.5,
-            width=0,
-        ),
-        customdata=d[["d_pwc_lo", "d_pwc_hi", "p_holm", "n_queries"]].to_numpy(),
-        hovertemplate="%{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
-        "<br>Holm p %{customdata[2]:.3f} · n=%{customdata[3]}<extra></extra>",
-        showlegend=False,
-    )
-    fig.update_xaxes(ticksuffix=" pp")
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    st.markdown(
-        '<p class="note">Blue: Holm-adjusted Wilcoxon p &lt; 0.05 (the verdict rule). Gray: not significant, or a control. Bars are descriptive 95% CIs; page arms are tested per edited page.</p>',
-        unsafe_allow_html=True,
-    )
+    sens = e["manifest"].get("sensitivity") or {}
+    forest(d, sens, exp)
 
     c1, c2 = st.columns(2, gap="large")
     with c1:
