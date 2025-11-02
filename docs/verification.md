@@ -40,11 +40,12 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
     code, and the result files themselves are committed.
 - **Fresh clone, offline half**: in the clone from 2026-09-24, `make demo` with
   `OFFLINE_WRAPPER` set to the sandbox profile completed (40 queries x 5 samples, FakeLLM).
-- **Unit tests**: `make test` (`pytest -m "not slow and not network"`). The count is in the final
-  commit's CI output. It includes the hand-computed PAWC vector, parity with the GEO authors'
-  impression functions on 200 random patterns, NumPy vs FAISS parity (in a torch-free
-  subprocess), noop = 0 under common random numbers, the cross-fitting leakage test, the exact
-  Wilcoxon floor, and the API.
+- **Unit tests**: `make test` (`pytest -m "not slow and not network"`), 293 passed on the final
+  commit. They include the hand-computed PAWC vector, parity with the GEO authors' impression
+  functions on 200 random patterns, NumPy vs FAISS parity (in a torch-free subprocess), noop = 0
+  under common random numbers, the cross-fitting leakage test, the exact Wilcoxon floor, and the
+  API. `vizor demo --config configs/ci.yaml` under `scripts/offline-run` completed, and
+  `vizor recompute` matched its rows.
 - **Offline API and dashboard**: with `VIZOR_EGRESS_CANARY=1` under the sandbox profile, `/health`
   reported `"egress": "blocked"` and the dashboard showed the same in its sidebar.
 - **gpt-4o-mini**: configured but not run yet (`configs/openai.yaml`, `make experiment-openai`).
