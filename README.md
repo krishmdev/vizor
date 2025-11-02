@@ -316,7 +316,7 @@ src/vizor/
   api/ dashboard/  experiment.py cli.py models.py embed.py summarize.py queries.py
 data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
 experiments/    committed results and RESULTS.md
-tests/          292 offline tests, incl. vendored GEO reference functions
+tests/          294 offline tests, incl. vendored GEO reference functions
 ```
 
 ## Limitations

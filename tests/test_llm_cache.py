@@ -55,3 +55,23 @@ def test_worst_case_reservation_blocks_before_calling(tmp_path):
     with pytest.raises(BudgetExceeded):
         llm.complete(big, temperature=0.7, seed=1, max_tokens=450)
     assert inner.calls == 0 and llm.reserved == 0
+
+
+def test_src_tree_marks_uncommitted_src_changes(tmp_path, monkeypatch):
+    import subprocess
+
+    from vizor.runstore import src_tree
+
+    def git(*args):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("x = 1\n")
+    git("add", "src")
+    git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "init")
+    monkeypatch.chdir(tmp_path)
+    clean = src_tree()
+    assert len(clean) == 40 and not clean.endswith("+dirty")
+    (tmp_path / "src" / "a.py").write_text("x = 2\n")
+    assert src_tree() == clean + "+dirty"
