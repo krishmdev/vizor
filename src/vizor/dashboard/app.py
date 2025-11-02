@@ -37,6 +37,7 @@ CSS = f"""
 <style>
 :root {{ --ink:{INK}; --ink2:{INK_2}; --muted:{MUTED}; --rule:{RULE}; --paper:{PAPER}; --panel:{PANEL}; }}
 html, body, .stMarkdown, p, li, label, input, textarea {{ font-family:{FONT_BODY}; color:var(--ink); }}
+[data-testid^="stBaseButton-primary"] p {{ color:#fff !important; }}
 [data-testid="stIconMaterial"], .material-symbols-rounded {{ font-family:"Material Symbols Rounded" !important; }}
 h1, h2, h3 {{ font-family:{FONT_BODY}; letter-spacing:-0.01em; font-weight:600; }}
 h1 {{ font-size:2.0rem !important; margin-bottom:0.2rem; }}
@@ -182,7 +183,10 @@ def pick_experiment() -> dict | None:
     names = [g for g, v in groups.items() if v]
     group = st.sidebar.radio("Runs", names, horizontal=True) if len(names) > 1 else names[0]
     choices = sorted(groups[group], key=lambda e: (bool(e["is_fake_llm"]), e["id"]))
-    labels = [f"{e['id']}  ·  {'FakeLLM' if e['is_fake_llm'] else e['llm_model']}" for e in choices]
+    labels = [
+        e["id"] + (" (FakeLLM)" if e["is_fake_llm"] and "fakellm" not in e["id"].lower() else "")
+        for e in choices
+    ]
     i = st.sidebar.selectbox("Experiment", range(len(choices)), format_func=lambda k: labels[k])
     return choices[i]
 
@@ -491,7 +495,8 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
     d = d.sort_values(
         by=["group", "d_pwc_pp"], key=lambda c: c.map(order) if c.name == "group" else c
     )
-    d["label"] = d.group + " · " + d.arm
+    # short row labels so the chart fits a phone; the group is in the hover and the row order
+    d["label"] = d.arm.str.replace("engine:", "", regex=False)
     labels = list(d.label)[::-1]  # plotly draws the first category at the bottom
     sig = d.get("significant", pd.Series(False, index=d.index)).fillna(False).astype(bool)
     st.markdown(f"### {titled('ΔPAWC share of the target', exp)}")
@@ -502,6 +507,8 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
     for kind, key in (("engine", "engine_arm_pp"), ("doc", "page_arm_pp")):
         m = sens.get(key)
         rows = d[d.kind == kind]
+        units_col = rows["n_units"] if "n_units" in rows else rows["n_queries"]
+        rows = rows[[reachable(int(u), family) for u in units_col.fillna(rows.n_queries)]]
         if m and len(rows):
             for sign in (-1, 1):
                 fig.add_scatter(
@@ -540,18 +547,18 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
                 thickness=1.5,
                 width=0,
             ),
-            customdata=rows[["d_pwc_lo", "d_pwc_hi", "p_holm", "n_queries"]].to_numpy(),
-            hovertemplate="%{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
+            customdata=rows[["d_pwc_lo", "d_pwc_hi", "p_holm", "n_queries", "group"]].to_numpy(),
+            hovertemplate="%{customdata[4]} · %{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
             "<br>Holm p %{customdata[2]:.3f} · n=%{customdata[3]}<extra></extra>",
         )
     for x in d.itertuples():
         units = int(getattr(x, "n_units", x.n_queries) or x.n_queries)
         if x.kind == "aa":
-            txt = f"control · n={int(x.n_queries)}"
+            txt = f"control n={int(x.n_queries)}"
         elif x.kind == "doc" and not reachable(units, family):
-            txt = f"not testable at {units} units"
+            txt = f"untestable k={units}"
         else:
-            txt = f"p={x.p_holm:.3f}{' *' if bool(getattr(x, 'significant', False)) else ''} · n={int(x.n_queries)}"
+            txt = f"p={x.p_holm:.2f}{'*' if bool(getattr(x, 'significant', False)) else ''} n={int(x.n_queries)}"
             if x.kind == "doc":
                 txt += f"/{units}"
         fig.add_annotation(
@@ -566,13 +573,17 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         )
     fig.update_yaxes(categoryorder="array", categoryarray=labels)
     fig.update_xaxes(ticksuffix=" pp", title="ΔPAWC, pp (95% bootstrap CI)")
-    fig.update_layout(margin=dict(r=190), legend=dict(y=1.08))
+    fig.update_layout(margin=dict(r=120, l=4), legend=dict(y=1.08))
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     tested = d[d.kind != "aa"]
     msg = (
         "No arm is distinguishable from zero at this sample size (Holm-adjusted Wilcoxon, α = 0.05)."
         if not sig.any()
         else f"{int(sig.sum())} arm(s) pass the Holm rule, marked ◆ and *."
+    )
+    msg = (
+        "Rows, top to bottom: the A/A control, page arms, engine arms; k is the number of "
+        "independent edited-page units. " + msg
     )
     extra = []
     if sens.get("engine_arm_pp"):
