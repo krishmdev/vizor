@@ -1,18 +1,48 @@
-"""Split a generated answer into sentences and pull out the [n] citation markers.
+"""Split a generated answer into sentences and pull out its citation markers.
 
 Every sentence counts toward N and positions, cited or not, because the paper's decay is over the
 whole response. Word counts exclude the markers themselves.
+
+Accepted marker forms (the index list may use commas, semicolons, "and", "&", ranges "1-3" or
+"1 to 3", and may repeat the keyword):
+  [1]  [1][2]  [1, 2]  [1-3]  [^1]  【1】
+  [Source 1]  [Sources 1 and 3]  [source: 2]  [Source #2]  [Search result 4]  [1, Source 2]
+  [Source [3]]  and the unbalanced [Source [3]
+  (Source 2)  (Sources 1, 3)  (see Source 2; Source 4)
+  bare "Source 3" / "Search result 3" in running text
+A bare parenthesised number such as "(2)" is not a citation: it is too often a count or a list
+item. Anything that still looks like a citation after parsing (for example "[Source A]") is kept
+as `unparsed`, so format failures can be counted instead of silently read as "uncited".
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 
 from vizor.types import CitedSentence
 
-# Same bracket pattern as GEO's extract_citations_new, widened to also accept "1, 2" and "1-3".
-_MARKER = re.compile(r"\[[^\w\s\]]*(\d+(?:\s*[-–,]\s*\d+)*)[^\w\s\]]*\]")
+_KW = r"(?:search[\s-]+results?|sources?|results?|references?|refs?\.?|documents?|docs?|citations?)"
+_SEP = r"(?:\s*(?:[-–—,;&]|\band\b|\bto\b)\s*)"
+_ITEM = rf"(?:{_KW}\s*[:#]?\s*)?#?\d+"
+_LIST = rf"{_ITEM}(?:{_SEP}{_ITEM})*"
+# [Source [3]] / [Source [3] -> [Source 3]
+_NESTED = re.compile(rf"\[\s*({_KW})\s*[:#]?\s*\[\s*(\d[^\[\]]*?)\s*\]\s*\]?", re.I)
+_BRACKET = re.compile(rf"[\[【]\s*\^?\s*({_LIST})\s*[\]】]", re.I)
+_PAREN = re.compile(
+    rf"\(\s*(?:see\s+|cf\.?\s+|per\s+)?((?:{_KW})\s*[:#]?\s*#?\d+(?:{_SEP}{_ITEM})*)\s*\)",
+    re.I,
+)
+_BARE = re.compile(
+    r"\b((?:search[\s-]+results?|sources?)\s*#?\d+(?:\s*(?:,|\band\b|&)\s*#?\d+)*)\b", re.I
+)
+_FORMS = (("bracket", _BRACKET), ("paren", _PAREN), ("bare", _BARE))
+# Leftovers that look like an attempt at a citation: brackets holding a digit or a keyword.
+_RESIDUE = re.compile(rf"[\[【][^\]】\n]{{0,40}}(?:\d|{_KW})[^\]】\n]{{0,40}}[\]】]", re.I)
+# A single marker of any accepted form (bare excluded), used when moving and stripping markers.
+_ANY = rf"(?:{_BRACKET.pattern}|{_PAREN.pattern})"
+_MARKER = re.compile(_ANY, re.I)
 _BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 _HEADING = re.compile(r"^\s*#{1,6}\s+|^\s*\*\*[^*]+\*\*:?\s*$")
 _ABBREV = {
@@ -40,7 +70,9 @@ _ABBREV = {
 # Abbreviations only when a number follows ("No. 5", "min. 3 bars"); otherwise ordinary words.
 _ABBREV_BEFORE_DIGIT = {"no", "min", "max", "approx"}
 MAX_RANGE = 20
-_TRAILING = re.compile(r"([.!?])((?:\s*\[[^\]]*\d[^\]]*\])+)")
+# Markers right after a terminator belong to the sentence before ("x. [1] Next" -> "x [1]. Next"),
+# unless running text continues in lowercase: "x. [Source 3] states that ..." opens a sentence.
+_TRAILING = re.compile(rf"([.!?])((?:\s*{_ANY})+)(?!\s*(?-i:[a-z]))", re.I)
 _WORD = re.compile(r"[A-Za-z0-9]+(?:['’.][A-Za-z0-9]+)*")
 
 
@@ -48,23 +80,52 @@ _WORD = re.compile(r"[A-Za-z0-9]+(?:['’.][A-Za-z0-9]+)*")
 class ParsedAnswer:
     sentences: list[CitedSentence]
     hallucinated: list[int]
+    unparsed: list[str] = field(default_factory=list)
+    forms: Counter = field(default_factory=Counter)
 
 
 def _expand(group: str) -> list[int]:
+    """'1, 2' -> [1, 2]; '1-3' and '1 to 3' -> [1, 2, 3]; keywords inside the list are ignored."""
+    toks = re.findall(r"\d+|[-–—]|\bto\b", group, re.I)
     out: list[int] = []
-    for part in re.split(r"\s*,\s*", group):
-        if re.search(r"[-–]", part):
-            a, b = (int(x) for x in re.split(r"\s*[-–]\s*", part))
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if not t.isdigit():
+            i += 1
+            continue
+        a = int(t)
+        if i + 2 < len(toks) and not toks[i + 1].isdigit() and toks[i + 2].isdigit():
+            b = int(toks[i + 2])
             # [1-3] expands; a huge or reversed range is kept as its two endpoints
             out.extend(range(a, b + 1) if a <= b <= a + MAX_RANGE else [a, b])
-        elif part:
-            out.append(int(part))
+            i += 3
+        else:
+            out.append(a)
+            i += 1
     return out
+
+
+def _unnest(text: str) -> str:
+    return _NESTED.sub(lambda m: f"[{m.group(1)} {m.group(2)}]", text)
+
+
+def find_markers(text: str) -> list[tuple[int, int, str, list[int]]]:
+    """(start, end, form, indices) for every citation marker, in order, without overlaps."""
+    spans: list[tuple[int, int, str, list[int]]] = []
+    taken: list[tuple[int, int]] = []
+    for form, pat in _FORMS:
+        for m in pat.finditer(text):
+            if any(m.start() < b and a < m.end() for a, b in taken):
+                continue
+            spans.append((m.start(), m.end(), form, _expand(m.group(1))))
+            taken.append((m.start(), m.end()))
+    return sorted(spans)
 
 
 def normalize_markers(text: str) -> str:
     """Move markers before the terminator: 'x.[1]' and 'x. [1]' both become 'x[1].'"""
-    return _TRAILING.sub(lambda m: m.group(2).lstrip() + m.group(1), text)
+    return _TRAILING.sub(lambda m: m.group(2).lstrip() + m.group(1), _unnest(text))
 
 
 def _split_sentences(para: str) -> list[str]:
@@ -110,7 +171,10 @@ def split_sentences(text: str) -> list[str]:
 
 
 def strip_markers(sentence: str) -> str:
-    return re.sub(r"\s+([.!?,;:])", r"\1", _MARKER.sub("", sentence)).strip()
+    text = _unnest(sentence)
+    for _, pat in _FORMS[:2]:
+        text = pat.sub("", text)
+    return re.sub(r"\s+([.!?,;:])", r"\1", text).strip()
 
 
 def count_words(sentence: str, mode: str = "alnum") -> int:
@@ -127,13 +191,21 @@ def parse_answer(text: str, n_sources: int, wordcount: str = "alnum") -> ParsedA
     them in the divisor (and a [0] there wraps around to the last source)."""
     sentences: list[CitedSentence] = []
     hallucinated: list[int] = []
+    unparsed: list[str] = []
+    forms: Counter = Counter()
     for pos, s in enumerate(split_sentences(text)):
         cites: list[int] = []
-        for m in _MARKER.finditer(s):
-            for c in _expand(m.group(1)):
+        rest, last = [], 0
+        for a, b, form, idx in find_markers(s):
+            forms[form] += 1
+            rest.append(s[last:a])
+            last = b
+            for c in idx:
                 if 1 <= c <= n_sources:
                     cites.append(c)
                 else:
                     hallucinated.append(c)
+        rest = " ".join([*rest, s[last:]])
+        unparsed += _RESIDUE.findall(rest)
         sentences.append(CitedSentence(pos, s, count_words(s, wordcount), tuple(cites)))
-    return ParsedAnswer(sentences, hallucinated)
+    return ParsedAnswer(sentences, hallucinated, unparsed, forms)

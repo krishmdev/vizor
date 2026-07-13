@@ -62,3 +62,75 @@ def test_huge_ranges_do_not_expand():
     p = parse_answer("Everything agrees [1-5000000].", n_sources=5)
     assert p.sentences[0].citations == (1,)
     assert p.hallucinated == [5000000]
+
+
+def test_source_keyword_markers():
+    p = parse_answer(
+        "The Duo has two boilers [Source 2]. Both agree [Sources 1 and 3]. "
+        "It is quiet [source: 4]. It ships fast [Source #5].",
+        n_sources=5,
+    )
+    assert [s.citations for s in p.sentences] == [(2,), (1, 3), (4,), (5,)]
+    assert p.forms["bracket"] == 4
+
+
+def test_leading_source_marker_stays_with_its_sentence():
+    p = parse_answer(
+        "[Source 1] explains that sour shots are under-extracted. [Source 3] states that the "
+        "Solo has a PID. Grind finer [Source 1].",
+        n_sources=5,
+    )
+    assert [s.citations for s in p.sentences] == [(1,), (3,), (1,)]
+    assert p.sentences[1].text.startswith("[Source 3] states")
+
+
+def test_trailing_marker_after_period_still_moves_back():
+    p = parse_answer("It is quiet. [2] [3] The Aria is loud. [4]", n_sources=5)
+    assert [s.citations for s in p.sentences] == [(2, 3), (4,)]
+
+
+def test_list_range_mixed_and_nested_forms():
+    p = parse_answer(
+        "A [1, 2]. B [1-3]. C [2 to 4]. D [1, Source 2]. E [Source [4]. F [Source [5]]. "
+        "G 【3】. H [^2]. I [Sources 2; 5].",
+        n_sources=5,
+    )
+    assert [s.citations for s in p.sentences] == [
+        (1, 2),
+        (1, 2, 3),
+        (2, 3, 4),
+        (1, 2),
+        (4,),
+        (5,),
+        (3,),
+        (2,),
+        (2, 5),
+    ]
+    assert not p.unparsed
+
+
+def test_parenthesised_source_markers_but_not_bare_numbers():
+    p = parse_answer(
+        "Use 18 g (2 scoops) of coffee (Source 2). Both agree (see Sources 1, 3). It costs (4).",
+        n_sources=5,
+    )
+    assert [s.citations for s in p.sentences] == [(2,), (1, 3), ()]
+    assert p.forms["paren"] == 2
+
+
+def test_bare_source_reference_in_running_text():
+    p = parse_answer("According to Source 2, the Duo is quiet. Search result 4 disagrees.", 5)
+    assert [s.citations for s in p.sentences] == [(2,), (4,)]
+    assert p.forms["bare"] == 2
+
+
+def test_unrecognised_citation_attempts_are_kept_as_unparsed():
+    p = parse_answer("It is quiet [Source A]. It is cheap [sources].", n_sources=5)
+    assert all(not s.citations for s in p.sentences)
+    assert p.unparsed == ["[Source A]", "[sources]"]
+
+
+def test_source_markers_do_not_count_as_words():
+    assert count_words("The Duo is quiet [Source 2].") == 4
+    assert strip_markers("The Duo is quiet (Source 2).") == "The Duo is quiet."
+    assert strip_markers("The Duo is quiet [Source [2].") == "The Duo is quiet."

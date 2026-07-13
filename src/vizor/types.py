@@ -118,6 +118,8 @@ class Answer:
     sentences: list[CitedSentence]
     hallucinated_citations: list[int]
     usage: dict = field(default_factory=dict)
+    # citation-like text the parser could not map to a source index (e.g. "[Source A]")
+    unparsed_markers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -131,6 +133,7 @@ class Answer:
             "sentences": [{**asdict(s), "citations": list(s.citations)} for s in self.sentences],
             "hallucinated_citations": self.hallucinated_citations,
             "usage": self.usage,
+            "unparsed_markers": self.unparsed_markers,
         }
 
     @classmethod
@@ -149,4 +152,5 @@ class Answer:
             ],
             hallucinated_citations=d.get("hallucinated_citations", []),
             usage=d.get("usage", {}),
+            unparsed_markers=d.get("unparsed_markers", []),
         )

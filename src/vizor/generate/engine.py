@@ -134,5 +134,6 @@ class Engine:
             parsed.sentences,
             parsed.hallucinated,
             usage,
+            parsed.unparsed,
         )
         return EngineResult(ans, prompt, sel)
