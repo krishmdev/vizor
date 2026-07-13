@@ -71,8 +71,11 @@ _ABBREV = {
 _ABBREV_BEFORE_DIGIT = {"no", "min", "max", "approx"}
 MAX_RANGE = 20
 # Markers right after a terminator belong to the sentence before ("x. [1] Next" -> "x [1]. Next"),
-# unless running text continues in lowercase: "x. [Source 3] states that ..." opens a sentence.
-_TRAILING = re.compile(rf"([.!?])((?:\s*{_ANY})+)(?!\s*(?-i:[a-z]))", re.I)
+# unless running text continues in lowercase ("x. [3] states that ..."). Markers that name the
+# source ("[Source 3]") are how small models open a sentence, so after a terminator they stay
+# with the text that follows and only move back at the end of a line.
+_TRAILING = re.compile(rf"([.!?])((?:\s*{_ANY})+)", re.I)
+_HAS_KW = re.compile(_KW, re.I)
 _WORD = re.compile(r"[A-Za-z0-9]+(?:['’.][A-Za-z0-9]+)*")
 
 
@@ -125,7 +128,15 @@ def find_markers(text: str) -> list[tuple[int, int, str, list[int]]]:
 
 def normalize_markers(text: str) -> str:
     """Move markers before the terminator: 'x.[1]' and 'x. [1]' both become 'x[1].'"""
-    return _TRAILING.sub(lambda m: m.group(2).lstrip() + m.group(1), _unnest(text))
+
+    def move(m: re.Match) -> str:
+        after = m.string[m.end() :]
+        nxt = after.lstrip(" \t")[:1]
+        at_line_end = nxt in ("", "\n", "\r")
+        keep = nxt.islower() or (bool(_HAS_KW.search(m.group(2))) and not at_line_end)
+        return m.group(0) if keep else m.group(2).lstrip() + m.group(1)
+
+    return _TRAILING.sub(move, _unnest(text))
 
 
 def _split_sentences(para: str) -> list[str]:

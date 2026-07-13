@@ -134,3 +134,10 @@ def test_source_markers_do_not_count_as_words():
     assert count_words("The Duo is quiet [Source 2].") == 4
     assert strip_markers("The Duo is quiet (Source 2).") == "The Duo is quiet."
     assert strip_markers("The Duo is quiet [Source [2].") == "The Duo is quiet."
+
+
+def test_source_marker_heading_a_block_opens_the_next_sentence():
+    p = parse_answer("Check the pump. [Source 3] The Solo has a PID. It is fast.", n_sources=5)
+    assert [s.citations for s in p.sentences] == [(), (3,), ()]
+    p = parse_answer("The Solo has a PID. [Source 3]\n\nIt is fast. [Source 2]", n_sources=5)
+    assert [s.citations for s in p.sentences] == [(3,), (2,)]
