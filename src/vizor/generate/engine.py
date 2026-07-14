@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from vizor.attribution.citations import parse_answer
 from vizor.generate.llm import LLM
@@ -32,8 +32,12 @@ class Engine:
         wordcount: str = "alnum",
         workers: int = 1,
         system_prompt: str = "",
+        select_cascade: Cascade | None = None,
     ) -> None:
         self.system_prompt = system_prompt
+        # When set, sources are selected (and ordered) by this cascade and rendered from
+        # `cascade`: the page text can change while the retrieval result stays fixed.
+        self.select_cascade = select_cascade
         self.cascade = cascade
         self.llm = llm
         self.temperature = temperature
@@ -54,6 +58,12 @@ class Engine:
             self.system_prompt,
         )
 
+    def content_only(self, edited: Cascade) -> Engine:
+        """An engine that keeps this engine's source selection but renders pages from `edited`."""
+        eng = self.with_cascade(edited)
+        eng.select_cascade = self.select_cascade or self.cascade
+        return eng
+
     def seed_for(self, query: Query, sample: int, salt: str = "") -> int:
         # Common random numbers: the seed depends only on (query, sample), never on the arm.
         return stable_seed(self.base_seed, query.query_id, sample, salt) & 0x7FFFFFFF
@@ -61,7 +71,16 @@ class Engine:
     def build_prompt(
         self, query: Query, policy: RetrievalPolicy = RELEVANCE
     ) -> tuple[str, Selection]:
-        sel = self.cascade.select(query.text, policy)
+        if self.select_cascade is not None:
+            pinned = self.select_cascade.select(query.text, policy)
+            docs = self.cascade.docs
+
+            def swap(cs):
+                return [replace(c, doc=docs.get(c.doc.doc_id, c.doc)) for c in cs]
+
+            sel = replace(pinned, sources=swap(pinned.sources), candidates=swap(pinned.candidates))
+        else:
+            sel = self.cascade.select(query.text, policy)
         qvec = self.cascade.query_vector(query.text)
         rendered = [render_source(i + 1, c, self.cascade, qvec) for i, c in enumerate(sel.sources)]
         return format_prompt(query.text, rendered), sel

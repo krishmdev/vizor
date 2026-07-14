@@ -122,3 +122,37 @@ def test_boost_sweep_is_monotone_in_retrieval(sandbox):
     )
     last = df.iloc[-1]
     assert last.n_set_changed + last.n_order_only + last.n_unchanged == len(sandbox.queries)
+
+
+def _sources(run):
+    return {r.answer.query_id: [s.doc_id for s in r.answer.sources] for r in run.results}
+
+
+def test_content_arm_pins_sources_and_order_to_the_baseline(sandbox):
+    base = _sources(sandbox.baseline)
+    full = sandbox.run(Arm.parse("keyword_stuffing"))
+    content = sandbox.run(Arm.parse("content:keyword_stuffing"))
+    assert content.arm.mode == "content" and content.arm.base_name == "keyword_stuffing"
+    assert _sources(content) == base
+    # same edited pages as the full arm, so the two are paired page by page
+    assert content.scored_against == full.scored_against
+    assert {f: set(p) for f, p in content.changed.items()} == {
+        f: set(p) for f, p in full.changed.items()
+    }
+
+
+def test_content_arm_renders_the_edited_page(sandbox):
+    content = sandbox.run(Arm.parse("content:keyword_stuffing"))
+    shown = 0
+    for r in content.results:
+        fold, doc_id = content.scored_against[r.answer.query_id]
+        if doc_id in [s.doc_id for s in r.answer.sources]:
+            new = content.changed[fold][doc_id]
+            assert new.applied_transforms == ("keyword_stuffing",)
+            shown += "Related searches:" in r.prompt
+    assert shown > 0
+
+
+def test_content_arm_equals_baseline_when_the_edit_is_a_noop(sandbox):
+    cmp = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("content:noop")))
+    assert cmp["d_pwc_pp"] == 0.0 and cmp["mode"] == "content"

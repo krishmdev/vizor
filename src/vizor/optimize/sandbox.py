@@ -59,6 +59,10 @@ class Arm:
     transforms: tuple[str, ...] = ()
     policy: RetrievalPolicy = RELEVANCE
     salt: str = ""
+    # "full": the edited page is re-indexed, so retrieval may rank it (and its neighbours)
+    # differently. "content": sources and their order are pinned to the baseline selection and
+    # only the edited page's rendered text changes, which isolates the content effect.
+    mode: str = "full"
 
     @classmethod
     def parse(cls, spec: str) -> Arm:
@@ -66,11 +70,20 @@ class Arm:
             return cls(spec, "aa", salt="aa")
         if spec.startswith("engine:"):
             return cls(spec, "engine", policy=RetrievalPolicy.parse(spec.removeprefix("engine:")))
-        names = tuple(spec.split("+"))
+        mode = "full"
+        body = spec
+        if spec.startswith("content:"):
+            mode, body = "content", spec.removeprefix("content:")
+        names = tuple(body.split("+"))
         for n in names:
             if n not in TRANSFORMS:
                 raise ValueError(f"unknown arm {n!r}")
-        return cls(spec, "doc", transforms=names)
+        return cls(spec, "doc", transforms=names, mode=mode)
+
+    @property
+    def base_name(self) -> str:
+        """The full-mode arm this one pairs with ('content:faq_rewrite' -> 'faq_rewrite')."""
+        return "+".join(self.transforms) if self.kind == "doc" else self.name
 
     @property
     def uses_queries(self) -> bool:
@@ -214,7 +227,12 @@ class Sandbox:
                 new, diff = apply_chain(docs[doc_id], arm.transforms, ctx)
                 engine = self.engine
                 if new is not docs[doc_id]:
-                    engine = engine.with_cascade(engine.cascade.with_docs({doc_id: new}))
+                    edited = engine.cascade.with_docs({doc_id: new})
+                    engine = (
+                        engine.content_only(edited)
+                        if arm.mode == "content"
+                        else engine.with_cascade(edited)
+                    )
                     changed.setdefault(fold, {})[doc_id] = new
                     diffs.setdefault(fold, {})[doc_id] = diff
                 results += engine.run(group, self.samples, arm.policy, arm.salt)
@@ -273,6 +291,7 @@ class Sandbox:
         return {
             "arm": var.arm.name,
             "kind": var.arm.kind,
+            "mode": var.arm.mode,
             "n_queries": len(idx),
             "n_units": pwc.n,
             "unit": "page x fold" if var.scored_against else "query",
