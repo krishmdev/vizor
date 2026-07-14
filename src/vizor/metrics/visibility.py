@@ -16,6 +16,7 @@ import pandas as pd
 
 from vizor.attribution.citations import strip_markers
 from vizor.metrics.impression import Decay, decay_weights, impressions
+from vizor.metrics.mentions import brand_patterns, mention_counts
 from vizor.types import Answer
 
 SentimentFn = Callable[[Sequence[str]], list[float]]
@@ -55,9 +56,16 @@ def answer_rows(
     decay: Decay = "paper",
     sentiment: SentimentFn | None = None,
     source_text: dict[int, str] | None = None,
+    brands: dict | None = None,
 ) -> list[dict]:
-    """One row per project domain. `domains` maps domain -> role."""
+    """One row per project domain. `domains` maps domain -> role; `brands` maps domain -> a
+    compiled brand pattern (see metrics.mentions), derived from the domain names if omitted."""
     n = len(answer.sources)
+    if brands is None or not all(hasattr(v, "findall") for v in brands.values()):
+        brands = brand_patterns(domains, brands)
+    cited_at = [i for i, s in enumerate(answer.sentences) if s.citations]
+    # every citation sits on the final sentence: position weighting says nothing about such answers
+    last_only = len(answer.sentences) > 1 and cited_at == [len(answer.sentences) - 1]
     imp = impressions(answer.sentences, n, decay)
     markers = [0] * n
     for s in answer.sentences:
@@ -77,6 +85,7 @@ def answer_rows(
         first = next(
             (s.pos for s in answer.sentences if any(c in positions for c in s.citations)), None
         )
+        m_sents, m_total = mention_counts(answer.sentences, brands[domain])
         row = {
             "query_id": answer.query_id,
             "sample": answer.sample,
@@ -95,8 +104,14 @@ def answer_rows(
             "n_sentences": len(answer.sentences),
             "emphasized": any(labels[i] == "emphasized" for i in idx),
             "ignored": bool(idx) and all(labels[i] == "ignored" for i in idx),
+            "mentioned": m_sents > 0,
+            "n_mention_sentences": m_sents,
+            "n_mentions": m_total,
+            "mention_share": m_sents / len(answer.sentences) if answer.sentences else 0.0,
             "answer_uncited": imp.uncited,
             "n_hallucinated": len(answer.hallucinated_citations),
+            "n_unparsed": len(answer.unparsed_markers),
+            "cites_last_only": last_only,
             "answer_sentiment": np.nan,
             "source_sentiment": np.nan,
         }
@@ -136,6 +151,14 @@ def domain_summary(df: pd.DataFrame) -> pd.DataFrame:
                 "pawc_sov": g["imp_pwc"].mean(),
                 "word_sov": g["imp_word"].mean(),
                 "citations_per_answer": g["n_markers"].mean(),
+                "mention_rate": g["mentioned"].mean() if "mentioned" in g else np.nan,
+                "mention_sentence_share": g["mention_share"].mean() if "mentioned" in g else np.nan,
+                "mentioned_not_cited_rate": (g["mentioned"] & ~g["cited"]).mean()
+                if "mentioned" in g
+                else np.nan,
+                "cited_not_mentioned_rate": (g["cited"] & ~g["mentioned"]).mean()
+                if "mentioned" in g
+                else np.nan,
                 "first_cite_sentence": g["first_cite_sentence"].mean() + 1,
                 "emphasized_rate": g["emphasized"].mean(),
                 "ignored_rate": retrieved["ignored"].mean() if len(retrieved) else np.nan,

@@ -55,3 +55,40 @@ def test_answer_sentiment_uses_only_citing_sentences():
     rows = {r["domain"]: r for r in answer_rows(A2, DOMAINS, sentiment=vader)}
     assert rows["b.example"]["answer_sentiment"] > 0.5
     assert np.isnan(rows["a.example"]["answer_sentiment"])
+
+
+def test_rows_count_brand_mentions_with_or_without_a_citation():
+    a = _answer(
+        "q3",
+        ["a.example", "t.example"],
+        [("The T brand pump is quiet", [1]), ("A is cheaper", [1]), ("Both last years", [])],
+    )
+    rows = {r["domain"]: r for r in answer_rows(a, DOMAINS, brands={"t.example": ["T brand"]})}
+    t = rows["t.example"]
+    assert t["mentioned"] and not t["cited"]
+    assert t["n_mention_sentences"] == 1 and t["mention_share"] == pytest.approx(1 / 3)
+    # without a brands entry the domain label is the brand
+    assert rows["a.example"]["mentioned"] and rows["a.example"]["cited"]
+    assert not rows["b.example"]["mentioned"]
+
+
+def test_rows_flag_answers_that_cite_only_on_the_last_sentence():
+    last = _answer("q4", ["t.example"], [("one two", []), ("three four", [1])])
+    assert answer_rows(last, DOMAINS)[0]["cites_last_only"]
+    assert not answer_rows(A1, DOMAINS)[0]["cites_last_only"]
+    one = _answer("q5", ["t.example"], [("only one sentence", [1])])
+    assert not answer_rows(one, DOMAINS)[0]["cites_last_only"]
+
+
+def test_rows_count_unparsed_markers():
+    a = _answer("q6", ["t.example"], [("quiet", [])])
+    a.unparsed_markers = ["[Source A]"]
+    assert answer_rows(a, DOMAINS)[0]["n_unparsed"] == 1
+
+
+def test_domain_summary_reports_mentions_apart_from_citations():
+    a = _answer("q7", ["a.example"], [("T is loud", [1])])
+    s = domain_summary(rows_frame(answer_rows(a, DOMAINS))).set_index("domain")
+    assert s.loc["t.example", "mention_rate"] == 1.0
+    assert s.loc["t.example", "mentioned_not_cited_rate"] == 1.0
+    assert s.loc["a.example", "cited_not_mentioned_rate"] == 1.0
