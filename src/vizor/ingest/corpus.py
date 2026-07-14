@@ -26,6 +26,13 @@ class Project:
     corpus_jsonl: Path | None = None
     queries_path: Path | None = None
     topics: list[str] = field(default_factory=list)
+    # domain -> brand names an answer may use for it (see metrics.mentions)
+    brands: dict[str, list[str]] = field(default_factory=dict)
+
+    def brand_patterns(self) -> dict:
+        from vizor.metrics.mentions import brand_patterns
+
+        return brand_patterns(self.domains, self.brands)
 
     @property
     def domains(self) -> dict[str, str]:
@@ -54,6 +61,7 @@ def load_project(path: str | Path) -> Project:
         corpus_jsonl=opt("corpus_jsonl"),
         queries_path=opt("queries"),
         topics=list(cfg.get("topics", [])),
+        brands={d: list(v) for d, v in (cfg.get("brands") or {}).items()},
     )
 
 

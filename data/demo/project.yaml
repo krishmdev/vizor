@@ -8,3 +8,9 @@ topics:
   - espresso grinders
   - espresso technique and troubleshooting
   - espresso machine maintenance
+brands:
+  brewline.example: [Brewline]
+  crema-lab.example: [Crema Lab]
+  shotreport.example: [Shot Report, Shotreport]
+  beanbudget.example: [Beanbudget, Bean Budget]
+  grindandtamp.example: [Grind and Tamp, Grindandtamp]
