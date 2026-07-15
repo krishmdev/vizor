@@ -32,9 +32,10 @@ import pandas as pd
 from vizor.generate.engine import Engine, EngineResult
 from vizor.generate.prompt import parse_prompt
 from vizor.metrics.impression import relative_improvement
+from vizor.metrics.mentions import brand_patterns
 from vizor.metrics.visibility import answer_rows
 from vizor.optimize.retrieval_policy import RELEVANCE, RetrievalPolicy
-from vizor.optimize.stats import holm, paired_clustered
+from vizor.optimize.stats import PairedResult, holm, paired_clustered
 from vizor.optimize.transforms import TRANSFORMS, TransformContext, apply_chain
 from vizor.types import Query, SourceDoc, stable_seed
 
@@ -48,6 +49,11 @@ TARGET_METRICS = [
     "uncited",
     "n_hallucinated",
     "imp_pwc_cited",
+    "mentioned",
+    "mention_share",
+    "mentioned_not_cited",
+    "unparsed",
+    "cites_last_only",
 ]
 CONTROLS = ("noop", "aa_resample")
 
@@ -121,8 +127,16 @@ def target_frame(rows: pd.DataFrame) -> pd.DataFrame:
         source_sentiment=("source_sentiment", "mean"),
         uncited=("answer_uncited", "max"),
         n_hallucinated=("n_hallucinated", "max"),
+        mentioned=("mentioned", "max"),
+        mention_share=("mention_share", "sum"),
+        unparsed=("n_unparsed", "max"),
+        cites_last_only=("cites_last_only", "max"),
     )
-    agg[["cited", "retrieved", "uncited"]] = agg[["cited", "retrieved", "uncited"]].astype(float)
+    agg["mention_share"] = agg["mention_share"].clip(upper=1.0)
+    agg["unparsed"] = agg["unparsed"] > 0
+    agg["mentioned_not_cited"] = agg["mentioned"].astype(bool) & ~agg["cited"].astype(bool)
+    flags = ["cited", "retrieved", "uncited", "mentioned", "unparsed", "cites_last_only"]
+    agg[[*flags, "mentioned_not_cited"]] = agg[[*flags, "mentioned_not_cited"]].astype(float)
     # PAWC share only over answers that cited anything, to separate "cited the target less" from
     # "stopped citing altogether" (a formatting failure).
     agg["imp_pwc_cited"] = agg["imp_pwc"].where(agg["uncited"] == 0)
@@ -157,7 +171,13 @@ class Sandbox:
         sentiment=None,
         decay: str = "paper",
         bootstrap: int = 5000,
+        brands: dict | None = None,
+        primary: str = "imp_pwc",
     ) -> None:
+        if primary not in ("imp_pwc", "c_share", "mentioned"):
+            raise ValueError(f"unknown primary metric {primary!r}")
+        self.brands = brands if brands is not None else brand_patterns(domains)
+        self.primary = primary
         self.engine = engine
         self.queries = list(queries)
         self.samples = samples
@@ -178,7 +198,9 @@ class Sandbox:
             if self.sentiment is not None:
                 _, srcs = parse_prompt(r.prompt)
                 source_text = {s.index: s.content for s in srcs}
-            for row in answer_rows(r.answer, self.domains, self.decay, self.sentiment, source_text):
+            for row in answer_rows(
+                r.answer, self.domains, self.decay, self.sentiment, source_text, self.brands
+            ):
                 row["arm"] = arm
                 out.append(row)
         return pd.DataFrame(out)
@@ -283,27 +305,50 @@ class Sandbox:
         b, v = b.loc[idx], v.loc[idx]
         d = v - b
         cl = self.clusters(var, idx)
-        pwc = paired_clustered(d["imp_pwc"].to_numpy() * 100, cl, b=self.bootstrap)
-        csov = paired_clustered(d["c_share"].to_numpy() * 100, cl, b=self.bootstrap)
+
+        def test(col: str) -> PairedResult:
+            return paired_clustered(d[col].to_numpy() * 100, cl, b=self.bootstrap)
+
+        pwc, csov = test("imp_pwc"), test("c_share")
+        ment, ment_s = test("mentioned"), test("mention_share")
+        prim = {"imp_pwc": pwc, "c_share": csov, "mentioned": ment}[self.primary]
         retrieved_b = b["retrieved"] > 0
         cond = d.loc[retrieved_b, "imp_pwc"] * 100
         fresh = [r for r in var.results if not r.answer.usage.get("cached", False)]
+        # Did the arm change what the model was shown? Compare each query's source list (doc ids
+        # in prompt order) with the baseline's.
+        moved = self._sources_changed(base, var, idx)
+        dp = d[self.primary] * 100
         return {
             "arm": var.arm.name,
             "kind": var.arm.kind,
             "mode": var.arm.mode,
+            "family": self.family(var.arm),
+            "primary": self.primary,
             "n_queries": len(idx),
-            "n_units": pwc.n,
+            "n_units": prim.n,
             "unit": "page x fold" if var.scored_against else "query",
             "base_pwc_pct": b["imp_pwc"].mean() * 100,
             "d_pwc_pp": pwc.mean,
             "d_pwc_lo": pwc.lo,
             "d_pwc_hi": pwc.hi,
-            "p": pwc.p,
+            "p_pwc": pwc.p,
+            "p": prim.p,
             "rel_pct": relative_improvement(b["imp_pwc"].mean(), v["imp_pwc"].mean()),
+            "base_csov_pct": b["c_share"].mean() * 100,
             "d_csov_pp": csov.mean,
             "d_csov_lo": csov.lo,
             "d_csov_hi": csov.hi,
+            "p_csov": csov.p,
+            "base_mention_pct": b["mentioned"].mean() * 100,
+            "d_mention_pp": ment.mean,
+            "d_mention_lo": ment.lo,
+            "d_mention_hi": ment.hi,
+            "p_mention": ment.p,
+            "base_mention_share_pct": b["mention_share"].mean() * 100,
+            "d_mention_share_pp": ment_s.mean,
+            "d_mention_share_lo": ment_s.lo,
+            "d_mention_share_hi": ment_s.hi,
             "d_cite_rate_pp": d["cited"].mean() * 100,
             "d_retrieval_pp": d["retrieved"].mean() * 100,
             "d_pwc_given_retrieved_pp": cond.mean() if len(cond) else np.nan,
@@ -312,23 +357,73 @@ class Sandbox:
             "uncited_rate_pct": v["uncited"].mean() * 100,
             "base_uncited_rate_pct": b["uncited"].mean() * 100,
             "d_uncited_pp": d["uncited"].mean() * 100,
+            "unparsed_rate_pct": v["unparsed"].mean() * 100,
+            "last_only_rate_pct": v["cites_last_only"].mean() * 100,
+            "mentioned_not_cited_pct": v["mentioned_not_cited"].mean() * 100,
             "hallucinated_per_answer": v["n_hallucinated"].mean(),
+            "n_sources_changed": int(moved.sum()),
+            "d_primary_sources_changed_pp": dp[moved].mean() if moved.any() else np.nan,
+            "d_primary_sources_same_pp": dp[~moved].mean() if (~moved).any() else np.nan,
             "new_calls": len(fresh),
             "new_cost_usd": sum(r.answer.usage.get("cost_usd", 0.0) for r in fresh),
             "transform_scope": "crossfit-2" if var.arm.uses_queries else "none",
         }
 
     @staticmethod
+    def _sources_changed(base: ArmRun, var: ArmRun, idx: pd.Index) -> pd.Series:
+        def lists(run: ArmRun) -> dict[str, tuple[str, ...]]:
+            return {
+                r.answer.query_id: tuple(s.doc_id for s in r.answer.sources)
+                for r in run.results
+                if r.answer.sample == 0
+            }
+
+        lb, lv = lists(base), lists(var)
+        return pd.Series([lb.get(q) != lv.get(q) for q in idx], index=idx, dtype=bool)
+
+    @staticmethod
+    def family(arm: Arm) -> str:
+        """Holm family: content-only arms are tested apart from the arms a site owner would ship."""
+        return "content" if arm.mode == "content" else "arms"
+
+    @staticmethod
     def with_holm(rows: list[dict], controls: Sequence[str] = CONTROLS) -> pd.DataFrame:
-        """The one verdict rule: an effect counts if its Holm-adjusted Wilcoxon p is below 0.05.
-        Controls are reported but sit outside the family."""
+        """The one verdict rule: an effect counts if its Holm-adjusted Wilcoxon p (on the primary
+        metric) is below 0.05, within its family. Controls are reported but sit outside every
+        family. The mention test gets its own Holm adjustment within the same families."""
         df = pd.DataFrame(rows)
+        if "family" not in df:
+            df["family"] = "arms"
         tested = ~df["arm"].isin(controls)
         df["p_holm"] = np.nan
-        if tested.any():
-            df.loc[tested, "p_holm"] = holm(df.loc[tested, "p"].tolist())
+        df["p_mention_holm"] = np.nan
+        for _, g in df[tested].groupby("family"):
+            df.loc[g.index, "p_holm"] = holm(g["p"].tolist())
+            if "p_mention" in g:
+                df.loc[g.index, "p_mention_holm"] = holm(g["p_mention"].tolist())
         df["significant"] = tested & (df["p_holm"] < 0.05)
+        df["mention_significant"] = tested & (df["p_mention_holm"] < 0.05)
         return df
+
+    def decompose(self, base: ArmRun, full: ArmRun, content: ArmRun) -> dict:
+        """Total = content + rank-mediated. The content arm keeps the baseline's sources and
+        order, so full - content is what the edit did through retrieval (re-ranking the edited
+        page or displacing others). Paired per query, clustered by edited page."""
+        tot, con, rank = (
+            self.compare(base, full),
+            self.compare(base, content),
+            self.compare(content, full),
+        )
+        out = {"arm": full.arm.name, "primary": self.primary}
+        for label, c in (("total", tot), ("content", con), ("rank", rank)):
+            for m in ("csov", "pwc", "mention"):
+                out[f"{label}_{m}_pp"] = c[f"d_{m}_pp"]
+                out[f"{label}_{m}_lo"] = c[f"d_{m}_lo"]
+                out[f"{label}_{m}_hi"] = c[f"d_{m}_hi"]
+            out[f"{label}_p"] = c["p"]
+            out[f"{label}_n_units"] = c["n_units"]
+        out["n_sources_changed"] = tot["n_sources_changed"]
+        return out
 
 
 def level_ci(values: np.ndarray, b: int = 5000) -> tuple[float, float, float]:

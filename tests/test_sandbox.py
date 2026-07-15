@@ -156,3 +156,63 @@ def test_content_arm_renders_the_edited_page(sandbox):
 def test_content_arm_equals_baseline_when_the_edit_is_a_noop(sandbox):
     cmp = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("content:noop")))
     assert cmp["d_pwc_pp"] == 0.0 and cmp["mode"] == "content"
+
+
+def test_compare_reports_mentions_and_format_rates(sandbox):
+    cmp = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("aa_resample")))
+    for k in (
+        "d_mention_pp",
+        "d_mention_lo",
+        "p_mention",
+        "d_mention_share_pp",
+        "unparsed_rate_pct",
+        "last_only_rate_pct",
+        "mentioned_not_cited_pct",
+        "base_csov_pct",
+        "p_csov",
+    ):
+        assert k in cmp, k
+    assert cmp["primary"] == "imp_pwc" and cmp["p"] == cmp["p_pwc"]
+
+
+def test_primary_metric_sets_the_verdict_p(engine, docs, queries, project, hashing):
+    doc_map = {d.doc_id: d for d in docs}
+    sb = Sandbox(
+        engine,
+        queries[::5],
+        2,
+        project.domains,
+        lambda q: TransformContext(doc_map, list(q), hashing),
+        bootstrap=200,
+        primary="c_share",
+    )
+    sb.run_baseline()
+    cmp = sb.compare(sb.baseline, sb.run(Arm.parse("engine:reverse")))
+    assert cmp["primary"] == "c_share" and cmp["p"] == cmp["p_csov"]
+    with pytest.raises(ValueError):
+        Sandbox(engine, queries[:2], 1, project.domains, lambda q: None, primary="clicks")
+
+
+def test_content_arms_form_their_own_holm_family(sandbox):
+    rows = [
+        sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse(a)))
+        for a in ["aa_resample", "faq_rewrite", "jsonld_insert", "content:faq_rewrite"]
+    ]
+    df = Sandbox.with_holm(rows).set_index("arm")
+    assert df.loc["content:faq_rewrite", "family"] == "content"
+    # alone in its family, the content arm's Holm p is its raw p
+    assert df.loc["content:faq_rewrite", "p_holm"] == pytest.approx(
+        df.loc["content:faq_rewrite", "p"]
+    )
+    assert df.loc[["faq_rewrite", "jsonld_insert"], "p_mention_holm"].notna().all()
+
+
+def test_decomposition_adds_up(sandbox):
+    base = sandbox.baseline
+    full = sandbox.run(Arm.parse("stats_surface"))
+    content = sandbox.run(Arm.parse("content:stats_surface"))
+    d = sandbox.decompose(base, full, content)
+    for m in ("csov", "pwc", "mention"):
+        assert d[f"total_{m}_pp"] == pytest.approx(d[f"content_{m}_pp"] + d[f"rank_{m}_pp"])
+    cmp = sandbox.compare(base, content)
+    assert cmp["n_sources_changed"] == 0
