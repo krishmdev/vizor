@@ -46,6 +46,9 @@ class SandboxConfig(BaseModel):
     bootstrap: int = 5000
     # Run the position and boost sweeps on a balanced subset of this many queries (None = all).
     sweep_queries: int | None = None
+    # The metric the Holm verdict is computed on: PAWC share, citation share (share of the
+    # answer's valid markers), or whether the answer names the target brand.
+    primary_metric: Literal["imp_pwc", "c_share", "mentioned"] = "imp_pwc"
 
 
 class BanditConfig(BaseModel):

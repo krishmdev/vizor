@@ -66,12 +66,14 @@ def contexts_for(sb: Sandbox, ref: ArmRun, queries) -> np.ndarray:
     return np.array(xs)
 
 
-def reward_table(base: ArmRun, runs: dict[str, ArmRun], queries, samples: int) -> np.ndarray:
-    b = target_frame(base.rows).set_index(["query_id", "sample"])["imp_pwc"]
+def reward_table(
+    base: ArmRun, runs: dict[str, ArmRun], queries, samples: int, metric: str = "imp_pwc"
+) -> np.ndarray:
+    b = target_frame(base.rows).set_index(["query_id", "sample"])[metric]
     arms = list(runs)
     r = np.zeros((len(queries), len(arms), samples))
     for j, a in enumerate(arms):
-        v = target_frame(runs[a].rows).set_index(["query_id", "sample"])["imp_pwc"]
+        v = target_frame(runs[a].rows).set_index(["query_id", "sample"])[metric]
         for i, q in enumerate(queries):
             for k in range(samples):
                 d = v.get((q.query_id, k), 0.0) - b.get((q.query_id, k), 0.0)
@@ -188,6 +190,8 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         sentiment,
         cfg.decay,
         cfg.sandbox.bootstrap,
+        brands=project.brand_patterns(),
+        primary=cfg.sandbox.primary_metric,
     )
     log(
         f"{len(docs)} docs, {len(queries)} queries x {cfg.samples} samples, "
@@ -221,13 +225,19 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         if cfg.sandbox.allow_fabrication:
             arm_specs += sorted(FABRICATING)
     parsed = {a: Arm.parse(a) for a in arm_specs}
+
     # Controls first, then page arms (what a site owner controls, and what the bandit needs),
-    # then engine arms and sweeps, so a budget stop cuts the least important work.
-    order = (
-        [a for a in arm_specs if a in CONTROLS]
-        + [a for a in arm_specs if a not in CONTROLS and parsed[a].kind == "doc"]
-        + [a for a in arm_specs if a not in CONTROLS and parsed[a].kind != "doc"]
-    )
+    # then their content-only twins, then engine arms and sweeps, so a budget stop cuts the least
+    # important work.
+    def rank(a: str) -> int:
+        arm = parsed[a]
+        if a in CONTROLS:
+            return 0
+        if arm.kind == "doc":
+            return 1 if arm.mode == "full" else 2
+        return 3
+
+    order = sorted(arm_specs, key=rank)
     arm_runs: dict[str, ArmRun] = {}
     for spec in order:
         r = attempt(spec, lambda s=spec: sb.run(parsed[s]))
@@ -239,8 +249,10 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     from vizor.config import _balanced
 
     sweep_qs = _balanced(queries, cfg.sandbox.sweep_queries) if cfg.sandbox.sweep_queries else None
-    pos_df = attempt(
-        "position_sweep", lambda: position_sweep(sb, cfg.sandbox.position_sweep, sweep_qs)
+    pos_df = (
+        attempt("position_sweep", lambda: position_sweep(sb, cfg.sandbox.position_sweep, sweep_qs))
+        if cfg.sandbox.position_sweep
+        else None
     )
     if pos_df:
         pos_df, pos_runs = pos_df
@@ -251,7 +263,11 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             .round(2)
             .to_string(index=False)
         )
-    boost_df = attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep, sweep_qs))
+    boost_df = (
+        attempt("boost_sweep", lambda: boost_sweep(sb, cfg.sandbox.boost_sweep, sweep_qs))
+        if cfg.sandbox.boost_sweep
+        else None
+    )
     if boost_df:
         boost_df, boost_runs = boost_df
         all_runs += [r for w, r in boost_runs.items() if w != 0]
@@ -263,6 +279,14 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         )
 
     deltas = Sandbox.with_holm([sb.compare(base, r) for r in arm_runs.values()])
+    # Each page arm that has a content-only twin: total = content + rank-mediated effect.
+    decomposition = pd.DataFrame(
+        [
+            sb.decompose(base, arm_runs[r.arm.base_name], r)
+            for r in arm_runs.values()
+            if r.arm.mode == "content" and r.arm.base_name in arm_runs
+        ]
+    )
 
     # Sweeps are their own Holm family: every non-reference slot and boost comparison together.
     sweep_p = []
@@ -282,14 +306,17 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
                         df.loc[i, "p_holm"] = q
                 df["significant"] = df["p_holm"] < 0.05
 
-    # Bandit over page arms only; engine interventions aren't something a site owner controls.
-    b_arms = [a for a, r in arm_runs.items() if r.arm.kind == "doc"]
+    # Bandit over page arms only; engine interventions and content-only twins aren't something a
+    # site owner can ship.
+    b_arms = [a for a, r in arm_runs.items() if r.arm.kind == "doc" and r.arm.mode == "full"]
     traj = pd.DataFrame()
     curve = summary = pd.DataFrame()
     contexts = np.zeros((0, N_FEATURES))
     rewards = np.zeros((0, 0, cfg.samples))
     if len(b_arms) >= 2:
-        rewards = reward_table(base, {a: arm_runs[a] for a in b_arms}, queries, cfg.samples)
+        rewards = reward_table(
+            base, {a: arm_runs[a] for a in b_arms}, queries, cfg.samples, sb.primary
+        )
         contexts = contexts_for(sb, arm_runs.get("aa_resample", base), queries)
         curve, summary = bandit_mod.replay(
             rewards, contexts, b_arms, cfg.bandit.rounds, cfg.bandit.runs, seed=cfg.seed
@@ -339,6 +366,8 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     write_csv(out / "rows.csv.gz", rows)
     write_csv(out / "baseline_domains.csv", domain_summary(base.rows))
     write_csv(out / "deltas.csv", deltas)
+    if len(decomposition):
+        write_csv(out / "decomposition.csv", decomposition)
     per_query = pd.concat(
         [r.per_query().assign(arm=r.arm.name).reset_index() for r in [base, *arm_runs.values()]]
     )
@@ -449,6 +478,8 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "base_seed": cfg.seed,
         "sentiment_backend": sentiment.backend_id,
         "decay": cfg.decay,
+        "primary_metric": sb.primary,
+        "brands": {d: p.pattern for d, p in sb.brands.items()},
         "transform_query_scope": "crossfit-2",
         "page_arm_scope": "focus page per query",
         "model_pins": {k: f"{v.repo}@{v.revision}" for k, v in PINS.items()},
