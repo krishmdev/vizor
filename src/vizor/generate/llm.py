@@ -59,14 +59,18 @@ def _retryable(exc: BaseException) -> bool:
 
 class OpenAIChat:
     def __init__(
-        self, model: str = "gpt-4o-mini", base_url: str | None = None, timeout: float = 60
+        self,
+        model: str = "gpt-4o-mini",
+        base_url: str | None = None,
+        timeout: float = 60,
+        api_key: str | None = None,
     ) -> None:
         from openai import OpenAI
 
-        if not os.environ.get("OPENAI_API_KEY") and base_url is None:
+        if not (api_key or os.environ.get("OPENAI_API_KEY")) and base_url is None:
             raise RuntimeError("OPENAI_API_KEY is not set")
         self.model_id = model
-        self._client = OpenAI(base_url=base_url, timeout=timeout, max_retries=0)
+        self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0)
 
     @retry(
         retry=retry_if_exception(_retryable),

@@ -75,3 +75,24 @@ def test_src_tree_marks_uncommitted_src_changes(tmp_path, monkeypatch):
     assert len(clean) == 40 and not clean.endswith("+dirty")
     (tmp_path / "src" / "a.py").write_text("x = 2\n")
     assert src_tree() == clean + "+dirty"
+
+
+def test_openai_compatible_local_server_needs_no_key(monkeypatch):
+    from vizor.config import Config, make_llm
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    cfg = Config.model_validate(
+        {
+            "llm": {
+                "backend": "openai_compat",
+                "model": "local-preset",
+                "base_url": "http://127.0.0.1:9",
+                "server_meta": {"server": "x", "commit": "abc"},
+            }
+        }
+    )
+    llm = make_llm(cfg)
+    assert llm.model_id == "local-preset" and llm.max_cost_usd is None
+    assert cfg.model_dump()["llm"]["server_meta"]["commit"] == "abc"
+    with pytest.raises(ValueError):
+        make_llm(Config.model_validate({"llm": {"backend": "openai_compat"}}))

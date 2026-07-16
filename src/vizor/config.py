@@ -12,7 +12,8 @@ from vizor.models import project_root
 
 
 class LLMConfig(BaseModel):
-    backend: Literal["fake", "openai", "ollama"] = "fake"
+    # "openai_compat": a local OpenAI-compatible server (no key, no pricing, no spend cap)
+    backend: Literal["fake", "openai", "ollama", "openai_compat"] = "fake"
     model: str = "gpt-4o-mini"
     base_url: str | None = None
     temperature: float = 0.7
@@ -22,6 +23,9 @@ class LLMConfig(BaseModel):
     # Optional system message sent before the GEO user prompt (e.g. to get a small local model to
     # use [n] markers at all). Recorded in the manifest; empty for the OpenAI run.
     system_prompt: str = ""
+    # Free-form facts about the serving stack (server name, commit, preset), copied into the
+    # manifest with the rest of the config.
+    server_meta: dict[str, str] = Field(default_factory=dict)
 
 
 class SandboxConfig(BaseModel):
@@ -96,6 +100,10 @@ def make_llm(cfg: Config, embedder=None):
         return FakeLLM(embedder)
     if cfg.llm.backend == "openai":
         inner = OpenAIChat(cfg.llm.model, base_url=cfg.llm.base_url)
+    elif cfg.llm.backend == "openai_compat":
+        if not cfg.llm.base_url:
+            raise ValueError("llm.base_url is required for backend openai_compat")
+        inner = OpenAIChat(cfg.llm.model, base_url=cfg.llm.base_url, timeout=600, api_key="local")
     else:
         inner = OllamaChat(cfg.llm.model, base_url=cfg.llm.base_url or "http://localhost:11434")
     return CachedLLM(inner, cache_dir() / "llm", cfg.llm.max_cost_usd)
