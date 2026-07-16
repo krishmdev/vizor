@@ -74,3 +74,37 @@ def test_exact_wilcoxon_floor_and_reachability():
             min_exact_wilcoxon_p(k)
         )
     assert not reachable(4, 1) and not reachable(7, 7) and reachable(12, 7)
+
+
+def test_pilot_sensitivity_uses_planned_families(tmp_path):
+    import pandas as pd
+
+    from vizor.optimize.sensitivity import sensitivity
+    from vizor.optimize.stats import mde
+
+    rng = np.random.default_rng(0)
+    qids = [f"q{i:02d}" for i in range(48)]
+    base = rng.uniform(0, 0.6, len(qids))
+    aa = np.clip(base + rng.normal(0, 0.1, len(qids)), 0, 1)
+    rows = [
+        {"arm": arm, "query_id": q, "c_share": v, "imp_pwc": v, "mentioned": v > 0.3}
+        for arm, vals in (("baseline", base), ("aa_resample", aa))
+        for q, v in zip(qids, vals, strict=True)
+    ]
+    pd.DataFrame(rows).to_csv(tmp_path / "per_query.csv", index=False)
+    pd.DataFrame([{"arm": "noop", "kind": "doc", "family": "arms"}]).to_csv(
+        tmp_path / "deltas.csv", index=False
+    )
+    pd.DataFrame(
+        {"query_id": qids, "fold": [1, 2] * 24, "focus_doc": [f"p{i // 2}" for i in range(48)]}
+    ).to_csv(tmp_path / "queries.csv", index=False)
+    s = sensitivity(tmp_path, metric="c_share", family=6, content_family=6)
+    assert s["metric"] == "c_share" and s["arm_holm_family"] == 6
+    assert s["n_units_page"] == 24 and s["n_units_page_x_fold"] == 48
+    d = (pd.Series(aa - base, index=qids) * 100).groupby([f"p{i // 2}" for i in range(48)]).mean()
+    assert s["page_arm_page_pp"] == pytest.approx(mde(float(d.std(ddof=1)), 24, 6))
+    assert s["content_arm_page_pp"] == pytest.approx(s["page_arm_page_pp"])
+    assert s["page_arm_pp"] >= s["page_arm_page_x_fold_pp"] or s["page_arm_pp"] == pytest.approx(
+        s["page_arm_page_pp"]
+    )
+    assert "mention_page_arm_pp" in s

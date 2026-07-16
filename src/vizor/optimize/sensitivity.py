@@ -23,22 +23,64 @@ def reachable(k: int, family: int, alpha: float = 0.05) -> bool:
     return min_exact_wilcoxon_p(k) * max(1, family) < alpha
 
 
-def sensitivity(run_dir: Path) -> dict:
+def _metric(run_dir: Path, metric: str | None) -> str:
+    if metric:
+        return metric
+    m = run_dir / "manifest.json"
+    if m.exists():
+        import json
+
+        return json.loads(m.read_text()).get("primary_metric", "imp_pwc")
+    return "imp_pwc"
+
+
+def page_units(run_dir: Path, d: pd.Series) -> dict[str, pd.Series]:
+    """A/A per-query deltas averaged over the unit a page arm is tested on: the focus page
+    ("page", arms that don't read queries) or focus page within its fold ("page x fold",
+    cross-fitted arms)."""
+    q = pd.read_csv(run_dir / "queries.csv").set_index("query_id").loc[d.index]
+    return {
+        "page": d.groupby(q["focus_doc"].astype(str)).mean(),
+        "page x fold": d.groupby(q["fold"].astype(str) + "|" + q["focus_doc"].astype(str)).mean(),
+    }
+
+
+def sensitivity(
+    run_dir: Path,
+    metric: str | None = None,
+    family: int | None = None,
+    content_family: int | None = None,
+) -> dict:
+    """MDEs from the A/A re-sample. `family` / `content_family` override the Holm family sizes
+    read from deltas.csv, which is how a pilot (baseline + A/A only) states what the planned
+    full design can detect before any page arm is run."""
     run_dir = Path(run_dir)
     pq = pd.read_csv(run_dir / "per_query.csv")
     deltas = pd.read_csv(run_dir / "deltas.csv")
     if "aa_resample" not in set(pq.arm):
         return {}
-    base = pq[pq.arm == "baseline"].set_index("query_id")["imp_pwc"]
-    aa = pq[pq.arm == "aa_resample"].set_index("query_id")["imp_pwc"]
-    d = ((aa - base).dropna() * 100).sort_index()
+    metric = _metric(run_dir, metric)
+    if metric not in pq.columns:
+        return {}
+
+    def aa(col: str) -> pd.Series:
+        base = pq[pq.arm == "baseline"].set_index("query_id")[col].astype(float)
+        a = pq[pq.arm == "aa_resample"].set_index("query_id")[col].astype(float)
+        return ((a - base).dropna() * 100).sort_index()
+
+    d = aa(metric)
     sd = float(d.std(ddof=1))
     tested = deltas[~deltas.arm.isin(CONTROLS)]
-    arm_family = len(tested)
+    fam_col = tested["family"] if "family" in tested else pd.Series("arms", index=tested.index)
+    arm_family = family if family is not None else int((fam_col == "arms").sum())
+    c_family = content_family if content_family is not None else int((fam_col == "content").sum())
     out: dict = {
+        "metric": metric,
         "aa_sd_per_query_pp": sd,
+        "aa_mean_pp": float(d.mean()),
         "n_queries": int(len(d)),
         "arm_holm_family": arm_family,
+        "content_holm_family": c_family,
         "power": 0.8,
         "alpha": 0.05,
         "engine_arm_pp": mde(sd, len(d), arm_family),
@@ -56,22 +98,42 @@ def sensitivity(run_dir: Path) -> dict:
         out[f"{col}_n_queries"] = n
         out[f"{col}_pp"] = mde(sd, n, sweep_family)
     qfile = run_dir / "queries.csv"
-    page_arms = tested[tested.kind == "doc"]
-    if qfile.exists() and len(page_arms):
-        q = pd.read_csv(qfile).set_index("query_id")
-        units = q.loc[d.index, "fold"].astype(str) + "|" + q.loc[d.index, "focus_doc"].astype(str)
-        cm = d.groupby(units).mean()
-        # arms that aren't cross-fitted edit each page once for both folds, so they have fewer
-        # units than the fold x page count; test reachability at the largest unit count any arm has
-        per_arm = page_arms["n_units"] if "n_units" in page_arms else pd.Series([len(cm)])
-        k = int(per_arm.max())
+    page_arms = tested[(tested.kind == "doc")] if "kind" in tested else tested.iloc[:0]
+    if qfile.exists() and (len(page_arms) or family is not None):
+        units = page_units(run_dir, d)
+        if len(page_arms) and "n_units" in page_arms:
+            k = int(page_arms["n_units"].max())
+            kmin = int(page_arms["n_units"].min())
+        else:
+            k, kmin = len(units["page x fold"]), len(units["page"])
         out["n_page_units"] = k
-        out["n_page_units_min"] = int(per_arm.min())
-        out["page_arms_testable"] = reachable(k, arm_family)
+        out["n_page_units_min"] = kmin
+        out["page_arms_testable"] = reachable(k, max(arm_family, 1))
         out["min_exact_p_page_units"] = min_exact_wilcoxon_p(k)
-        out["page_arm_pp"] = (
-            mde(float(cm.std(ddof=1)), k, arm_family) if out["page_arms_testable"] else None
-        )
+        for name, cm in units.items():
+            key = name.replace(" ", "_")
+            n = len(cm)
+            out[f"unit_sd_{key}_pp"] = float(cm.std(ddof=1)) if n > 1 else float("nan")
+            out[f"n_units_{key}"] = n
+            ok = reachable(n, max(arm_family, 1))
+            out[f"page_arm_{key}_pp"] = mde(float(cm.std(ddof=1)), n, arm_family) if ok else None
+            if c_family:
+                out[f"content_arm_{key}_pp"] = (
+                    mde(float(cm.std(ddof=1)), n, c_family) if reachable(n, c_family) else None
+                )
+        # the widest (least powered) of the two unit kinds, the number the report quotes
+        vals = [out[f"page_arm_{k_}_pp"] for k_ in ("page", "page_x_fold")]
+        out["page_arm_pp"] = max(v for v in vals if v is not None) if all(vals) else None
+    if "mentioned" in pq.columns and metric != "mentioned":
+        dm = aa("mentioned")
+        out["mention_aa_sd_per_query_pp"] = float(dm.std(ddof=1))
+        if qfile.exists():
+            cm = page_units(run_dir, dm)["page"]
+            out["mention_page_arm_pp"] = (
+                mde(float(cm.std(ddof=1)), len(cm), arm_family)
+                if reachable(len(cm), max(arm_family, 1))
+                else None
+            )
     return out
 
 
