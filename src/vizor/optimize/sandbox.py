@@ -462,7 +462,13 @@ def position_sweep(
                 "d_pwc_vs_first_pp": cmp["d_pwc_pp"] if cmp else 0.0,
                 "d_lo": cmp["d_pwc_lo"] if cmp else 0.0,
                 "d_hi": cmp["d_pwc_hi"] if cmp else 0.0,
+                "d_csov_vs_first_pp": cmp["d_csov_pp"] if cmp else 0.0,
+                "d_csov_lo": cmp["d_csov_lo"] if cmp else 0.0,
+                "d_csov_hi": cmp["d_csov_hi"] if cmp else 0.0,
+                "mention_pct": pq["mentioned"].mean() * 100,
+                "p_pwc": cmp["p_pwc"] if cmp else 1.0,
                 "p": cmp["p"] if cmp else 1.0,
+                "primary": sb.primary,
             }
         )
     return pd.DataFrame(out), runs

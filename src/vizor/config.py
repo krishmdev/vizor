@@ -62,6 +62,8 @@ class BanditConfig(BaseModel):
 
 
 class Config(BaseModel):
+    # Heading for this run in the generated reports (empty: derived from the model).
+    label: str = ""
     project: str = "data/demo/project.yaml"
     embedder: Literal["bge", "hashing"] = "bge"
     reranker: Literal["cross-encoder", "none"] = "cross-encoder"
