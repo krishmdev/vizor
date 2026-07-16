@@ -111,6 +111,13 @@ def experiment(
     workers: Annotated[int | None, typer.Option(help="parallel LLM calls")] = None,
     queries: Annotated[int | None, typer.Option()] = None,
     samples: Annotated[int | None, typer.Option()] = None,
+    pilot: Annotated[
+        bool,
+        typer.Option(
+            help="baseline and A/A re-sample only (no page arms, sweeps or bandit), to measure "
+            "the noise and the MDE before the full run; its answers are reused from the cache"
+        ),
+    ] = False,
 ) -> None:
     """Full experiment from a config (see configs/openai.yaml and configs/ollama.yaml)."""
     from vizor.experiment import run_experiment
@@ -119,6 +126,11 @@ def experiment(
     cfg = _config(
         config, queries=queries, samples=samples, max_cost_usd=max_cost_usd, workers=workers
     )
+    if pilot:
+        cfg.sandbox.arms = ["noop", "aa_resample"]
+        cfg.sandbox.position_sweep = []
+        cfg.sandbox.boost_sweep = []
+        cfg.sandbox.llm_rewrites = False
     run_experiment(cfg, out, log=_log)
     write_summary(out)
     typer.echo(str(out))
@@ -190,6 +202,20 @@ def report(
     dirs = results or sorted(p for p in Path("experiments/results").iterdir() if p.is_dir())
     write_results(dirs, out, readme if readme.exists() else None)
     typer.echo(str(out))
+
+
+@app.command("sensitivity")
+def sensitivity_cmd(
+    run_dir: Path,
+    metric: Annotated[str | None, typer.Option(help="imp_pwc, c_share or mentioned")] = None,
+    family: Annotated[int | None, typer.Option(help="planned Holm family of page arms")] = None,
+    content_family: Annotated[int | None, typer.Option(help="planned content-only family")] = None,
+) -> None:
+    """Minimum detectable effects from a run's A/A re-sample (JSON). With --family, for a
+    planned design rather than the arms the run actually has."""
+    from vizor.optimize.sensitivity import sensitivity
+
+    typer.echo(json.dumps(sensitivity(run_dir, metric, family, content_family), indent=2))
 
 
 @app.command()
