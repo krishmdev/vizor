@@ -1,0 +1,72 @@
+{"query_id": "info-01", "query": "how much should a city commuter bike weigh", "intent": "informational", "topic": "metro-7"}
+{"query_id": "info-02", "query": "how far can a commuter e-bike go on one charge", "intent": "informational", "topic": "volt-e1"}
+{"query_id": "info-03", "query": "how small does a folding bike get when folded", "intent": "informational", "topic": "fold-20"}
+{"query_id": "info-04", "query": "how much tire clearance do i need on a gravel bike", "intent": "informational", "topic": "gravel-gx"}
+{"query_id": "info-05", "query": "what size bike for a 5 year old", "intent": "informational", "topic": "sprout-16"}
+{"query_id": "info-06", "query": "how do i figure out my bike helmet size", "intent": "informational", "topic": "shell"}
+{"query_id": "info-07", "query": "how to fix a flat bike tire on the side of the road", "intent": "informational", "topic": "guides/flat-tire"}
+{"query_id": "info-08", "query": "what tire pressure should i run on 32mm tires", "intent": "informational", "topic": "guides/tire-pressure"}
+{"query_id": "info-09", "query": "how often should i lube my bike chain", "intent": "informational", "topic": "guides/chain-care"}
+{"query_id": "info-10", "query": "how to bed in new disc brake pads", "intent": "informational", "topic": "support/disc-brake-squeal"}
+{"query_id": "info-11", "query": "how to adjust bike gears with the barrel adjuster", "intent": "informational", "topic": "support/gear-indexing"}
+{"query_id": "info-12", "query": "what size bike frame do i need for my height", "intent": "informational", "topic": "guides/frame-size"}
+{"query_id": "info-13", "query": "how to store an e-bike battery over the winter", "intent": "informational", "topic": "support/e-bike-battery"}
+{"query_id": "info-14", "query": "how to dress for bike commuting in freezing weather", "intent": "informational", "topic": "guides/winter-commuting"}
+{"query_id": "info-15", "query": "tips for commuting to work by bike for the first time", "intent": "informational", "topic": "guides/first-commute"}
+{"query_id": "info-16", "query": "how to set the right saddle height on a bike", "intent": "informational", "topic": "guides/saddle-height"}
+{"query_id": "info-17", "query": "how to lock a bike properly on the street", "intent": "informational", "topic": "guides/bike-theft"}
+{"query_id": "info-18", "query": "how to true a bike wheel at home", "intent": "informational", "topic": "support/wheel-truing"}
+{"query_id": "comp-01", "query": "internal gear hub vs derailleur on a commuter bike", "intent": "comparison", "topic": "metro-7"}
+{"query_id": "comp-02", "query": "hub motor vs mid-drive e-bike for commuting", "intent": "comparison", "topic": "volt-e1"}
+{"query_id": "comp-03", "query": "cog & chain pocket 20 vs a folding bike from another brand", "intent": "comparison", "topic": "fold-20"}
+{"query_id": "comp-04", "query": "gravel bike vs hybrid for a long commute on mixed roads", "intent": "comparison", "topic": "gravel-gx"}
+{"query_id": "comp-05", "query": "coaster brake vs hand brakes on a kids bike", "intent": "comparison", "topic": "sprout-16"}
+{"query_id": "comp-06", "query": "longtail vs front box cargo bike for carrying two kids", "intent": "comparison", "topic": "haul"}
+{"query_id": "comp-07", "query": "800 lumen vs 400 lumen bike light for commuting", "intent": "comparison", "topic": "beam-800"}
+{"query_id": "comp-08", "query": "bike helmet with a rotational liner vs a regular helmet", "intent": "comparison", "topic": "shell"}
+{"query_id": "comp-09", "query": "u-lock vs chain lock which is harder to cut", "intent": "comparison", "topic": "lock-d9"}
+{"query_id": "comp-10", "query": "pannier vs backpack for bike commuting", "intent": "comparison", "topic": "pannier-20"}
+{"query_id": "comp-11", "query": "floor pump vs mini pump for topping up tires at home", "intent": "comparison", "topic": "floor-pump"}
+{"query_id": "comp-12", "query": "is the cog & chain drive dd worth it over a cheaper direct drive trainer", "intent": "comparison", "topic": "spin-t2"}
+{"query_id": "comp-13", "query": "does higher tire pressure roll faster than lower pressure", "intent": "comparison", "topic": "guides/tire-pressure"}
+{"query_id": "comp-14", "query": "wet lube vs dry lube for commuting", "intent": "comparison", "topic": "guides/chain-care"}
+{"query_id": "comp-15", "query": "resin vs sintered disc brake pads for commuting", "intent": "comparison", "topic": "support/disc-brake-squeal"}
+{"query_id": "comp-16", "query": "should i size up or down if i am between two frame sizes", "intent": "comparison", "topic": "guides/frame-size"}
+{"query_id": "comp-17", "query": "charging an e-bike battery to 80 percent vs 100 percent", "intent": "comparison", "topic": "support/e-bike-battery"}
+{"query_id": "comp-18", "query": "heel method vs 109 percent method for saddle height", "intent": "comparison", "topic": "guides/saddle-height"}
+{"query_id": "tran-01", "query": "best city commuter bike under $1000", "intent": "transactional", "topic": "metro-7"}
+{"query_id": "tran-02", "query": "how much does a good commuter e-bike cost", "intent": "transactional", "topic": "volt-e1"}
+{"query_id": "tran-03", "query": "best folding bike for a train commute", "intent": "transactional", "topic": "fold-20"}
+{"query_id": "tran-04", "query": "best gravel bike under $1500 for commuting", "intent": "transactional", "topic": "gravel-gx"}
+{"query_id": "tran-05", "query": "best 16 inch kids bike", "intent": "transactional", "topic": "sprout-16"}
+{"query_id": "tran-06", "query": "how much does an electric longtail cargo bike cost", "intent": "transactional", "topic": "haul"}
+{"query_id": "tran-07", "query": "best rechargeable front bike light for commuting", "intent": "transactional", "topic": "beam-800"}
+{"query_id": "tran-08", "query": "best commuter bike helmet under $100", "intent": "transactional", "topic": "shell"}
+{"query_id": "tran-09", "query": "best u-lock for locking a bike in the city", "intent": "transactional", "topic": "lock-d9"}
+{"query_id": "tran-10", "query": "best waterproof pannier that fits a laptop", "intent": "transactional", "topic": "pannier-20"}
+{"query_id": "tran-11", "query": "best floor pump for presta valves", "intent": "transactional", "topic": "floor-pump"}
+{"query_id": "tran-12", "query": "best smart indoor trainer under $800", "intent": "transactional", "topic": "spin-t2"}
+{"query_id": "tran-13", "query": "what should i buy for a flat repair kit", "intent": "transactional", "topic": "guides/flat-tire"}
+{"query_id": "tran-14", "query": "how much does a bike shop charge to adjust gears", "intent": "transactional", "topic": "support/gear-indexing"}
+{"query_id": "tran-15", "query": "are studded bike tires worth buying for winter commuting", "intent": "transactional", "topic": "guides/winter-commuting"}
+{"query_id": "tran-16", "query": "what gear do i need to buy to start bike commuting", "intent": "transactional", "topic": "guides/first-commute"}
+{"query_id": "tran-17", "query": "how much should i spend on a bike lock", "intent": "transactional", "topic": "guides/bike-theft"}
+{"query_id": "tran-18", "query": "cost to get a wobbly wheel trued at a bike shop", "intent": "transactional", "topic": "support/wheel-truing"}
+{"query_id": "trou-01", "query": "cargo bike struggles on hills with kids on the back", "intent": "troubleshooting", "topic": "haul"}
+{"query_id": "trou-02", "query": "my bike light battery dies faster than the claimed runtime", "intent": "troubleshooting", "topic": "beam-800"}
+{"query_id": "trou-03", "query": "bike lock key is hard to turn in cold weather", "intent": "troubleshooting", "topic": "lock-d9"}
+{"query_id": "trou-04", "query": "pannier keeps bouncing off my rack on bumps", "intent": "troubleshooting", "topic": "pannier-20"}
+{"query_id": "trou-05", "query": "floor pump head keeps popping off the presta valve", "intent": "troubleshooting", "topic": "floor-pump"}
+{"query_id": "trou-06", "query": "smart trainer shows different power than my power meter", "intent": "troubleshooting", "topic": "spin-t2"}
+{"query_id": "trou-07", "query": "why do i keep getting flat tires on my commute", "intent": "troubleshooting", "topic": "guides/flat-tire"}
+{"query_id": "trou-08", "query": "bike feels harsh and skips over bumps is my tire pressure wrong", "intent": "troubleshooting", "topic": "guides/tire-pressure"}
+{"query_id": "trou-09", "query": "why is my bike chain squeaking after riding in the rain", "intent": "troubleshooting", "topic": "guides/chain-care"}
+{"query_id": "trou-10", "query": "why do my disc brakes squeal in the rain", "intent": "troubleshooting", "topic": "support/disc-brake-squeal"}
+{"query_id": "trou-11", "query": "why do my gears skip when i pedal hard", "intent": "troubleshooting", "topic": "support/gear-indexing"}
+{"query_id": "trou-12", "query": "my bike feels too stretched out and my back hurts", "intent": "troubleshooting", "topic": "guides/frame-size"}
+{"query_id": "trou-13", "query": "why does my e-bike battery run out faster in cold weather", "intent": "troubleshooting", "topic": "support/e-bike-battery"}
+{"query_id": "trou-14", "query": "road salt is wrecking my bike chain and brakes in winter", "intent": "troubleshooting", "topic": "guides/winter-commuting"}
+{"query_id": "trou-15", "query": "how do i avoid arriving at work sweaty after biking", "intent": "troubleshooting", "topic": "guides/first-commute"}
+{"query_id": "trou-16", "query": "the front of my knee hurts after cycling", "intent": "troubleshooting", "topic": "guides/saddle-height"}
+{"query_id": "trou-17", "query": "my bike was stolen what should i do", "intent": "troubleshooting", "topic": "guides/bike-theft"}
+{"query_id": "trou-18", "query": "my back wheel wobbles and rubs the brake", "intent": "troubleshooting", "topic": "support/wheel-truing"}
