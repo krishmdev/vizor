@@ -486,20 +486,25 @@ def _interval_band(fig, x, lo, hi, color, name):
 
 
 def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
-    """Per-arm ΔPAWC with descriptive CIs, grouped controls / page arms / engine arms, with the
+    """Per-arm delta on the run's primary metric with descriptive CIs, grouped controls / page
+    arms / content-only arms / engine arms, with the
     Holm verdict and n written beside each row so significance is never colour-only."""
     d = d[d.arm != "noop"].copy()
+    primary = d["primary"].iloc[0] if "primary" in d and len(d) else "imp_pwc"
+    col = {"imp_pwc": "d_pwc", "c_share": "d_csov", "mentioned": "d_mention"}[primary]
+    metric = {"imp_pwc": "PAWC share", "c_share": "C-SoV", "mentioned": "named rate"}[primary]
+    d["_m"], d["_lo"], d["_hi"] = d[f"{col}_pp"], d[f"{col}_lo"], d[f"{col}_hi"]
     group = {"aa": "Control", "doc": "Page arm", "engine": "Engine arm"}
     d["group"] = d.kind.map(group).fillna("Engine arm")
-    order = {"Control": 0, "Page arm": 1, "Engine arm": 2}
-    d = d.sort_values(
-        by=["group", "d_pwc_pp"], key=lambda c: c.map(order) if c.name == "group" else c
-    )
+    if "mode" in d:
+        d.loc[d["mode"] == "content", "group"] = "Content-only arm"
+    order = {"Control": 0, "Page arm": 1, "Content-only arm": 2, "Engine arm": 3}
+    d = d.sort_values(by=["group", "_m"], key=lambda c: c.map(order) if c.name == "group" else c)
     # short row labels so the chart fits a phone; the group is in the hover and the row order
     d["label"] = d.arm.str.replace("engine:", "", regex=False)
     labels = list(d.label)[::-1]  # plotly draws the first category at the bottom
     sig = d.get("significant", pd.Series(False, index=d.index)).fillna(False).astype(bool)
-    st.markdown(f"### {titled('ΔPAWC share of the target', exp)}")
+    st.markdown(f"### {titled(f'Δ{metric} of the target', exp)}")
     fig = figure(90 + 40 * len(d))
     fig.add_vline(x=0, line=dict(color=INK_2, width=1))
     page_ok = sens.get("page_arms_testable", True)
@@ -528,7 +533,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         if not len(rows):
             continue
         fig.add_scatter(
-            x=rows.d_pwc_pp,
+            x=rows._m,
             y=rows.label,
             mode="markers",
             name=name,
@@ -541,13 +546,13 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
             error_x=dict(
                 type="data",
                 symmetric=False,
-                array=rows.d_pwc_hi - rows.d_pwc_pp,
-                arrayminus=rows.d_pwc_pp - rows.d_pwc_lo,
+                array=rows._hi - rows._m,
+                arrayminus=rows._m - rows._lo,
                 color=INK_2,
                 thickness=1.5,
                 width=0,
             ),
-            customdata=rows[["d_pwc_lo", "d_pwc_hi", "p_holm", "n_queries", "group"]].to_numpy(),
+            customdata=rows[["_lo", "_hi", "p_holm", "n_queries", "group"]].to_numpy(),
             hovertemplate="%{customdata[4]} · %{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
             "<br>Holm p %{customdata[2]:.3f} · n=%{customdata[3]}<extra></extra>",
         )
@@ -572,7 +577,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
             font=dict(size=11, color=INK_2),
         )
     fig.update_yaxes(categoryorder="array", categoryarray=labels)
-    fig.update_xaxes(ticksuffix=" pp", title="ΔPAWC, pp (95% bootstrap CI)")
+    fig.update_xaxes(ticksuffix=" pp", title=f"Δ{metric}, pp (95% bootstrap CI)")
     fig.update_layout(margin=dict(r=120, l=4), legend=dict(y=1.08))
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     tested = d[d.kind != "aa"]
@@ -582,7 +587,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         else f"{int(sig.sum())} arm(s) pass the Holm rule, marked ◆ and *."
     )
     msg = (
-        "Rows, top to bottom: the A/A control, page arms, engine arms; k is the number of "
+        "Rows, top to bottom: the A/A control, page arms, content-only arms, engine arms; k is the number of "
         "independent edited-page units. " + msg
     )
     extra = []
