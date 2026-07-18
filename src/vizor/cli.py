@@ -131,6 +131,8 @@ def experiment(
         cfg.sandbox.position_sweep = []
         cfg.sandbox.boost_sweep = []
         cfg.sandbox.llm_rewrites = False
+        if cfg.label:
+            cfg.label += ", pilot: baseline and A/A only"
     run_experiment(cfg, out, log=_log)
     write_summary(out)
     typer.echo(str(out))
