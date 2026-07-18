@@ -1,0 +1,36 @@
+# Robustness check with a second model (docs/bench-design.md): Qwen3.5-9B, 4-bit MLX, served by
+# Localhost AI (the author's own inference server, a separate repository) through its
+# OpenAI-compatible API. Start it with `LHAI_MODEL=qwen3.5-9b-mlx4 uv run lhai serve --port
+# 8431` in that repo; the run script copies this file into the results directory with the
+# server's commit hash filled in under llm.server_meta.
+label: "Qwen3.5-9B (MLX 4-bit) via Localhost AI, bench corpus (robustness)"
+project: data/bench/project.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: auto
+samples: 3
+seed: 0
+llm:
+  backend: openai_compat
+  model: qwen3.5-9b-mlx4
+  base_url: http://127.0.0.1:8431/v1
+  temperature: 0.7
+  max_tokens: 450
+  workers: 1
+  server_meta:
+    server: localhost-ai
+    preset: qwen3.5-9b-mlx4
+  system_prompt: >-
+    You answer questions using numbered search results. Write short sentences. Put a citation in
+    square brackets at the end of EVERY sentence, right before the period, naming the search result
+    that supports that sentence. Format example, with made-up facts unrelated to any question:
+    "The Harrow kettle holds 1.7 litres [2]. It ships in three colours [2]. The Linden toaster has
+    four slots [4]." Never collect citations at the end of the answer.
+sandbox:
+  primary_metric: c_share
+  arms: [noop, aa_resample,
+         metadata, faq_rewrite, jsonld_insert, internal_links, stats_surface, keyword_stuffing]
+  position_sweep: []
+  boost_sweep: []
+bandit:
+  greedy_steps: 0

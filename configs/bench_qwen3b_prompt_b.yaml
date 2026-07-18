@@ -1,0 +1,28 @@
+# Robustness check (docs/bench-design.md): the main run's model, corpus and page arms with a
+# differently worded system prompt (B) and 3 samples per query. No content-only twins or sweeps.
+label: "qwen2.5:3b-instruct via Ollama, bench corpus, system prompt B (robustness)"
+project: data/bench/project.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: auto
+samples: 3
+seed: 0
+llm:
+  backend: ollama
+  model: qwen2.5:3b-instruct
+  base_url: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 450
+  workers: 1
+  system_prompt: >-
+    Answer the user's question from the numbered search results only. After every sentence, write
+    the number of each search result that supports it in square brackets, like [3] or [1][4]. If
+    the results do not answer the question, say so.
+sandbox:
+  primary_metric: c_share
+  arms: [noop, aa_resample,
+         metadata, faq_rewrite, jsonld_insert, internal_links, stats_surface, keyword_stuffing]
+  position_sweep: []
+  boost_sweep: []
+bandit:
+  greedy_steps: 0
