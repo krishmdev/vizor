@@ -7,7 +7,7 @@ label: "Qwen3.5-9B (MLX 4-bit) via Localhost AI, bench corpus (robustness)"
 project: data/bench/project.yaml
 embedder: bge
 reranker: cross-encoder
-sentiment: auto
+sentiment: vader  # the 9B model leaves about 2 GB free; skip the roberta sentiment model
 samples: 3
 seed: 0
 llm:
