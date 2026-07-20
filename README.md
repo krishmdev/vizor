@@ -90,9 +90,26 @@ reference code outside those tests:
 - a citation to a source index that wasn't in the prompt is dropped and counted as hallucinated,
   so it doesn't enter |C(s)|. The reference code keeps it in the divisor, and a `[0]` there
   silently credits the last source.
- Beyond PAWC, per domain: Citation
-Share-of-Voice (share of all `[n]` markers), citation rate, first-citation position, retrieved →
-cited conversion, and an emphasized / cited / ignored label for each source in each answer.
+
+Beyond PAWC, per domain: Citation Share-of-Voice (share of all valid citation markers),
+citation rate, first-citation position, retrieved → cited conversion, and an emphasized / cited /
+ignored label for each source in each answer.
+
+**Citation parsing** (`src/vizor/attribution/citations.py`). Besides `[1]`, `[1][2]`, `[1, 2]` and
+`[1-3]`, the parser reads the forms small models actually write: `[Source 2]` (often as the
+subject of a sentence, "[Source 3] states that ..."), `[Sources 1 and 3]`, `[Source [2]]`,
+`(Source 2)`, and a bare "Source 2" in running text. A bare `(2)` is not read as a citation.
+Anything left over that still looks like a citation attempt (say `[Source A]`) is kept as
+"unparsed" and counted per arm, so a format failure shows up as such instead of as an uncited
+answer. The parser is checked against 31 hand-read qwen2.5:3b answers from the committed run
+(`tests/fixtures/qwen_citations.jsonl`); the parser before this change got 10 of them wrong.
+
+**Brand mentions** (`src/vizor/metrics/mentions.py`). Citations and brand names disagree often:
+an answer can cite a Brewline page without saying "Brewline", or name a Brewline product it read
+on a review site without citing Brewline at all. So each answer also records whether it names
+each site's brand (names from the project YAML, whole words, case-insensitive) and how many of
+its sentences do. The "named rate" is reported next to PAWC and C-SoV, and is tested per arm.
+
 Sentiment comes from `cardiffnlp/twitter-roberta-base-sentiment-latest` (P(pos) − P(neg)), both
 over the sentences that cite a domain (PAWC-weighted) and over its retrieved passages. VADER is
 the fallback.
@@ -119,10 +136,17 @@ built from one half of the queries and scored on the other, so no page is edited
 query it is then scored on. Deltas are per query (mean over samples). Queries served by the same
 edited page aren't independent, so page arms are tested on (fold, page) units: the bootstrap
 resamples units, and the Wilcoxon test runs on unit means. The verdict is the Holm-adjusted
-Wilcoxon p across the real arms, with the sweeps forming a second Holm family. The 95% CIs are
-descriptive. The position sweep forces one target page into
-slots 1 to 5. The boost sweep adds w to the target pages' final score and splits queries by
-whether the source set changed, only the order changed, or nothing changed.
+Wilcoxon p on the run's primary metric (PAWC share unless the config says otherwise), with the
+sweeps forming a second Holm family. The 95% CIs are descriptive. The position sweep forces one
+target page into a given slot. The boost sweep adds w to the target pages' final score and splits
+queries by whether the source set changed, only the order changed, or nothing changed.
+
+**Content or rank?** Editing a page re-indexes it, so a page arm can change the answer in two
+ways: through what the page now says, or through where retrieval now ranks it (and which other
+pages it pushes out of the top five). A content-only twin, `content:<arm>`, applies the same edit
+but takes the sources and their order from the unedited corpus, so only the edited page's text
+changes. The full arm minus its twin is the rank-mediated part. Content-only arms are a separate
+Holm family, and `decomposition.csv` holds the split for every edit that has a twin.
 
 **Bandit.** The tracked queries are contexts. Each has 13 features of the focus page and query:
 FAQ, JSON-LD, meta description length, words, links, intent, and the target's baseline retrieval,
@@ -315,6 +339,7 @@ src/vizor/
   optimize/     transforms.py retrieval_policy.py sandbox.py stats.py bandit.py reward.py
   api/ dashboard/  experiment.py cli.py models.py embed.py summarize.py queries.py
 data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
+data/bench/     larger synthetic corpus (72 pages, 24 of them target pages) and 72 queries
 experiments/    committed results and RESULTS.md
 tests/          294 offline tests, incl. vendored GEO reference functions
 ```
