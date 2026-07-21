@@ -92,8 +92,8 @@ def test_holm_excludes_controls(sandbox):
 
 def test_page_arms_are_tested_per_edited_page(sandbox):
     cmp = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("faq_rewrite")))
-    units = {"|".join(v) for v in sandbox.run(Arm.parse("faq_rewrite")).scored_against.values()}
-    assert cmp["unit"] == "page x fold" and cmp["n_units"] == len(units) < cmp["n_queries"]
+    units = {doc_id for _, doc_id in sandbox.run(Arm.parse("faq_rewrite")).scored_against.values()}
+    assert cmp["unit"] == "page" and cmp["n_units"] == len(units) < cmp["n_queries"]
     eng = sandbox.compare(sandbox.baseline, sandbox.run(Arm.parse("engine:reverse")))
     assert eng["unit"] == "query" and eng["n_units"] == eng["n_queries"]
     assert "d_pwc_given_cited_pp" in cmp

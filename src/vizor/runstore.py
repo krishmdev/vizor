@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import os
 import subprocess
@@ -18,6 +19,33 @@ from pathlib import Path
 import pandas as pd
 
 from vizor.types import Answer
+
+
+def files_sha256(paths: Iterable[Path], root: Path) -> str:
+    """Hash names and bytes of an input set, including edits outside Git's index."""
+    digest = hashlib.sha256()
+    for path in sorted(set(paths)):
+        name = path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()
+        content = path.read_bytes()
+        digest.update(len(name.encode()).to_bytes(8, "big"))
+        digest.update(name.encode())
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def source_sha256(root: Path) -> str:
+    return files_sha256((root / "src").rglob("*.py"), root)
+
+
+def corpus_sha256(project, project_path: Path, root: Path) -> str:
+    paths = [project_path]
+    for path in (project.queries_path, project.corpus_jsonl):
+        if path is not None and path.exists():
+            paths.append(path)
+    if project.html_dir is not None and project.html_dir.exists():
+        paths.extend(project.html_dir.rglob("*.html"))
+    return files_sha256(paths, root)
 
 
 def write_jsonl_gz(path: Path, records: Iterable[dict]) -> int:

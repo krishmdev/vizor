@@ -60,9 +60,23 @@ def _read(d: Path, name: str) -> pd.DataFrame | None:
 
 
 def load(d: Path) -> dict:
+    from vizor.inspect import recompute_rows
+
+    manifest = json.loads((d / "manifest.json").read_text())
+    if manifest.get("input_fingerprints_match") is False:
+        invalid = "Source or corpus changed during this run; its comparisons have invalid provenance."
+    else:
+        matches, _ = recompute_rows(d)
+        invalid = (
+            None
+            if matches
+            else "Stored answers or attribution rows do not match the current parser; "
+            "these comparisons are archival."
+        )
     return {
         "dir": d,
-        "manifest": json.loads((d / "manifest.json").read_text()),
+        "manifest": manifest,
+        "invalid_reason": invalid,
         "domains": _read(d, "baseline_domains.csv"),
         "deltas": _read(d, "deltas.csv"),
         "decomposition": _read(d, "decomposition.csv"),
@@ -451,11 +465,23 @@ def claim_md(r: dict) -> str:
         )
     out = []
     if pos is not None and len(pos) > 1:
-        slots = ", ".join(f"slot {int(x.position)} {_f(x.pwc_pct)}%" for x in pos.itertuples())
+        primary = str(pos.primary.iloc[0]) if "primary" in pos else "imp_pwc"
+        is_csov = primary == "c_share"
+        metric_name = "C-SoV" if is_csov else "PAWC share"
+        slots = ", ".join(
+            f"slot {int(x.position)} {_f(x.c_share_pct if is_csov else x.pwc_pct)}%"
+            for x in pos.itertuples()
+        )
         sig = [x for x in pos.iloc[1:].itertuples() if _sig(x)]
         if sig:
             detail = "; ".join(
-                f"slot {int(x.position)} vs 1: {_ci(x.d_pwc_vs_first_pp, x.d_lo, x.d_hi)} pp (Holm p {_p(x.p_holm)})"
+                f"slot {int(x.position)} vs 1: "
+                + (
+                    _ci(x.d_csov_vs_first_pp, x.d_csov_lo, x.d_csov_hi)
+                    if is_csov
+                    else _ci(x.d_pwc_vs_first_pp, x.d_lo, x.d_hi)
+                )
+                + f" pp (Holm p {_p(x.p_holm)})"
                 for x in sig
             )
             verdict = f"Holm-significant differences: {detail}."
@@ -463,7 +489,7 @@ def claim_md(r: dict) -> str:
             verdict = "No slot differs from slot 1 under the Holm rule."
         out.append(
             f"- Context order (same pages, target forced into each slot, n={int(pos.n_queries.iloc[0])} queries): "
-            f"PAWC share {slots}. {verdict}"
+            f"{metric_name} {slots}. {verdict}"
         )
         rob = position_robustness(r["dir"])
         if rob:
@@ -471,7 +497,7 @@ def claim_md(r: dict) -> str:
             out.append(
                 f"- How fragile the slot {rob['last_slot']} result is: its raw p is {_p(rob['raw_p'])} over "
                 f"{rob['n_queries']} queries, but those queries are served by only {rob['n_pages']} target pages. "
-                f"Per page, slot {rob['last_slot']} minus slot {rob['first_slot']} is {pages} pp, and a Wilcoxon "
+                f"Per page, slot {rob['last_slot']} minus slot {rob['first_slot']} on {metric_name} is {pages} pp, and a Wilcoxon "
                 f"test on the page means gives p = {_p(rob['page_level_p'])}. It also depends on the sweeps "
                 f"forming their own Holm family: in one family with the arms ({rob['joint_family_size']} tests) "
                 f"its Holm p would be {_p(rob['joint_holm_p'])}."
@@ -641,9 +667,8 @@ def claim_arms_v2(r: dict) -> list[str]:
         parts = []
         if sens.get("page_arm_page_pp") is not None:
             parts.append(
-                f"page edits ≈ {_f(sens['page_arm_page_pp'])} pp on {sens['n_units_page']} page units "
-                f"(≈ {_f(sens.get('page_arm_page_x_fold_pp'))} pp for cross-fitted arms on "
-                f"{sens.get('n_units_page_x_fold')} page x fold units)"
+                f"page edits ≈ {_f(sens['page_arm_page_pp'])} pp on {sens['n_units_page']} "
+                "underlying page units (both cross-fit folds clustered by page)"
             )
         elif sens.get("n_page_units") is not None:
             parts.append("page edits: **untestable at this design** (too few page units)")
@@ -776,6 +801,8 @@ def trajectory_md(r: dict) -> str:
 def summary_md(r: dict, level: int = 1) -> str:
     h = "#" * level
     parts = [f"{h} {label(r)}", header_md(r)]
+    if r.get("invalid_reason"):
+        return "\n\n".join([*parts, f"**Invalid result:** {r['invalid_reason']}"]) + "\n"
     if r["domains"] is not None:
         parts += [f"{h}# Baseline visibility", domains_md(r)]
     if r["deltas"] is not None:
@@ -842,6 +869,9 @@ def readme_block(results: list[dict]) -> str:
     for r in results:
         parts.append(f"#### {label(r)}")
         parts.append(header_md(r))
+        if r.get("invalid_reason"):
+            parts.append(f"**Invalid result:** {r['invalid_reason']}")
+            continue
         if r["deltas"] is not None:
             keep = r["deltas"]
             parts.append(deltas_md({**r, "deltas": keep}))

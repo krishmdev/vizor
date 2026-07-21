@@ -16,9 +16,10 @@ import vizor
 from vizor.config import Config, build
 from vizor.generate.llm import BudgetExceeded
 from vizor.generate.prompt import INSTRUCTION
+from vizor.ingest.corpus import load_project
 from vizor.metrics.sentiment import make_sentiment
 from vizor.metrics.visibility import domain_summary
-from vizor.models import PINS
+from vizor.models import PINS, project_root
 from vizor.optimize import bandit as bandit_mod
 from vizor.optimize.reward import N_FEATURES, context_features
 from vizor.optimize.sandbox import (
@@ -36,7 +37,15 @@ from vizor.optimize.sensitivity import sensitivity
 from vizor.optimize.stats import holm
 from vizor.optimize.transforms import FABRICATING, LLM_REWRITES, TransformContext
 from vizor.retrieve.chunk import flatten_jsonld
-from vizor.runstore import git_commit, host_manifest, src_tree, write_csv, write_jsonl_gz
+from vizor.runstore import (
+    corpus_sha256,
+    git_commit,
+    host_manifest,
+    source_sha256,
+    src_tree,
+    write_csv,
+    write_jsonl_gz,
+)
 
 Log = Callable[[str], None]
 
@@ -169,6 +178,12 @@ def preflight(cfg: Config, log: Log = print) -> dict:
 def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
     t0 = time.time()
     commit, tree = git_commit(), src_tree()
+    root = project_root()
+    source_hash_start = source_sha256(root)
+    config_hash = hashlib.sha256(
+        json.dumps(cfg.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    corpus_hash_start = corpus_sha256(load_project(cfg.project_path()), cfg.project_path(), root)
     if cfg.llm.backend == "openai":
         preflight(cfg, log)
     out.mkdir(parents=True, exist_ok=True)
@@ -456,6 +471,11 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "vizor_version": vizor.__version__,
         "git_commit": commit,
         "src_tree": tree,
+        "source_sha256_start": source_hash_start,
+        "source_sha256_end": source_sha256(root),
+        "config_sha256": config_hash,
+        "corpus_sha256_start": corpus_hash_start,
+        "corpus_sha256_end": corpus_sha256(project, cfg.project_path(), root),
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(t0)),
         "elapsed_s": round(time.time() - t0, 1),
         "config": cfg.model_dump(),
@@ -488,6 +508,15 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
         "skipped_due_to_budget": skipped,
         "host": host_manifest(llm=engine.llm.model_id, device="cpu"),
     }
+    manifest["input_fingerprints_match"] = (
+        manifest["source_sha256_start"] == manifest["source_sha256_end"]
+        and manifest["corpus_sha256_start"] == manifest["corpus_sha256_end"]
+    )
+    if not manifest["input_fingerprints_match"]:
+        log(
+            "WARNING: source or corpus changed during the run; results cannot support "
+            "a clean comparison"
+        )
     manifest["sensitivity"] = sensitivity(out)
     log(f"sensitivity: {manifest['sensitivity']}")
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")

@@ -35,9 +35,10 @@ def _metric(run_dir: Path, metric: str | None) -> str:
 
 
 def page_units(run_dir: Path, d: pd.Series) -> dict[str, pd.Series]:
-    """A/A per-query deltas averaged over the unit a page arm is tested on: the focus page
-    ("page", arms that don't read queries) or focus page within its fold ("page x fold",
-    cross-fitted arms)."""
+    """A/A deltas by underlying page, with page x fold shown only as a diagnostic.
+
+    Both cross-fit versions share a source page and are clustered together for inference.
+    """
     q = pd.read_csv(run_dir / "queries.csv").set_index("query_id").loc[d.index]
     return {
         "page": d.groupby(q["focus_doc"].astype(str)).mean(),
@@ -105,10 +106,10 @@ def sensitivity(
             k = int(page_arms["n_units"].max())
             kmin = int(page_arms["n_units"].min())
         else:
-            k, kmin = len(units["page x fold"]), len(units["page"])
+            k = kmin = len(units["page"])
         out["n_page_units"] = k
         out["n_page_units_min"] = kmin
-        out["page_arms_testable"] = reachable(k, max(arm_family, 1))
+        out["page_arms_testable"] = reachable(kmin, max(arm_family, 1))
         out["min_exact_p_page_units"] = min_exact_wilcoxon_p(k)
         for name, cm in units.items():
             key = name.replace(" ", "_")
@@ -121,9 +122,7 @@ def sensitivity(
                 out[f"content_arm_{key}_pp"] = (
                     mde(float(cm.std(ddof=1)), n, c_family) if reachable(n, c_family) else None
                 )
-        # the widest (least powered) of the two unit kinds, the number the report quotes
-        vals = [out[f"page_arm_{k_}_pp"] for k_ in ("page", "page_x_fold")]
-        out["page_arm_pp"] = max(v for v in vals if v is not None) if all(vals) else None
+        out["page_arm_pp"] = out["page_arm_page_pp"]
     if "mentioned" in pq.columns and metric != "mentioned":
         dm = aa("mentioned")
         out["mention_aa_sd_per_query_pp"] = float(dm.std(ddof=1))
@@ -149,16 +148,19 @@ def position_robustness(run_dir: Path) -> dict:
         return {}
     pos = pd.read_csv(pos_path)
     first, last = int(pos.position.iloc[0]), int(pos.position.iloc[-1])
+    metric = str(pos.primary.iloc[0]) if "primary" in pos else "imp_pwc"
+    if metric not in ("imp_pwc", "c_share"):
+        return {}
     rows = pd.read_csv(run_dir / "rows.csv.gz")
     t = rows[rows.role == "target"]
 
     def per_query(arm: str) -> pd.DataFrame:
         a = t[t.arm == arm]
-        return a.groupby("query_id").agg(pwc=("imp_pwc", "mean"), retrieved=("retrieved", "max"))
+        return a.groupby("query_id").agg(value=(metric, "mean"), retrieved=("retrieved", "max"))
 
     a, b = per_query(f"engine:target_at:{first}"), per_query(f"engine:target_at:{last}")
     forced = a.index[a.retrieved.astype(bool)]
-    d = (b.loc[forced, "pwc"] - a.loc[forced, "pwc"]) * 100
+    d = (b.loc[forced, "value"] - a.loc[forced, "value"]) * 100
     q = pd.read_csv(run_dir / "queries.csv").set_index("query_id")
     by_page = d.groupby(q.loc[d.index, "focus_url"]).mean()
     deltas = pd.read_csv(run_dir / "deltas.csv")
@@ -169,6 +171,7 @@ def position_robustness(run_dir: Path) -> dict:
     sweep_p = list(pos.p.iloc[1:]) + (list(boost.p.iloc[1:]) if boost is not None else [])
     joint = holm(list(tested.p) + sweep_p)
     return {
+        "metric": metric,
         "first_slot": first,
         "last_slot": last,
         "n_queries": int(len(d)),

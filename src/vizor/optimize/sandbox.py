@@ -15,9 +15,10 @@ Design:
 - Engine arms change retrieval weighting or source order and leave pages alone.
 - `noop` must give exactly zero difference (a pipeline and cache check). `aa_resample` re-samples
   the unchanged prompts with fresh seeds: the noise floor every other arm is read against.
-- The unit of analysis is the query: delta_q = mean_k(variant) - mean_k(baseline). The test is a
-  Wilcoxon signed-rank on delta_q, Holm-adjusted across the real arms (noop and aa_resample are
-  controls, outside the family); the paired-bootstrap 95% CI is descriptive.
+- Each query has delta_q = mean_k(variant) - mean_k(baseline). For page arms, queries are
+  clustered by the underlying edited page, including across cross-fit folds. Engine arms use
+  queries as units. The Wilcoxon test runs on unit means; the clustered-bootstrap 95% CI is
+  descriptive.
 """
 
 from __future__ import annotations
@@ -291,10 +292,9 @@ class Sandbox:
         return self._run_doc_arm(arm, plan)
 
     def clusters(self, run: ArmRun, ids: pd.Index) -> np.ndarray:
-        """Unit of treatment for each query: its edited page within its fold for page arms
-        (queries sharing a page are not independent), the query itself otherwise."""
+        """Cluster page-arm queries by the underlying page, across both cross-fit folds."""
         if run.scored_against:
-            return np.array(["|".join(run.scored_against.get(q, ("", q))) for q in ids])
+            return np.array([run.scored_against[q][1] for q in ids])
         return np.asarray(ids)
 
     def compare(self, base: ArmRun, var: ArmRun, subset: Sequence[str] | None = None) -> dict:
@@ -327,7 +327,7 @@ class Sandbox:
             "primary": self.primary,
             "n_queries": len(idx),
             "n_units": prim.n,
-            "unit": "page x fold" if var.scored_against else "query",
+            "unit": "page" if var.scored_against else "query",
             "base_pwc_pct": b["imp_pwc"].mean() * 100,
             "d_pwc_pp": pwc.mean,
             "d_pwc_lo": pwc.lo,

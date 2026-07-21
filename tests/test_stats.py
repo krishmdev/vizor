@@ -101,10 +101,9 @@ def test_pilot_sensitivity_uses_planned_families(tmp_path):
     s = sensitivity(tmp_path, metric="c_share", family=6, content_family=6)
     assert s["metric"] == "c_share" and s["arm_holm_family"] == 6
     assert s["n_units_page"] == 24 and s["n_units_page_x_fold"] == 48
+    assert s["n_page_units"] == s["n_page_units_min"] == 24
     d = (pd.Series(aa - base, index=qids) * 100).groupby([f"p{i // 2}" for i in range(48)]).mean()
     assert s["page_arm_page_pp"] == pytest.approx(mde(float(d.std(ddof=1)), 24, 6))
     assert s["content_arm_page_pp"] == pytest.approx(s["page_arm_page_pp"])
-    assert s["page_arm_pp"] >= s["page_arm_page_x_fold_pp"] or s["page_arm_pp"] == pytest.approx(
-        s["page_arm_page_pp"]
-    )
+    assert s["page_arm_pp"] == pytest.approx(s["page_arm_page_pp"])
     assert "mention_page_arm_pp" in s

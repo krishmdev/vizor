@@ -6,7 +6,7 @@ import pytest
 
 from vizor.config import Config
 from vizor.experiment import run_experiment
-from vizor.metrics.report import load, summary_md
+from vizor.metrics.report import claim_md, load, readme_block, summary_md
 
 
 @pytest.fixture(scope="module")
@@ -50,6 +50,10 @@ def test_run_writes_decomposition_and_families(run_dir):
     dec = pd.read_csv(run_dir / "decomposition.csv")
     assert set(dec.arm) == {"faq_rewrite", "stats_surface"}
     assert not (run_dir / "boost_sweep.csv").exists()
+    m = load(run_dir)["manifest"]
+    assert m["input_fingerprints_match"]
+    assert len(m["source_sha256_start"]) == len(m["config_sha256"]) == 64
+    assert len(m["corpus_sha256_start"]) == 64
 
 
 def test_report_names_the_primary_metric_and_splits_content_from_rank(run_dir):
@@ -58,3 +62,22 @@ def test_report_names_the_primary_metric_and_splits_content_from_rank(run_dir):
     assert "ΔC-SoV pp [95% CI] (primary)" in md
     assert "## Content vs rank" in md
     assert "Unparsed markers %" in md and "Named %" in md
+
+
+def test_position_verdict_uses_the_metric_behind_its_p_value(run_dir):
+    r = load(run_dir)
+    r["manifest"] = {**r["manifest"], "llm_is_fake": False}
+    verdict = claim_md(r)
+    assert "C-SoV slot 1" in verdict
+    assert "on C-SoV is" in verdict
+    assert "PAWC share slot 1" not in verdict
+
+
+def test_invalid_input_fingerprint_suppresses_inferential_report(run_dir):
+    r = load(run_dir)
+    r["invalid_reason"] = "Source changed during this run."
+    md = summary_md(r)
+    block = readme_block([r])
+    assert "**Invalid result:** Source changed during this run." in md
+    assert "**Invalid result:** Source changed during this run." in block
+    assert "Sandbox arms" not in md and "Holm-significant" not in block
