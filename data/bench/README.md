@@ -23,5 +23,5 @@ relevant pages from two different competitor sites.
 comparison, transactional, troubleshooting). They were written by hand. None of them names
 Larkspur, and only two name a product at all. Each query has a `topic` field holding the slug of
 the Larkspur page for its topic (for example `metro-7` or `guides/flat-tire`), so results can be
-grouped by target page. The loader ignores `topic`, as it does the `brands` key in
-`project.yaml`.
+grouped by target page. The loader ignores `topic`; it uses the `brands` key in
+`project.yaml` to score whole-word brand mentions.

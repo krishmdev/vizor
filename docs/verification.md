@@ -50,3 +50,18 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
 - **gpt-4o-mini**: configured but not run yet (`configs/openai.yaml`, `make experiment-openai`).
   The pre-flight upper bound is 4,800 answer calls plus 20 rewrite calls, about $2.90, under the
   $3 cap. No result in this repo comes from an OpenAI model.
+
+## 2026-09-05
+
+- **Bench method repair before the pilot**: page-arm inference now clusters both cross-fit folds
+  by the underlying page. The amendment is recorded in `docs/bench-design.md`. The run manifest
+  fingerprints source files, effective config and corpus; the report suppresses inferential
+  tables when input fingerprints changed during a run or stored attribution no longer recomputes.
+- **Offline suite**: `pytest -m 'not slow and not network' -o addopts='' -q` passed 356 tests
+  (one network test deselected). `ruff check .` passed.
+- **Historical recomputation**: `2026-08-05_fakellm` matched 21,000 rows. The older
+  `2026-08-05_qwen2.5-3b` run reported `0 rows recomputed; MISMATCH` because the current parser
+  changes 26 of its 640 stored answer parses. Its raw responses and historical outputs remain
+  intact; it is not current evidence for an effect.
+- **Real bench**: the 72-query pilot is queued behind the shared compute lease. No pilot MDE or
+  main-run result has been measured yet.

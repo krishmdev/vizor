@@ -139,3 +139,18 @@ change the main result.
 ## Deviations
 
 (Any change from this plan, with the reason, is listed here.)
+
+### Analysis amendment before the pilot (2026-09-05)
+
+The original plan above counted the two cross-fit versions of one page as separate units. They
+share the same underlying page, topic and source facts. The full and content-only page arms now
+cluster query deltas by the **underlying page across both folds** before the Wilcoxon test and
+cluster bootstrap. This makes 24 planned page units, including for cross-fitted edits. The
+`page x fold` A/A spread remains a diagnostic only; it cannot raise the inferential sample size.
+The planned page MDE uses 24 page means. No answer from the bench pilot or main run existed when
+this amendment was made. The corpus, prompts, arms, seeds, primary metric, Holm families and
+decision threshold remain as specified above.
+
+The positive-control slot comparison is tested on the run's primary metric, citation share.
+The generated verdict and per-page robustness calculation now name and compute that same metric.
+PAWC for the slot sweep remains descriptive.

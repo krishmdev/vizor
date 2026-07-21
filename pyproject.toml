@@ -1,7 +1,7 @@
 [project]
 name = "vizor"
 version = "0.2.0"
-description = "Measure how LLM answer engines surface, prioritize and cite competing sources, and test what changes that."
+description = "A local sandbox for studying citations and brand mentions in source-grounded model answers."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Krish Maheshwari", email = "maheshwari.kri@northeastern.edu" }]
