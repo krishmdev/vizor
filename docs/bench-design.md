@@ -134,7 +134,23 @@ change the main result.
 
 ## Pilot and MDE
 
-(Filled in after the pilot, before the main run.)
+The pilot ran on 2026-09-05 from 20:34 to 21:18 (git 0a441a4, after the amendment below), with
+`configs/bench_qwen3b.yaml` and `--pilot`: baseline and A/A re-sample only, 72 queries x 5
+samples, 720 new qwen2.5:3b calls. Results: `experiments/results/2026-09-05_bench-qwen3b-pilot`.
+No page arm had been run when these numbers were written down.
+
+From `vizor sensitivity <pilot> --metric c_share --family 6 --content-family 6` (normal
+approximation, 80% power, two-sided, alpha 0.05 / 6 for the strictest Holm step, 24 page units):
+
+| Metric | A/A mean delta | A/A SD per query | A/A SD per page unit | MDE, page edit | MDE, content-only twin |
+|---|---|---|---|---|---|
+| Citation share (primary) | +0.2 pp | 17.7 pp | 11.1 pp | 7.9 pp | 7.9 pp |
+| Named rate | -1.4 pp | 16.9 pp | 10.7 pp | 7.6 pp | 7.6 pp |
+
+At baseline the target's citation share averages 41.9% per answer and 59% of answers name the
+brand. So the main run can detect a page edit that moves the citation share by about 8
+percentage points and will likely miss smaller effects. With 24 units an exact Wilcoxon test can reach p = 1.2e-7, so every page
+arm is testable. The main run reuses the pilot's baseline and A/A answers from the cache.
 
 ## Deviations
 
