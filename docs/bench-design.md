@@ -170,3 +170,13 @@ decision threshold remain as specified above.
 The positive-control slot comparison is tested on the run's primary metric, citation share.
 The generated verdict and per-page robustness calculation now name and compute that same metric.
 PAWC for the slot sweep remains descriptive.
+
+### Prompt B is a reduced robustness check (2026-09-05, before the main run finished)
+
+The prompt-B run keeps only the controls (`noop`, `aa_resample`) and the six full page edits,
+with 3 samples per query instead of 5, and has no content-only twins and no position sweep
+(`configs/bench_qwen3b_prompt_b.yaml`, unchanged since it was committed with this design). The
+reason is GPU time on a machine shared with two other projects: the reduced design needs about
+a third of the main run's calls. It can say whether the direction and rough size of the page-edit
+effects hold under a different system prompt; it has less power than the main run and is not
+used for the content vs rank question. No main-run result had been read when this was written.
