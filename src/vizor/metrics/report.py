@@ -663,6 +663,12 @@ def claim_arms_v2(r: dict) -> list[str]:
             "decomposition table for intervals)."
         )
     sens = sensitivity(r["dir"])
+    if sens and not sens.get("arm_holm_family"):
+        out.append(
+            "- No page arms in this run (a pilot), so it states no MDE of its own; "
+            "`vizor sensitivity <dir> --family N` gives the MDE for a planned design."
+        )
+        sens = {}
     if sens:
         parts = []
         if sens.get("page_arm_page_pp") is not None:
