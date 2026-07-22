@@ -1,0 +1,15 @@
+eval,policy,final_regret,final_regret_ci,mean_reward_pp,top_arm,top_arm_share
+replay,linucb(a=0.1),308.007,7.46032,1.3162,noop,0.574375
+replay,linucb(a=0.5),307.279,8.28727,1.50549,noop,0.308625
+replay,linucb(a=1),321.867,5.22099,0.54116,noop,0.235325
+replay,lints(v=0.1),311.997,5.97821,1.17843,noop,0.4323
+replay,eps-greedy(0.1),313.106,4.94512,1.17937,noop,0.379625
+replay,linucb-bias-only(a=0.1),335.606,6.36655,0.00675127,noop,0.8312
+replay,random,408.53,3.2776,-3.73478,metadata,0.146425
+replay,best fixed arm (hindsight),305.852,2.90368,1.30932,keyword_stuffing,1
+replay,oracle,0,0,16.9274,,
+heldout,"linucb (frozen, contextual)",6.26754,2.23338,1.56314,keyword_stuffing,0.416667
+heldout,linucb-bias-only (frozen),5.77187,1.98459,2.93998,keyword_stuffing,1
+heldout,best fixed arm (chosen on train),5.77187,1.98459,2.93998,keyword_stuffing,1
+heldout,random (expected),7.70501,,-2.42983,,
+heldout,oracle,0,0,18.973,,

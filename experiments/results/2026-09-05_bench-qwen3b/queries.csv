@@ -1,0 +1,73 @@
+query_id,query,intent,fold,focus_doc,focus_url
+info-01,how much should a city commuter bike weigh,informational,1,96c105e5400c,https://larkspur.example/fold-20
+info-02,how far can a commuter e-bike go on one charge,informational,2,ca42a18ad475,https://larkspur.example/volt-e1
+info-03,how small does a folding bike get when folded,informational,2,96c105e5400c,https://larkspur.example/fold-20
+info-04,how much tire clearance do i need on a gravel bike,informational,1,21fb30346f35,https://larkspur.example/gravel-gx
+info-05,what size bike for a 5 year old,informational,1,c946a6d27921,https://larkspur.example/sprout-16
+info-06,how do i figure out my bike helmet size,informational,2,5707ebc75771,https://larkspur.example/shell
+info-07,how to fix a flat bike tire on the side of the road,informational,2,0a8b4cbfd175,https://larkspur.example/guides/flat-tire
+info-08,what tire pressure should i run on 32mm tires,informational,2,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+info-09,how often should i lube my bike chain,informational,1,6d34f770bef1,https://larkspur.example/guides/chain-care
+info-10,how to bed in new disc brake pads,informational,1,43ddf48c5681,https://larkspur.example/support/disc-brake-squeal
+info-11,how to adjust bike gears with the barrel adjuster,informational,2,19e3e9489af7,https://larkspur.example/support/gear-indexing
+info-12,what size bike frame do i need for my height,informational,1,b19cb69ab942,https://larkspur.example/guides/frame-size
+info-13,how to store an e-bike battery over the winter,informational,2,d75d1cd34b38,https://larkspur.example/support/e-bike-battery
+info-14,how to dress for bike commuting in freezing weather,informational,2,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+info-15,tips for commuting to work by bike for the first time,informational,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+info-16,how to set the right saddle height on a bike,informational,2,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+info-17,how to lock a bike properly on the street,informational,1,1daf8466e88a,https://larkspur.example/guides/bike-theft
+info-18,how to true a bike wheel at home,informational,1,ab321b55d147,https://larkspur.example/support/wheel-truing
+comp-01,internal gear hub vs derailleur on a commuter bike,comparison,1,e6d53256b798,https://larkspur.example/metro-7
+comp-02,hub motor vs mid-drive e-bike for commuting,comparison,1,ca42a18ad475,https://larkspur.example/volt-e1
+comp-03,cog & chain pocket 20 vs a folding bike from another brand,comparison,1,96c105e5400c,https://larkspur.example/fold-20
+comp-04,gravel bike vs hybrid for a long commute on mixed roads,comparison,2,21fb30346f35,https://larkspur.example/gravel-gx
+comp-05,coaster brake vs hand brakes on a kids bike,comparison,1,c946a6d27921,https://larkspur.example/sprout-16
+comp-06,longtail vs front box cargo bike for carrying two kids,comparison,2,1304b2be9547,https://larkspur.example/haul
+comp-07,800 lumen vs 400 lumen bike light for commuting,comparison,2,b41c59fcb2e0,https://larkspur.example/beam-800
+comp-08,bike helmet with a rotational liner vs a regular helmet,comparison,2,5707ebc75771,https://larkspur.example/shell
+comp-09,u-lock vs chain lock which is harder to cut,comparison,1,44084e8d0a55,https://larkspur.example/lock-d9
+comp-10,pannier vs backpack for bike commuting,comparison,1,72e6a1c8a458,https://larkspur.example/pannier-20
+comp-11,floor pump vs mini pump for topping up tires at home,comparison,2,baf916977aa2,https://larkspur.example/floor-pump
+comp-12,is the cog & chain drive dd worth it over a cheaper direct drive trainer,comparison,2,5c7425502f0e,https://larkspur.example/spin-t2
+comp-13,does higher tire pressure roll faster than lower pressure,comparison,2,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+comp-14,wet lube vs dry lube for commuting,comparison,1,6d34f770bef1,https://larkspur.example/guides/chain-care
+comp-15,resin vs sintered disc brake pads for commuting,comparison,1,43ddf48c5681,https://larkspur.example/support/disc-brake-squeal
+comp-16,should i size up or down if i am between two frame sizes,comparison,1,b19cb69ab942,https://larkspur.example/guides/frame-size
+comp-17,charging an e-bike battery to 80 percent vs 100 percent,comparison,2,d75d1cd34b38,https://larkspur.example/support/e-bike-battery
+comp-18,heel method vs 109 percent method for saddle height,comparison,2,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+tran-01,best city commuter bike under $1000,transactional,1,e6d53256b798,https://larkspur.example/metro-7
+tran-02,how much does a good commuter e-bike cost,transactional,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+tran-03,best folding bike for a train commute,transactional,1,96c105e5400c,https://larkspur.example/fold-20
+tran-04,best gravel bike under $1500 for commuting,transactional,1,19e3e9489af7,https://larkspur.example/support/gear-indexing
+tran-05,best 16 inch kids bike,transactional,2,c946a6d27921,https://larkspur.example/sprout-16
+tran-06,how much does an electric longtail cargo bike cost,transactional,1,1304b2be9547,https://larkspur.example/haul
+tran-07,best rechargeable front bike light for commuting,transactional,2,b41c59fcb2e0,https://larkspur.example/beam-800
+tran-08,best commuter bike helmet under $100,transactional,2,f416cdb602aa,https://larkspur.example/guides/first-commute
+tran-09,best u-lock for locking a bike in the city,transactional,2,44084e8d0a55,https://larkspur.example/lock-d9
+tran-10,best waterproof pannier that fits a laptop,transactional,2,72e6a1c8a458,https://larkspur.example/pannier-20
+tran-11,best floor pump for presta valves,transactional,1,baf916977aa2,https://larkspur.example/floor-pump
+tran-12,best smart indoor trainer under $800,transactional,1,5c7425502f0e,https://larkspur.example/spin-t2
+tran-13,what should i buy for a flat repair kit,transactional,2,0a8b4cbfd175,https://larkspur.example/guides/flat-tire
+tran-14,how much does a bike shop charge to adjust gears,transactional,2,19e3e9489af7,https://larkspur.example/support/gear-indexing
+tran-15,are studded bike tires worth buying for winter commuting,transactional,2,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+tran-16,what gear do i need to buy to start bike commuting,transactional,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+tran-17,how much should i spend on a bike lock,transactional,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+tran-18,cost to get a wobbly wheel trued at a bike shop,transactional,2,19e3e9489af7,https://larkspur.example/support/gear-indexing
+trou-01,cargo bike struggles on hills with kids on the back,troubleshooting,1,1304b2be9547,https://larkspur.example/haul
+trou-02,my bike light battery dies faster than the claimed runtime,troubleshooting,2,b41c59fcb2e0,https://larkspur.example/beam-800
+trou-03,bike lock key is hard to turn in cold weather,troubleshooting,1,44084e8d0a55,https://larkspur.example/lock-d9
+trou-04,pannier keeps bouncing off my rack on bumps,troubleshooting,2,72e6a1c8a458,https://larkspur.example/pannier-20
+trou-05,floor pump head keeps popping off the presta valve,troubleshooting,2,baf916977aa2,https://larkspur.example/floor-pump
+trou-06,smart trainer shows different power than my power meter,troubleshooting,2,5c7425502f0e,https://larkspur.example/spin-t2
+trou-07,why do i keep getting flat tires on my commute,troubleshooting,2,0a8b4cbfd175,https://larkspur.example/guides/flat-tire
+trou-08,bike feels harsh and skips over bumps is my tire pressure wrong,troubleshooting,2,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+trou-09,why is my bike chain squeaking after riding in the rain,troubleshooting,1,6d34f770bef1,https://larkspur.example/guides/chain-care
+trou-10,why do my disc brakes squeal in the rain,troubleshooting,1,43ddf48c5681,https://larkspur.example/support/disc-brake-squeal
+trou-11,why do my gears skip when i pedal hard,troubleshooting,1,19e3e9489af7,https://larkspur.example/support/gear-indexing
+trou-12,my bike feels too stretched out and my back hurts,troubleshooting,2,b19cb69ab942,https://larkspur.example/guides/frame-size
+trou-13,why does my e-bike battery run out faster in cold weather,troubleshooting,1,b41c59fcb2e0,https://larkspur.example/beam-800
+trou-14,road salt is wrecking my bike chain and brakes in winter,troubleshooting,2,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+trou-15,how do i avoid arriving at work sweaty after biking,troubleshooting,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+trou-16,the front of my knee hurts after cycling,troubleshooting,1,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+trou-17,my bike was stolen what should i do,troubleshooting,2,1daf8466e88a,https://larkspur.example/guides/bike-theft
+trou-18,my back wheel wobbles and rubs the brake,troubleshooting,1,ab321b55d147,https://larkspur.example/support/wheel-truing
