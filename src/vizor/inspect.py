@@ -47,29 +47,35 @@ def format_answer(ans: Answer, prompt: str = "") -> str:
 
 def recompute_rows(run_dir: Path, rtol: float = 1e-6) -> tuple[bool, int]:
     """Parse the raw answer text again and recompute attribution rows; compare with rows.csv.gz.
-    Sentiment columns are skipped (they need the sentiment model)."""
+    Brand mentions are matched with the project's own brand patterns. Sentiment columns are
+    skipped (they need the sentiment model)."""
     manifest = json.loads((run_dir / "manifest.json").read_text())
     from vizor.config import Config
     from vizor.ingest.corpus import load_project
 
     cfg = Config.model_validate(manifest["config"])
-    domains = load_project(cfg.project_path()).domains
+    project = load_project(cfg.project_path())
+    domains = project.domains
+    brands = project.brand_patterns()
     rows = []
     for r in read_jsonl_gz(run_dir / "responses.jsonl.gz"):
         ans = Answer.from_dict(r)
         parsed = parse_answer(ans.text, len(ans.sources))
         if parsed.sentences != ans.sentences:
             return False, 0
-        for row in answer_rows(ans, domains, cfg.decay):
+        for row in answer_rows(ans, domains, cfg.decay, brands=brands):
             row["arm"] = r["arm"]
             rows.append(row)
     new = pd.DataFrame(rows)
     path = run_dir / ("rows.csv.gz" if (run_dir / "rows.csv.gz").exists() else "metrics.csv")
     old = pd.read_csv(path)
     cols = ["imp_pwc", "imp_word", "imp_pos", "c_share", "n_markers"]
+    # Brand-mention columns, for runs recorded after mention matching was added.
+    cols += [c for c in ("mentioned", "n_mention_sentences", "n_mentions") if c in old.columns]
     key = ["arm", "query_id", "sample", "domain"]
     m = old.merge(new, on=key, suffixes=("_old", "_new"))
     ok = len(m) == len(new) == len(old) and all(
-        np.allclose(m[f"{c}_old"], m[f"{c}_new"], rtol=rtol, atol=1e-6) for c in cols
+        np.allclose(m[f"{c}_old"].astype(float), m[f"{c}_new"].astype(float), rtol=rtol, atol=1e-6)
+        for c in cols
     )
     return ok, len(new)
