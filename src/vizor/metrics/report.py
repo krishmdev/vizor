@@ -64,7 +64,9 @@ def load(d: Path) -> dict:
 
     manifest = json.loads((d / "manifest.json").read_text())
     if manifest.get("input_fingerprints_match") is False:
-        invalid = "Source or corpus changed during this run; its comparisons have invalid provenance."
+        invalid = (
+            "Source or corpus changed during this run; its comparisons have invalid provenance."
+        )
     else:
         matches, _ = recompute_rows(d)
         invalid = (
@@ -669,6 +671,7 @@ def claim_arms_v2(r: dict) -> list[str]:
             "`vizor sensitivity <dir> --family N` gives the MDE for a planned design."
         )
         sens = {}
+    planned = bool(sens.get("families_from_plan")) and "planned_arms" in r["manifest"]
     if sens:
         parts = []
         if sens.get("page_arm_page_pp") is not None:
@@ -684,8 +687,15 @@ def claim_arms_v2(r: dict) -> list[str]:
             parts.append(f"named rate for page edits ≈ {_f(sens['mention_page_arm_pp'])} pp")
         if sens.get("position_pp") is not None:
             parts.append(f"slot sweep ≈ {_f(sens['position_pp'])} pp")
+        design = (
+            f" for the planned design ({sens['arm_holm_family']} page edits and "
+            f"{sens['content_holm_family']} content-only twins, each its own Holm family)"
+            if planned
+            else ""
+        )
         out.append(
-            f"- Minimum detectable effect on {name} (80% power, strictest Holm step, from the A/A "
+            f"- Minimum detectable effect on {name}{design} (80% power, strictest Holm step, "
+            "normal approximation, from the A/A "
             f"re-sample; per-query A/A SD {_f(sens['aa_sd_per_query_pp'])} pp): "
             + "; ".join(parts)
             + ". Effects smaller than these could be missed."
@@ -845,7 +855,25 @@ def _order(results: list[dict]) -> list[dict]:
     return sorted(results, key=lambda r: (r["manifest"].get("llm_is_fake", False), str(r["dir"])))
 
 
+def refresh_sensitivity(d: Path) -> bool:
+    """Recompute the manifest's `sensitivity` block from the result files (no LLM calls).
+    Returns True when it changed. Nothing else in the manifest is touched."""
+    p = d / "manifest.json"
+    m = json.loads(p.read_text())
+    if "primary_metric" not in m:  # runs from before the bench code are left as they were
+        return False
+    new = json.loads(json.dumps(sensitivity(d, metric=m.get("primary_metric")), default=str))
+    if m.get("sensitivity") == new:
+        return False
+    m["sensitivity"] = new
+    p.write_text(json.dumps(m, indent=2, default=str) + "\n")
+    return True
+
+
 def write_results(dirs: list[Path], out: Path, readme: Path | None = None) -> None:
+    for d in dirs:
+        if (d / "manifest.json").exists() and (d / "per_query.csv").exists():
+            refresh_sensitivity(d)
     results = _order([load(d) for d in dirs if (d / "manifest.json").exists()])
     for r in results:
         write_summary(r["dir"])

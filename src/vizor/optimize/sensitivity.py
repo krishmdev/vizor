@@ -4,6 +4,7 @@ reachable at all given how few independent units it has."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -23,15 +24,20 @@ def reachable(k: int, family: int, alpha: float = 0.05) -> bool:
     return min_exact_wilcoxon_p(k) * max(1, family) < alpha
 
 
-def _metric(run_dir: Path, metric: str | None) -> str:
-    if metric:
-        return metric
+def _manifest(run_dir: Path) -> dict:
     m = run_dir / "manifest.json"
-    if m.exists():
-        import json
+    return json.loads(m.read_text()) if m.exists() else {}
 
-        return json.loads(m.read_text()).get("primary_metric", "imp_pwc")
-    return "imp_pwc"
+
+def _metric(run_dir: Path, metric: str | None) -> str:
+    return metric or _manifest(run_dir).get("primary_metric", "imp_pwc")
+
+
+def planned_families(arms: list[str]) -> tuple[int, int]:
+    """Holm family sizes (page and engine arms, content-only twins) of a planned arm list."""
+    tested = [a for a in arms if a not in CONTROLS]
+    content = sum(a.startswith("content:") for a in tested)
+    return len(tested) - content, content
 
 
 def page_units(run_dir: Path, d: pd.Series) -> dict[str, pd.Series]:
@@ -54,7 +60,8 @@ def sensitivity(
 ) -> dict:
     """MDEs from the A/A re-sample. `family` / `content_family` override the Holm family sizes
     read from deltas.csv, which is how a pilot (baseline + A/A only) states what the planned
-    full design can detect before any page arm is run."""
+    full design can detect before any page arm is run. A pilot records the planned arms in its
+    manifest (`planned_arms`), and those set the families when no override is given."""
     run_dir = Path(run_dir)
     pq = pd.read_csv(run_dir / "per_query.csv")
     deltas = pd.read_csv(run_dir / "deltas.csv")
@@ -72,6 +79,11 @@ def sensitivity(
     d = aa(metric)
     sd = float(d.std(ddof=1))
     tested = deltas[~deltas.arm.isin(CONTROLS)]
+    planned = _manifest(run_dir).get("planned_arms")
+    if planned and not len(tested):
+        pf, pc = planned_families(planned)
+        family = pf if family is None else family
+        content_family = pc if content_family is None else content_family
     fam_col = tested["family"] if "family" in tested else pd.Series("arms", index=tested.index)
     arm_family = family if family is not None else int((fam_col == "arms").sum())
     c_family = content_family if content_family is not None else int((fam_col == "content").sum())
@@ -82,6 +94,7 @@ def sensitivity(
         "n_queries": int(len(d)),
         "arm_holm_family": arm_family,
         "content_holm_family": c_family,
+        "families_from_plan": family is not None,
         "power": 0.8,
         "alpha": 0.05,
         "engine_arm_pp": mde(sd, len(d), arm_family),
@@ -126,7 +139,7 @@ def sensitivity(
     if "mentioned" in pq.columns and metric != "mentioned":
         dm = aa("mentioned")
         out["mention_aa_sd_per_query_pp"] = float(dm.std(ddof=1))
-        if qfile.exists():
+        if qfile.exists() and arm_family:
             cm = page_units(run_dir, dm)["page"]
             out["mention_page_arm_pp"] = (
                 mde(float(cm.std(ddof=1)), len(cm), arm_family)

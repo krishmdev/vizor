@@ -175,7 +175,9 @@ def preflight(cfg: Config, log: Log = print) -> dict:
     return est
 
 
-def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
+def run_experiment(
+    cfg: Config, out: Path, log: Log = print, planned_arms: list[str] | None = None
+) -> Path:
     t0 = time.time()
     commit, tree = git_commit(), src_tree()
     root = project_root()
@@ -517,7 +519,10 @@ def run_experiment(cfg: Config, out: Path, log: Log = print) -> Path:
             "WARNING: source or corpus changed during the run; results cannot support "
             "a clean comparison"
         )
-    manifest["sensitivity"] = sensitivity(out)
+    if planned_arms:
+        manifest["planned_arms"] = list(planned_arms)
+    # Written before manifest.json exists, so the primary metric is passed explicitly.
+    manifest["sensitivity"] = sensitivity(out, metric=sb.primary)
     log(f"sensitivity: {manifest['sensitivity']}")
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
     log(f"wrote {out} in {time.time() - t0:.0f}s {llm_stats}")

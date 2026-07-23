@@ -107,3 +107,19 @@ def test_pilot_sensitivity_uses_planned_families(tmp_path):
     assert s["content_arm_page_pp"] == pytest.approx(s["page_arm_page_pp"])
     assert s["page_arm_pp"] == pytest.approx(s["page_arm_page_pp"])
     assert "mention_page_arm_pp" in s
+    assert s["families_from_plan"]
+
+    # Without planned families a pilot states no page-arm MDE, named rate included.
+    bare = sensitivity(tmp_path, metric="c_share")
+    assert bare["arm_holm_family"] == 0 and "mention_page_arm_pp" not in bare
+    # A pilot's manifest records the planned arms, which set the families.
+    import json
+
+    arms = ["noop", "aa_resample", "faq_rewrite", "metadata", "content:faq_rewrite"]
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"primary_metric": "c_share", "planned_arms": arms})
+    )
+    p = sensitivity(tmp_path)
+    assert p["metric"] == "c_share" and p["families_from_plan"]
+    assert (p["arm_holm_family"], p["content_holm_family"]) == (2, 1)
+    assert p["page_arm_page_pp"] == pytest.approx(mde(float(d.std(ddof=1)), 24, 2))

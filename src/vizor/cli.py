@@ -126,14 +126,16 @@ def experiment(
     cfg = _config(
         config, queries=queries, samples=samples, max_cost_usd=max_cost_usd, workers=workers
     )
+    planned = None
     if pilot:
+        planned = list(cfg.sandbox.arms)
         cfg.sandbox.arms = ["noop", "aa_resample"]
         cfg.sandbox.position_sweep = []
         cfg.sandbox.boost_sweep = []
         cfg.sandbox.llm_rewrites = False
         if cfg.label:
             cfg.label += ", pilot: baseline and A/A only"
-    run_experiment(cfg, out, log=_log)
+    run_experiment(cfg, out, log=_log, planned_arms=planned)
     write_summary(out)
     typer.echo(str(out))
 
