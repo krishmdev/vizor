@@ -178,7 +178,7 @@ def domains_md(r: dict) -> str:
             "Retrieved %",
             "Cited %",
             "Cited when retrieved %",
-            "C-SoV %",
+            "Pooled marker share %",
             "PAWC share %",
             "First cite (sentence)",
             "Ignored when retrieved %",
@@ -626,6 +626,26 @@ def claim_md(r: dict) -> str:
     return "\n".join(out)
 
 
+def page_means(d: Path, metric: str, arms: list[str]) -> dict[str, float]:
+    """Arm minus baseline in pp, averaged within each edited page and then across pages (the
+    scale the page-unit Wilcoxon test works on)."""
+    pq_p, q_p = d / "per_query.csv", d / "queries.csv"
+    if not arms or not pq_p.exists() or not q_p.exists():
+        return {}
+    pq = pd.read_csv(pq_p)
+    q = pd.read_csv(q_p).set_index("query_id")
+    if metric not in pq or "focus_doc" not in q:
+        return {}
+    base = pq[pq.arm == "baseline"].set_index("query_id")[metric]
+    out = {}
+    for a in arms:
+        x = pq[pq.arm == a].set_index("query_id")[metric]
+        if len(x):
+            delta = (x - base.reindex(x.index)).dropna() * 100
+            out[a] = float(delta.groupby(q.loc[delta.index, "focus_doc"]).mean().mean())
+    return out
+
+
 def claim_arms_v2(r: dict) -> list[str]:
     """Verdict lines for runs with a primary metric: noise floor, arms per Holm family, mentions,
     the content/rank split and what the design could detect."""
@@ -663,6 +683,14 @@ def claim_arms_v2(r: dict) -> list[str]:
             f"- Content vs rank: for {len(big)} of {len(dec)} page edits the rank-mediated part of the "
             f"{name} change is larger in size than the content-only part (point estimates; see the "
             "decomposition table for intervals)."
+        )
+    pm = page_means(r["dir"], primary, list(tested[tested["kind"] == "doc"].arm))
+    if pm:
+        out.append(
+            f"- Weighting: the {name} estimates and intervals above weight every query equally, "
+            "while the Wilcoxon test ranks unweighted page means. The page means are "
+            + ", ".join(f"`{a}` {_f(v)}" for a, v in pm.items())
+            + " pp."
         )
     sens = sensitivity(r["dir"])
     if sens and not sens.get("arm_holm_family"):
@@ -820,7 +848,13 @@ def summary_md(r: dict, level: int = 1) -> str:
     if r.get("invalid_reason"):
         return "\n\n".join([*parts, f"**Invalid result:** {r['invalid_reason']}"]) + "\n"
     if r["domains"] is not None:
-        parts += [f"{h}# Baseline visibility", domains_md(r)]
+        parts += [
+            f"{h}# Baseline visibility",
+            "Pooled marker share is the domain's share of all valid markers across every answer, "
+            "so long, heavily cited answers count for more. It is not the per-answer C-SoV used "
+            "as the primary metric in the arm tables, which averages each answer's own share.",
+            domains_md(r),
+        ]
     if r["deltas"] is not None:
         parts += [f"{h}# Sandbox arms (target: {_target(r)})", deltas_md(r)]
     if decomposition_md(r):

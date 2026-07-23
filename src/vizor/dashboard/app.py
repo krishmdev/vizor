@@ -242,7 +242,7 @@ def overview() -> None:
     with left:
         st.markdown(f"### {titled('Share of the answer', exp)}")
         st.markdown(
-            '<p class="note">Two views of share. C-SoV counts citation markers; PAWC weights each '
+            '<p class="note">Two views of share. Pooled marker share counts citation markers across all answers; PAWC weights each '
             "cited sentence by its length and how early it appears.</p>",
             unsafe_allow_html=True,
         )
@@ -253,7 +253,7 @@ def overview() -> None:
         ]
         fig = figure(80 + 46 * len(d))
         for metric, name, op in [
-            ("c_sov", "Citation share of voice", 0.45),
+            ("c_sov", "Pooled marker share", 0.45),
             ("pawc_sov", "PAWC share", 1.0),
         ]:
             fig.add_bar(
@@ -283,7 +283,7 @@ def overview() -> None:
                 "Cited": df.citation_rate * 100,
                 "Conv.": df.conversion * 100,
                 "PAWC": df.pawc_sov * 100,
-                "C-SoV": df.c_sov * 100,
+                "Pooled marker share": df.c_sov * 100,
                 "1st cite": df.first_cite_sentence,
                 "Sent.": df.answer_sentiment,
             }
