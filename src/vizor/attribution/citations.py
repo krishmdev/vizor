@@ -9,7 +9,7 @@ Accepted marker forms (the index list may use commas, semicolons, "and", "&", ra
   [Source 1]  [Sources 1 and 3]  [source: 2]  [Source #2]  [Search result 4]  [1, Source 2]
   [Source [3]]  and the unbalanced [Source [3]
   (Source 2)  (Sources 1, 3)  (see Source 2; Source 4)
-  bare "Source 3" / "Search result 3" in running text
+  bare "Source 3" / "Search result 3" in running text (capitalised, one or two digits)
 A bare parenthesised number such as "(2)" is not a citation: it is too often a count or a list
 item. Anything that still looks like a citation after parsing (for example "[Source A]") is kept
 as `unparsed`, so format failures can be counted instead of silently read as "uncited".
@@ -34,8 +34,13 @@ _PAREN = re.compile(
     rf"\(\s*(?:see\s+|cf\.?\s+|per\s+)?((?:{_KW})\s*[:#]?\s*#?\d+(?:{_SEP}{_ITEM})*)\s*\)",
     re.I,
 )
+# Bare references are read only when capitalised ("Source 3", "Search result 4"), with at most
+# two digits, and not right after a number, so "2 sources 3 times" or "Source 800 lumens" are
+# not citations.
+_BARE_NUM = r"#?\d{1,2}(?!\d)"
 _BARE = re.compile(
-    r"\b((?:search[\s-]+results?|sources?)\s*#?\d+(?:\s*(?:,|\band\b|&)\s*#?\d+)*)\b", re.I
+    r"(?<!\d\s)(?<!\d)\b((?:Search[\s-]+[Rr]esults?|SEARCH[\s-]+RESULTS?|Sources?|SOURCES?)"
+    rf"\s*{_BARE_NUM}(?:\s*(?:,|\band\b|&)\s*{_BARE_NUM})*)\b(?!\s*times\b)"
 )
 _FORMS = (("bracket", _BRACKET), ("paren", _PAREN), ("bare", _BARE))
 # Leftovers that look like an attempt at a citation: brackets holding a digit or a keyword.

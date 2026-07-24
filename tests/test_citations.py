@@ -141,3 +141,13 @@ def test_source_marker_heading_a_block_opens_the_next_sentence():
     assert [s.citations for s in p.sentences] == [(), (3,), ()]
     p = parse_answer("The Solo has a PID. [Source 3]\n\nIt is fast. [Source 2]", n_sources=5)
     assert [s.citations for s in p.sentences] == [(3,), (2,)]
+
+
+def test_bare_form_ignores_counts_and_measurements():
+    p = parse_answer(
+        "I checked 2 sources 3 times. The lamp gives Source 800 lumens. "
+        "The source 4 notes it is quiet. Per Source 3, it is quiet.",
+        n_sources=5,
+    )
+    assert [s.citations for s in p.sentences] == [(), (), (), (3,)]
+    assert p.forms["bare"] == 1
