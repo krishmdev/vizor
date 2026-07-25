@@ -178,6 +178,11 @@ def preflight(cfg: Config, log: Log = print) -> dict:
 def run_experiment(
     cfg: Config, out: Path, log: Log = print, planned_arms: list[str] | None = None
 ) -> Path:
+    if cfg.llm.backend == "openai_compat" and not cfg.llm.server_meta.get("commit"):
+        raise ValueError(
+            "openai_compat runs must record the server's commit: pass --server-commit or set "
+            "llm.server_meta.commit"
+        )
     t0 = time.time()
     commit, tree = git_commit(), src_tree()
     root = project_root()

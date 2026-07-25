@@ -96,3 +96,23 @@ def test_openai_compatible_local_server_needs_no_key(monkeypatch):
     assert cfg.model_dump()["llm"]["server_meta"]["commit"] == "abc"
     with pytest.raises(ValueError):
         make_llm(Config.model_validate({"llm": {"backend": "openai_compat"}}))
+    # The server's URL and commit are part of the cache key; Ollama's key is unchanged.
+    msgs = [{"role": "user", "content": "q"}]
+    other = cfg.model_copy(deep=True)
+    other.llm.server_meta["commit"] = "def"
+    k = llm._key(msgs, 0.7, 1, 10)
+    assert k != make_llm(other)._key(msgs, 0.7, 1, 10)
+    assert llm.key_extra["base_url"] == "http://127.0.0.1:9"
+    ollama = make_llm(Config.model_validate({"llm": {"backend": "ollama", "model": "m"}}))
+    assert ollama.key_extra is None
+
+
+def test_openai_compat_run_needs_server_commit(tmp_path):
+    from vizor.config import Config
+    from vizor.experiment import run_experiment
+
+    cfg = Config.model_validate(
+        {"llm": {"backend": "openai_compat", "model": "m", "base_url": "http://127.0.0.1:9"}}
+    )
+    with pytest.raises(ValueError, match="server-commit"):
+        run_experiment(cfg, tmp_path / "out")

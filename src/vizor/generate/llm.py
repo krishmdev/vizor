@@ -209,8 +209,18 @@ class CachedLLM:
     """Disk cache + spend tracking around any backend. `max_cost_usd` caps the cumulative spend
     recorded in the shared ledger, not just this process's."""
 
-    def __init__(self, inner: LLM, cache_dir: Path | None, max_cost_usd: float | None = None):
+    def __init__(
+        self,
+        inner: LLM,
+        cache_dir: Path | None,
+        max_cost_usd: float | None = None,
+        key_extra: dict | None = None,
+    ):
         self.inner = inner
+        # Facts about where answers come from beyond the model name (backend, server URL, server
+        # commit). Part of the cache key when given, so a different server build never reuses
+        # another's answers. Left out for Ollama and OpenAI, whose cached answers predate it.
+        self.key_extra = dict(key_extra) if key_extra else None
         self.model_id = inner.model_id
         self.cache_dir = Path(cache_dir) if cache_dir else None
         self.max_cost_usd = max_cost_usd
@@ -222,7 +232,10 @@ class CachedLLM:
         self.ledger = SpendLedger(self.cache_dir / "ledger.json") if self.cache_dir else None
 
     def _key(self, messages: Messages, temperature: float, seed: int, max_tokens: int) -> str:
-        blob = json.dumps([self.model_id, messages, temperature, seed, max_tokens], sort_keys=True)
+        parts: list = [self.model_id, messages, temperature, seed, max_tokens]
+        if self.key_extra:
+            parts.append(self.key_extra)
+        blob = json.dumps(parts, sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def _path(self, key: str) -> Path:

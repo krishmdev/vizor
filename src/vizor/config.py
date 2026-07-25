@@ -24,7 +24,8 @@ class LLMConfig(BaseModel):
     # use [n] markers at all). Recorded in the manifest; empty for the OpenAI run.
     system_prompt: str = ""
     # Free-form facts about the serving stack (server name, commit, preset), copied into the
-    # manifest with the rest of the config.
+    # manifest with the rest of the config. For openai_compat they are part of the cache key,
+    # and `vizor experiment --server-commit` fills in "commit" (the run refuses to start without).
     server_meta: dict[str, str] = Field(default_factory=dict)
 
 
@@ -106,6 +107,8 @@ def make_llm(cfg: Config, embedder=None):
         if not cfg.llm.base_url:
             raise ValueError("llm.base_url is required for backend openai_compat")
         inner = OpenAIChat(cfg.llm.model, base_url=cfg.llm.base_url, timeout=600, api_key="local")
+        extra = {"backend": cfg.llm.backend, "base_url": cfg.llm.base_url, **cfg.llm.server_meta}
+        return CachedLLM(inner, cache_dir() / "llm", cfg.llm.max_cost_usd, key_extra=extra)
     else:
         inner = OllamaChat(cfg.llm.model, base_url=cfg.llm.base_url or "http://localhost:11434")
     return CachedLLM(inner, cache_dir() / "llm", cfg.llm.max_cost_usd)

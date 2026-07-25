@@ -118,6 +118,10 @@ def experiment(
             "the noise and the MDE before the full run; its answers are reused from the cache"
         ),
     ] = False,
+    server_commit: Annotated[
+        str | None,
+        typer.Option(help="commit of the OpenAI-compatible server, recorded in llm.server_meta"),
+    ] = None,
 ) -> None:
     """Full experiment from a config (see configs/openai.yaml and configs/ollama.yaml)."""
     from vizor.experiment import run_experiment
@@ -126,6 +130,8 @@ def experiment(
     cfg = _config(
         config, queries=queries, samples=samples, max_cost_usd=max_cost_usd, workers=workers
     )
+    if server_commit:
+        cfg.llm.server_meta["commit"] = server_commit
     planned = None
     if pilot:
         planned = list(cfg.sandbox.arms)

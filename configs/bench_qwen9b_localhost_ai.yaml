@@ -1,8 +1,9 @@
 # Robustness check with a second model (docs/bench-design.md): Qwen3.5-9B, 4-bit MLX, served by
 # Localhost AI (the author's own inference server, a separate repository) through its
 # OpenAI-compatible API. Start it with `LHAI_MODEL=qwen3.5-9b-mlx4 uv run lhai serve --port
-# 8431` in that repo; the run script copies this file into the results directory with the
-# server's commit hash filled in under llm.server_meta.
+# 8431` in that repo, then run `vizor experiment --config <this file> --server-commit <localhost-ai
+# HEAD>`. The commit goes into llm.server_meta, and backend, base_url and server_meta are part of
+# the answer cache key.
 label: "Qwen3.5-9B (MLX 4-bit) via Localhost AI, bench corpus (robustness)"
 project: data/bench/project.yaml
 embedder: bge
