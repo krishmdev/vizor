@@ -129,8 +129,9 @@ change the main result.
    samples per query (`configs/bench_qwen9b_localhost_ai.yaml`). Before any 9B answer is
    collected, the same prompt and seed are sent alone and inside a concurrent batch of about 10
    prompts; if the outputs are not byte-identical, the mismatch rate is recorded and the run uses
-   one request at a time (or is skipped, with the reason). The server's commit hash goes into the
-   run's manifest.
+   one request at a time (or is skipped, with the reason). `scripts/determinism_check.py` does
+   this check and writes `determinism.json`. The server's commit hash goes into the run's
+   manifest (`vizor experiment --server-commit`).
 
 ## Pilot and MDE
 
