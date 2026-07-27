@@ -86,10 +86,14 @@ def paired_clustered(
     return PairedResult(k, float(d.mean()), float(lo), float(hi), wilcoxon_p(sums / counts))
 
 
-def mde(sd: float, n: int, family: int, power: float = 0.8, alpha: float = 0.05) -> float:
+def mde(
+    sd: float, n: int, family: int, power: float = 0.8, alpha: float = 0.05, t: bool = False
+) -> float:
     """Minimum detectable mean difference for a two-sided test at the strictest Holm step
-    (alpha / family): (z_{alpha_Holm/2} + z_power) * sd / sqrt(n)."""
+    (alpha / family): (z_{alpha_Holm/2} + z_power) * sd / sqrt(n). With `t`, Student t quantiles
+    on n - 1 degrees of freedom, which is larger for few units."""
     if n <= 1 or not np.isfinite(sd):
         return float("nan")
-    z = stats.norm.ppf(1 - alpha / (2 * max(1, family))) + stats.norm.ppf(power)
+    q = stats.t(n - 1).ppf if t else stats.norm.ppf
+    z = q(1 - alpha / (2 * max(1, family))) + q(power)
     return float(z * sd / np.sqrt(n))

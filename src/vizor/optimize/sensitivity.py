@@ -131,6 +131,9 @@ def sensitivity(
             out[f"n_units_{key}"] = n
             ok = reachable(n, max(arm_family, 1))
             out[f"page_arm_{key}_pp"] = mde(float(cm.std(ddof=1)), n, arm_family) if ok else None
+            out[f"page_arm_{key}_t_pp"] = (
+                mde(float(cm.std(ddof=1)), n, arm_family, t=True) if ok else None
+            )
             if c_family:
                 out[f"content_arm_{key}_pp"] = (
                     mde(float(cm.std(ddof=1)), n, c_family) if reachable(n, c_family) else None

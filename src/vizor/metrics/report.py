@@ -703,9 +703,12 @@ def claim_arms_v2(r: dict) -> list[str]:
     if sens:
         parts = []
         if sens.get("page_arm_page_pp") is not None:
+            t_pp = sens.get("page_arm_page_t_pp")
             parts.append(
-                f"page edits ≈ {_f(sens['page_arm_page_pp'])} pp on {sens['n_units_page']} "
-                "underlying page units (both cross-fit folds clustered by page)"
+                f"page edits ≈ {_f(sens['page_arm_page_pp'])} pp"
+                + (f" ({_f(t_pp)} pp with t quantiles)" if t_pp is not None else "")
+                + f" on {sens['n_units_page']} underlying page units (both cross-fit folds "
+                "clustered by page)"
             )
         elif sens.get("n_page_units") is not None:
             parts.append("page edits: **untestable at this design** (too few page units)")
@@ -716,17 +719,18 @@ def claim_arms_v2(r: dict) -> list[str]:
         if sens.get("position_pp") is not None:
             parts.append(f"slot sweep ≈ {_f(sens['position_pp'])} pp")
         design = (
-            f" for the planned design ({sens['arm_holm_family']} page edits and "
-            f"{sens['content_holm_family']} content-only twins, each its own Holm family)"
+            f"for the planned design of {sens['arm_holm_family']} page edits and "
+            f"{sens['content_holm_family']} content-only twins, each its own Holm family; "
             if planned
             else ""
         )
         out.append(
-            f"- Minimum detectable effect on {name}{design} (80% power, strictest Holm step, "
+            f"- Minimum detectable effect on {name} ({design}80% power, strictest Holm step, "
             "normal approximation, from the A/A "
             f"re-sample; per-query A/A SD {_f(sens['aa_sd_per_query_pp'])} pp): "
             + "; ".join(parts)
-            + ". Effects smaller than these could be missed."
+            + ". These are approximate: the test is a Wilcoxon signed-rank test, not a t test. "
+            "Effects smaller than these could be missed."
         )
     if pos is not None and len(pos) > 1 and "primary" in pos.columns:
         x = pos.iloc[-1]

@@ -123,3 +123,10 @@ def test_pilot_sensitivity_uses_planned_families(tmp_path):
     assert p["metric"] == "c_share" and p["families_from_plan"]
     assert (p["arm_holm_family"], p["content_holm_family"]) == (2, 1)
     assert p["page_arm_page_pp"] == pytest.approx(mde(float(d.std(ddof=1)), 24, 2))
+
+
+def test_mde_with_t_quantiles_is_larger_for_few_units():
+    from vizor.optimize.stats import mde
+
+    assert mde(10, 24, 6, t=True) > mde(10, 24, 6)
+    assert mde(10, 10_000, 6, t=True) == pytest.approx(mde(10, 10_000, 6), rel=1e-3)
