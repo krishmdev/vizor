@@ -18,12 +18,11 @@ Each directory under `results/` contains one run of `vizor demo` or `vizor exper
 | `run_manifest_*.json` | host state (chip, RAM, load, swap; whether the run was exclusive) around a real-model run |
 
 `vizor recompute <dir>` re-parses each raw answer and recomputes the attribution rows without
-calling a model. New runs should report `match`. The archived 2026-08-05 Qwen run reports
-`MISMATCH`: the current citation parser changes 26 of its 640 stored answer parses, so its
-original metrics are historical and should not be used as current evidence. The archived
-FakeLLM run still reports `match`. The old files are retained for provenance. `vizor report`
-rebuilds `RESULTS.md` and the README results block from the run directories; those older
-generated tables still reflect the parser version used for the stored runs.
+calling a model. Every run under `experiments/results/` reports `match`. The 2026-08-05 Qwen run
+has moved to `experiments/archive/`: the current citation parser changes 26 of its 640 stored
+answer parses, so recompute fails and its tables are historical only (see
+`experiments/archive/README.md`). `vizor report` rebuilds `RESULTS.md` and the README results
+block from the directories under `experiments/results/`.
 
 Reproduce:
 
