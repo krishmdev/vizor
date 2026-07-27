@@ -8,7 +8,9 @@
 
 ## Baseline visibility
 
-| Domain | Retrieved % | Cited % | Cited when retrieved % | C-SoV % | PAWC share % | First cite (sentence) | Ignored when retrieved % | Answer sentiment |
+Pooled marker share is the domain's share of all valid markers across every answer, so long, heavily cited answers count for more. It is not the per-answer C-SoV used as the primary metric in the arm tables, which averages each answer's own share.
+
+| Domain | Retrieved % | Cited % | Cited when retrieved % | Pooled marker share % | PAWC share % | First cite (sentence) | Ignored when retrieved % | Answer sentiment |
 |---|---|---|---|---|---|---|---|---|
 | crema-lab.example | 70 | 57 | 81 | 29.3 | 30.2 | 1.66 | 19 | +0.03 |
 | beanbudget.example | 65 | 53 | 82 | 30.0 | 28.1 | 1.67 | 18 | +0.39 |
@@ -35,7 +37,7 @@ An arm counts as having an effect when its Holm-adjusted Wilcoxon p-value is bel
 
 ## Position sweep
 
-| Target slot | PAWC share % [95% CI] | Δ vs slot 1 pp [95% CI] | Cited % | p (Holm, sweeps) | n |
+| Target slot | PAWC share % [95% CI] | ΔPAWC vs slot 1 pp [95% CI] | Cited % | p (Holm, sweeps) | n |
 |---|---|---|---|---|---|
 | 1 | 40.2 [36.9, 43.4] | ref | 90 |  | 39 |
 | 2 | 24.5 [22.0, 27.1] | -15.7 [-19.0, -12.4] | 73 | <0.001 * | 39 |
