@@ -81,7 +81,9 @@ hand-read qwen answers (`tests/fixtures/qwen_citations.jsonl`).
 - Per query: delta = mean over samples (arm) minus mean over samples (baseline).
 - Unit of analysis: the edited page. Queries that share an edited page are averaged into one
   unit: the page for edits that don't read queries (24 units), the page within its fold for the
-  cross-fitted edits (up to 48 units). Engine-side comparisons use queries as units.
+  cross-fitted edits (up to 48 units; superseded before the pilot by the amendment under
+  Deviations, which makes it 24 units for every page arm). Engine-side comparisons use queries
+  as units.
 - Test: two-sided Wilcoxon signed-rank on unit means, Holm-adjusted within a family, alpha 0.05.
   95% intervals resample units and are descriptive.
 - Families: (1) the six full page edits on the primary metric; (2) the same six on the named
@@ -91,6 +93,9 @@ hand-read qwen answers (`tests/fixtures/qwen_citations.jsonl`).
   It has "a content effect" only if its content-only twin passes in family 3 or 4. The
   rank-mediated part (full minus twin) is reported with an interval and an unadjusted p, and is
   not a claim on its own.
+- Because the headline claim passes if family 1 or family 2 passes, and each family is held to
+  0.05 on its own, the chance of a false headline claim is up to about 0.10, not 0.05. This was
+  not corrected before the run and is stated here so the results are read with it in mind.
 - If nothing passes, the result is reported as null together with the MDE below.
 
 ## Power
@@ -149,8 +154,10 @@ approximation, 80% power, two-sided, alpha 0.05 / 6 for the strictest Holm step,
 | Named rate | -1.4 pp | 16.9 pp | 10.7 pp | 7.6 pp | 7.6 pp |
 
 At baseline the target's citation share averages 41.9% per answer and 59% of answers name the
-brand. So the main run can detect a page edit that moves the citation share by about 8
-percentage points and will likely miss smaller effects. With 24 units an exact Wilcoxon test can reach p = 1.2e-7, so every page
+brand. So the main run can detect a page edit that moves the citation share by about 8-9
+percentage points and will likely miss smaller effects. The 7.9 pp above is the normal
+approximation; with t(23) quantiles it is 8.5 pp, and a simulated Wilcoxon test at alpha / 6
+has about 76% power at 7.9 pp. With 24 units an exact Wilcoxon test can reach p = 1.2e-7, so every page
 arm is testable. The main run reuses the pilot's baseline and A/A answers from the cache.
 
 ## Deviations
@@ -170,7 +177,10 @@ decision threshold remain as specified above.
 
 The positive-control slot comparison is tested on the run's primary metric, citation share.
 The generated verdict and per-page robustness calculation now name and compute that same metric.
-PAWC for the slot sweep remains descriptive.
+PAWC for the slot sweep remains descriptive. The reason: a positive control is only useful if it
+checks the measurement the edits are judged on. If the slot sweep were tested on PAWC while the
+page edits are tested on citation share, a passing control would say nothing about whether the
+citation-share measurement can see a real effect.
 
 ### Prompt B is a reduced robustness check (2026-09-05, before the main run finished)
 
