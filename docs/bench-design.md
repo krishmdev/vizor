@@ -203,3 +203,13 @@ Two properties of the bench limit what the results can say, and should have been
 - The queries are hand-written, 3 per topic, and the target page is retrieved for 93% of
   answers. The cross-fitted edits read the other fold's queries, and those include same-topic
   siblings of the held-out query. "Held out" here means a held-out query, not a held-out topic.
+
+### Prompt B dropped (2026-09-18, superseded by Study 2)
+
+The prompt-B robustness run was not run. After the main run, the page-edit MDE (about 8-9 pp)
+was found to come from sampling noise at temperature 0.7 rather than from the number of pages,
+so a second sampled run with 3 samples per query would have had even less power than the main
+run. The GPU time is spent instead on Study 2 (`docs/bench-design-study2.md`), which uses a
+teacher-forced citation metric with no sampling noise and new, pre-registered queries. The
+prompt-B config stays in `configs/` for reference. The 9B robustness run is still planned as an
+optional run after Study 2.
