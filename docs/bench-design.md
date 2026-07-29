@@ -191,3 +191,15 @@ reason is GPU time on a machine shared with two other projects: the reduced desi
 a third of the main run's calls. It can say whether the direction and rough size of the page-edit
 effects hold under a different system prompt; it has less power than the main run and is not
 used for the content vs rank question. No main-run result had been read when this was written.
+
+### Corpus and query disclosure (written after the main run)
+
+Two properties of the bench limit what the results can say, and should have been stated up front:
+
+- The corpus was written knowing which edits would be tested. The target site's pages lack
+  exactly the features the edits add: the 24 Larkspur pages have no FAQ block and no JSON-LD,
+  while all 12 cogandchain pages have both. An edit that adds one of these features therefore
+  always has something to add, which a real site might not.
+- The queries are hand-written, 3 per topic, and the target page is retrieved for 93% of
+  answers. The cross-fitted edits read the other fold's queries, and those include same-topic
+  siblings of the held-out query. "Held out" here means a held-out query, not a held-out topic.
