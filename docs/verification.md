@@ -65,3 +65,17 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   intact; it is not current evidence for an effect.
 - **Real bench**: the 72-query pilot is queued behind the shared compute lease. No pilot MDE or
   main-run result has been measured yet.
+
+## 2026-09-18
+
+- **Main bench run**: `experiments/results/2026-09-05_bench-qwen3b` (git 0444d1e, clean source
+  tree, input fingerprints equal at start and end). `vizor recompute` matched all 28,800 rows;
+  the pilot matched all 5,400.
+- **Review fixes after the run**: planned-family MDE in the pilot summary, the run-time MDE on
+  the primary metric, page means next to query-weighted means, brand-mention columns checked in
+  recompute, the stricter bare citation form, and the OpenAI-compatible cache key and server
+  commit. The pilot and main-run summaries and manifests were regenerated with `vizor report`;
+  only the `sensitivity` and `planned_arms` keys changed.
+- **Archive**: the 2026-08-05 qwen2.5:3b run moved to `experiments/archive/` as historical output.
+- **Offline suite**: `pytest -m 'not slow and not network' -o addopts='' -q` passed 361 tests
+  (one network test deselected). `ruff check .` passed.
