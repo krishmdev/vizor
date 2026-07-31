@@ -214,6 +214,7 @@ def run_experiment(
         cfg.sandbox.bootstrap,
         brands=project.brand_patterns(),
         primary=cfg.sandbox.primary_metric,
+        weighting=cfg.sandbox.weighting,
     )
     log(
         f"{len(docs)} docs, {len(queries)} queries x {cfg.samples} samples, "
@@ -507,6 +508,7 @@ def run_experiment(
         "decay": cfg.decay,
         "primary_metric": sb.primary,
         "passage_policy": engine.passage_policy,
+        "weighting": sb.weighting,
         "brands": {d: p.pattern for d, p in sb.brands.items()},
         "transform_query_scope": "crossfit-2",
         "page_arm_scope": "focus page per query",

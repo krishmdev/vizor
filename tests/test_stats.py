@@ -130,3 +130,44 @@ def test_mde_with_t_quantiles_is_larger_for_few_units():
 
     assert mde(10, 24, 6, t=True) > mde(10, 24, 6)
     assert mde(10, 10_000, 6, t=True) == pytest.approx(mde(10, 10_000, 6), rel=1e-3)
+
+
+def test_sign_flip_null_is_calibrated():
+    from vizor.optimize.stats import sign_flip_p
+
+    rng = np.random.default_rng(1)
+    ps = np.array([sign_flip_p(rng.normal(size=24), draws=2000, seed=i) for i in range(400)])
+    # uniform under the null: about 5% below 0.05, about half below 0.5
+    assert 0.02 <= np.mean(ps < 0.05) <= 0.09
+    assert 0.4 <= np.mean(ps < 0.5) <= 0.6
+
+
+def test_sign_flip_exact_small_n_and_shift():
+    from vizor.optimize.stats import sign_flip_p
+
+    # all 2^5 patterns: only the observed signs and their mirror reach |mean| = 1
+    assert sign_flip_p(np.ones(5)) == 2 / 32
+    assert sign_flip_p(np.zeros(8)) == 1.0
+    assert sign_flip_p(np.full(24, 0.5) + np.linspace(-0.1, 0.1, 24)) < 1e-3
+
+
+def test_wilcoxon_exact_drops_zeros():
+    from vizor.optimize.stats import wilcoxon_exact_p
+
+    d = np.array([0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    assert wilcoxon_exact_p(d) == pytest.approx(2 / 64)
+
+
+def test_page_weighting_uses_page_means_throughout():
+    from vizor.optimize.stats import paired_clustered, unit_means
+
+    # page a has three queries at +3, page b one query at -1
+    d = np.array([3.0, 3.0, 3.0, -1.0])
+    c = np.array(["a", "a", "a", "b"])
+    q = paired_clustered(d, c, b=500, weighting="query")
+    p = paired_clustered(d, c, b=500, weighting="page")
+    assert q.mean == pytest.approx(2.0)
+    assert p.mean == pytest.approx(1.0)
+    assert p.lo == pytest.approx(-1.0) and p.hi == pytest.approx(3.0)
+    labels, m = unit_means(d, c)
+    assert list(labels) == ["a", "b"] and list(m) == [3.0, -1.0]

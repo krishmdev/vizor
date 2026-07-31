@@ -54,6 +54,9 @@ class SandboxConfig(BaseModel):
     # The metric the Holm verdict is computed on: PAWC share, citation share (share of the
     # answer's valid markers), or whether the answer names the target brand.
     primary_metric: Literal["imp_pwc", "c_share", "mentioned"] = "imp_pwc"
+    # "query": estimates weight queries equally and the test ranks page means (Study 1).
+    # "page": estimate, interval and test all use the unweighted mean of page means (Study 2).
+    weighting: Literal["query", "page"] = "query"
 
 
 class RenderConfig(BaseModel):

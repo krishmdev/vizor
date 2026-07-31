@@ -1,4 +1,5 @@
-"""Paired statistics for sandbox comparisons. The unit of analysis is the query."""
+"""Paired statistics for sandbox comparisons: bootstrap intervals, Wilcoxon and sign-flip
+permutation tests, Holm, and the MDE."""
 
 from __future__ import annotations
 
@@ -63,12 +64,58 @@ def holm(pvals: list[float]) -> list[float]:
     return adj.tolist()
 
 
+def sign_flip_p(unit_deltas: np.ndarray, draws: int = 20000, seed: int = 0) -> float:
+    """Two-sided sign-flip permutation p for a zero mean of paired unit differences.
+
+    Under the null each unit's difference is symmetric around 0, so its sign is exchangeable.
+    Exact over all 2^n sign patterns when that is at most `draws`, otherwise Monte Carlo with the
+    (1 + hits) / (1 + draws) correction, which keeps the test valid."""
+    d = np.asarray(unit_deltas, dtype=float)
+    d = d[~np.isnan(d)]
+    n = len(d)
+    if n == 0 or np.allclose(d, 0):
+        return 1.0
+    obs = abs(d.mean())
+    tol = 1e-12 * max(1.0, float(np.abs(d).max()))
+    if 2**n <= draws:
+        signs = ((np.arange(2**n)[:, None] >> np.arange(n)) & 1) * 2 - 1
+        stats_ = np.abs((signs * d).mean(axis=1))
+        return float(np.mean(stats_ >= obs - tol))
+    rng = np.random.default_rng(seed)
+    signs = rng.choice(np.array([-1.0, 1.0]), size=(draws, n))
+    hits = int(np.sum(np.abs((signs * d).mean(axis=1)) >= obs - tol))
+    return (1 + hits) / (1 + draws)
+
+
+def wilcoxon_exact_p(unit_deltas: np.ndarray) -> float:
+    """Two-sided Wilcoxon signed-rank p on unit differences, exact when scipy can (no ties among
+    the non-zero |d|), normal approximation otherwise. Zero differences are dropped (Wilcox)."""
+    d = np.asarray(unit_deltas, dtype=float)
+    d = d[~np.isnan(d)]
+    d = d[np.abs(d) > 1e-12]
+    if len(d) == 0:
+        return 1.0
+    ties = len(np.unique(np.round(np.abs(d), 12))) < len(d)
+    method = "approx" if ties else "exact"
+    return float(stats.wilcoxon(d, zero_method="wilcox", method=method).pvalue)
+
+
 def paired_clustered(
-    deltas: np.ndarray, clusters: np.ndarray, b: int = 5000, seed: int = 0
+    deltas: np.ndarray,
+    clusters: np.ndarray,
+    b: int = 5000,
+    seed: int = 0,
+    weighting: str = "query",
 ) -> PairedResult:
     """Paired comparison when queries share a treated unit (e.g. one edited page serves several
     queries). The CI resamples whole clusters; the Wilcoxon test runs on cluster means. `n` is
-    the number of clusters. With one query per cluster this reduces to `paired`."""
+    the number of clusters. With one query per cluster this reduces to `paired`.
+
+    `weighting="query"` (Study 1): the estimate is the per-query mean and the bootstrap a ratio
+    of sums, so pages with more queries weigh more, while the test ranks unweighted page means.
+    `weighting="page"`: estimate, bootstrap and test all use the unweighted mean of page means."""
+    if weighting not in ("query", "page"):
+        raise ValueError(f"unknown weighting {weighting!r}")
     d = np.asarray(deltas, dtype=float)
     c = np.asarray(clusters)
     ok = ~np.isnan(d)
@@ -79,11 +126,28 @@ def paired_clustered(
     k = len(labels)
     sums = np.bincount(inv, weights=d, minlength=k)
     counts = np.bincount(inv, minlength=k).astype(float)
+    unit = sums / counts
     rng = np.random.default_rng(seed)
     idx = rng.integers(0, k, size=(b, k))
-    means = sums[idx].sum(axis=1) / counts[idx].sum(axis=1)
+    if weighting == "page":
+        means = unit[idx].mean(axis=1)
+        est = float(unit.mean())
+    else:
+        means = sums[idx].sum(axis=1) / counts[idx].sum(axis=1)
+        est = float(d.mean())
     lo, hi = np.quantile(means, [0.025, 0.975])
-    return PairedResult(k, float(d.mean()), float(lo), float(hi), wilcoxon_p(sums / counts))
+    return PairedResult(k, est, float(lo), float(hi), wilcoxon_p(unit))
+
+
+def unit_means(deltas: np.ndarray, clusters: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """(labels, mean delta per cluster), NaN deltas dropped."""
+    d = np.asarray(deltas, dtype=float)
+    c = np.asarray(clusters)
+    ok = ~np.isnan(d)
+    labels, inv = np.unique(c[ok], return_inverse=True)
+    sums = np.bincount(inv, weights=d[ok], minlength=len(labels))
+    counts = np.bincount(inv, minlength=len(labels)).astype(float)
+    return labels, sums / np.maximum(counts, 1)
 
 
 def mde(

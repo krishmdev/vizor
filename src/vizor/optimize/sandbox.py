@@ -174,11 +174,13 @@ class Sandbox:
         bootstrap: int = 5000,
         brands: dict | None = None,
         primary: str = "imp_pwc",
+        weighting: str = "query",
     ) -> None:
         if primary not in ("imp_pwc", "c_share", "mentioned"):
             raise ValueError(f"unknown primary metric {primary!r}")
         self.brands = brands if brands is not None else brand_patterns(domains)
         self.primary = primary
+        self.weighting = weighting
         self.engine = engine
         self.queries = list(queries)
         self.samples = samples
@@ -307,7 +309,9 @@ class Sandbox:
         cl = self.clusters(var, idx)
 
         def test(col: str) -> PairedResult:
-            return paired_clustered(d[col].to_numpy() * 100, cl, b=self.bootstrap)
+            return paired_clustered(
+                d[col].to_numpy() * 100, cl, b=self.bootstrap, weighting=self.weighting
+            )
 
         pwc, csov = test("imp_pwc"), test("c_share")
         ment, ment_s = test("mentioned"), test("mention_share")
