@@ -33,8 +33,10 @@ class Engine:
         workers: int = 1,
         system_prompt: str = "",
         select_cascade: Cascade | None = None,
+        passage_policy: str = "query-top3",
     ) -> None:
         self.system_prompt = system_prompt
+        self.passage_policy = passage_policy
         # When set, sources are selected (and ordered) by this cascade and rendered from
         # `cascade`: the page text can change while the retrieval result stays fixed.
         self.select_cascade = select_cascade
@@ -56,7 +58,15 @@ class Engine:
             self.wordcount,
             self.workers,
             self.system_prompt,
+            passage_policy=self.passage_policy,
         )
+
+    def with_passage_policy(self, policy: str) -> Engine:
+        """The same engine (and source selection) rendering passages under another policy."""
+        eng = self.with_cascade(self.cascade)
+        eng.select_cascade = self.select_cascade
+        eng.passage_policy = policy
+        return eng
 
     def content_only(self, edited: Cascade) -> Engine:
         """An engine that keeps this engine's source selection but renders pages from `edited`."""
@@ -82,7 +92,10 @@ class Engine:
         else:
             sel = self.cascade.select(query.text, policy)
         qvec = self.cascade.query_vector(query.text)
-        rendered = [render_source(i + 1, c, self.cascade, qvec) for i, c in enumerate(sel.sources)]
+        rendered = [
+            render_source(i + 1, c, self.cascade, qvec, self.passage_policy)
+            for i, c in enumerate(sel.sources)
+        ]
         return format_prompt(query.text, rendered), sel
 
     def answer(

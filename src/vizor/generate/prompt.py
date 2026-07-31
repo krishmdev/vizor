@@ -50,14 +50,39 @@ def _cap_words(text: str, limit: int) -> str:
     return " ".join(words[:limit]).rstrip() + " …"
 
 
+# How the passages shown for a source are chosen (`render.passage_policy`):
+#   query-top3  the 3 body or FAQ passages most similar to the question (Study 1's engine)
+#   body-top3   the 3 most similar body passages; FAQ passages never compete for a slot
+#   top2+faq1   the 2 most similar body passages plus the most similar FAQ passage (a third body
+#               passage when the page has no FAQ)
+PASSAGE_POLICIES = ("query-top3", "body-top3", "top2+faq1")
+
+
+def choose_passages(scored: list, policy: str = "query-top3") -> list:
+    """The (passage, score) pairs to render, in page order."""
+    if policy not in PASSAGE_POLICIES:
+        raise ValueError(f"unknown passage policy {policy!r}")
+    ranked = sorted(scored, key=lambda x: -x[1])
+    body = [x for x in ranked if x[0].kind == "body"]
+    faq = [x for x in ranked if x[0].kind == "faq"]
+    if policy == "query-top3":
+        chosen = [x for x in ranked if x[0].kind in ("body", "faq")][:N_PASSAGES]
+    elif policy == "body-top3":
+        chosen = body[:N_PASSAGES]
+    else:
+        chosen = body[: N_PASSAGES - 1] + (faq[:1] or body[N_PASSAGES - 1 : N_PASSAGES])
+    return sorted(chosen, key=lambda x: x[0].order)
+
+
 def render_source(
-    index: int, cand: Candidate, cascade: Cascade, qvec: np.ndarray
+    index: int,
+    cand: Candidate,
+    cascade: Cascade,
+    qvec: np.ndarray,
+    passage_policy: str = "query-top3",
 ) -> RenderedSource:
     doc = cand.doc
-    scored = [
-        (p, s) for p, s in cascade.passage_scores(qvec, doc.doc_id) if p.kind in ("body", "faq")
-    ]
-    chosen = sorted(sorted(scored, key=lambda x: -x[1])[:N_PASSAGES], key=lambda x: x[0].order)
+    chosen = choose_passages(cascade.passage_scores(qvec, doc.doc_id), passage_policy)
     lines = [p.text for p, _ in chosen]
     if doc.links:
         lines.append("Related: " + "; ".join(f"{a} ({h})" for a, h in doc.links))

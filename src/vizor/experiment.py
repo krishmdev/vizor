@@ -506,6 +506,7 @@ def run_experiment(
         "sentiment_backend": sentiment.backend_id,
         "decay": cfg.decay,
         "primary_metric": sb.primary,
+        "passage_policy": engine.passage_policy,
         "brands": {d: p.pattern for d, p in sb.brands.items()},
         "transform_query_scope": "crossfit-2",
         "page_arm_scope": "focus page per query",

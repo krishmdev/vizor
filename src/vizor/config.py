@@ -56,6 +56,11 @@ class SandboxConfig(BaseModel):
     primary_metric: Literal["imp_pwc", "c_share", "mentioned"] = "imp_pwc"
 
 
+class RenderConfig(BaseModel):
+    # Which passages each source shows in the prompt (see vizor.generate.prompt.choose_passages).
+    passage_policy: Literal["query-top3", "body-top3", "top2+faq1"] = "query-top3"
+
+
 class BanditConfig(BaseModel):
     rounds: int = 2000
     runs: int = 20
@@ -76,6 +81,7 @@ class Config(BaseModel):
     seed: int = 0
     llm: LLMConfig = Field(default_factory=LLMConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
+    render: RenderConfig = Field(default_factory=RenderConfig)
     bandit: BanditConfig = Field(default_factory=BanditConfig)
 
     @classmethod
@@ -139,6 +145,7 @@ def build(cfg: Config):
         base_seed=cfg.seed,
         workers=cfg.llm.workers,
         system_prompt=cfg.llm.system_prompt,
+        passage_policy=cfg.render.passage_policy,
     )
     return project, docs, queries, engine
 
