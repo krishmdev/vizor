@@ -64,6 +64,40 @@ class RenderConfig(BaseModel):
     passage_policy: Literal["query-top3", "body-top3", "top2+faq1"] = "query-top3"
 
 
+class Comparison(BaseModel):
+    """One AP comparison: prompt set `set` against prompt set `ref`, Holm-adjusted within
+    `family`. Only the `primary` family can support a claim."""
+
+    name: str
+    set: str
+    ref: str = "baseline"
+    family: str = "secondary"
+
+
+class ScoreConfig(BaseModel):
+    """Teacher-forced attribution-propensity scoring (`vizor score`)."""
+
+    backend: Literal["fake", "localhost", "mlx"] = "fake"
+    model: str = "qwen2.5-3b-mlx4"
+    revision: str | None = None
+    base_url: str = "http://127.0.0.1:8431"
+    chat_template_kwargs: dict = Field(default_factory=dict)
+    # Facts about the server copied into the scorer pin (and so the cache key). `vizor score
+    # --server-commit` fills in "commit"; the server must report the same one.
+    server_meta: dict[str, str] = Field(default_factory=dict)
+    refs: list[int] = Field(default_factory=lambda: [0, 1])
+    # Prompt sets to score (empty: those the comparisons name, or every set in the run).
+    sets: list[str] = Field(default_factory=list)
+    comparisons: list[Comparison] = Field(default_factory=list)
+    # Prompt-only sets `vizor experiment` builds for scoring without sampling answers:
+    # extra arms (e.g. content-only twins) and extra passage policies.
+    prompt_arms: list[str] = Field(default_factory=list)
+    policies: list[str] = Field(default_factory=list)
+    bootstrap: int = 5000
+    draws: int = 20000
+    workers: int = 1
+
+
 class BanditConfig(BaseModel):
     rounds: int = 2000
     runs: int = 20
@@ -85,6 +119,7 @@ class Config(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     render: RenderConfig = Field(default_factory=RenderConfig)
+    score: ScoreConfig = Field(default_factory=ScoreConfig)
     bandit: BanditConfig = Field(default_factory=BanditConfig)
 
     @classmethod

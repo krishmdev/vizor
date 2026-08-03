@@ -216,3 +216,16 @@ def test_decomposition_adds_up(sandbox):
         assert d[f"total_{m}_pp"] == pytest.approx(d[f"content_{m}_pp"] + d[f"rank_{m}_pp"])
     cmp = sandbox.compare(base, content)
     assert cmp["n_sources_changed"] == 0
+
+
+@pytest.mark.parametrize("spec", ["faq_rewrite", "content:faq_rewrite", "engine:target_at:5"])
+def test_build_prompts_matches_the_sampled_prompts(sandbox, spec):
+    arm = Arm.parse(spec)
+    run = sandbox.run(arm)
+    built = sandbox.build_prompts(arm)
+    sampled = {r.answer.query_id: r.prompt for r in run.results}
+    assert {q: p for q, (p, _) in built.items()} == sampled
+    if arm.mode == "content":
+        base = {r.answer.query_id: r.answer.sources for r in sandbox.baseline.results}
+        for q, (_, sel) in built.items():
+            assert [c.doc.doc_id for c in sel.sources] == [s.doc_id for s in base[q]]

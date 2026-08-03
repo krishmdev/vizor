@@ -38,6 +38,7 @@ from vizor.metrics.visibility import answer_rows
 from vizor.optimize.retrieval_policy import RELEVANCE, RetrievalPolicy
 from vizor.optimize.stats import PairedResult, holm, paired_clustered
 from vizor.optimize.transforms import TRANSFORMS, TransformContext, apply_chain
+from vizor.retrieve.cascade import Selection
 from vizor.types import Query, SourceDoc, stable_seed
 
 TARGET_METRICS = [
@@ -236,13 +237,8 @@ class Sandbox:
         results = (engine or self.engine).run(queries, self.samples, arm.policy, arm.salt)
         return ArmRun(arm, results, self.rows_for(results, arm.name))
 
-    def _run_doc_arm(
-        self, arm: Arm, plan: list[tuple[str, Sequence[Query], TransformContext]]
-    ) -> ArmRun:
-        results: list[EngineResult] = []
-        diffs: dict[str, dict[str, str]] = {}
-        changed: dict[str, dict[str, SourceDoc]] = {}
-        scored: dict[str, tuple[str, str]] = {}
+    def _doc_engines(self, arm: Arm, plan: list[tuple[str, Sequence[Query], TransformContext]]):
+        """(fold, doc_id, queries, engine, edited doc or None, diff) for each edited page."""
         docs = self.engine.cascade.docs
         for fold, queries, ctx in plan:
             by_page: dict[str, list[Query]] = defaultdict(list)
@@ -251,18 +247,31 @@ class Sandbox:
             for doc_id, group in by_page.items():
                 new, diff = apply_chain(docs[doc_id], arm.transforms, ctx)
                 engine = self.engine
-                if new is not docs[doc_id]:
-                    edited = engine.cascade.with_docs({doc_id: new})
-                    engine = (
-                        engine.content_only(edited)
-                        if arm.mode == "content"
-                        else engine.with_cascade(edited)
-                    )
-                    changed.setdefault(fold, {})[doc_id] = new
-                    diffs.setdefault(fold, {})[doc_id] = diff
-                results += engine.run(group, self.samples, arm.policy, arm.salt)
-                for q in group:
-                    scored[q.query_id] = (fold, doc_id)
+                if new is docs[doc_id]:
+                    yield fold, doc_id, group, engine, None, diff
+                    continue
+                edited = engine.cascade.with_docs({doc_id: new})
+                engine = (
+                    engine.content_only(edited)
+                    if arm.mode == "content"
+                    else engine.with_cascade(edited)
+                )
+                yield fold, doc_id, group, engine, new, diff
+
+    def _run_doc_arm(
+        self, arm: Arm, plan: list[tuple[str, Sequence[Query], TransformContext]]
+    ) -> ArmRun:
+        results: list[EngineResult] = []
+        diffs: dict[str, dict[str, str]] = {}
+        changed: dict[str, dict[str, SourceDoc]] = {}
+        scored: dict[str, tuple[str, str]] = {}
+        for fold, doc_id, group, engine, new, diff in self._doc_engines(arm, plan):
+            if new is not None:
+                changed.setdefault(fold, {})[doc_id] = new
+                diffs.setdefault(fold, {})[doc_id] = diff
+            results += engine.run(group, self.samples, arm.policy, arm.salt)
+            for q in group:
+                scored[q.query_id] = (fold, doc_id)
         order = {q.query_id: i for i, q in enumerate(self.queries)}
         results.sort(key=lambda r: (order.get(r.answer.query_id, 0), r.answer.sample))
         return ArmRun(arm, results, self.rows_for(results, arm.name), diffs, changed, scored)
@@ -278,6 +287,11 @@ class Sandbox:
         queries = list(queries or self.queries)
         if arm.kind != "doc":
             return self._run_engine(arm, queries)
+        return self._run_doc_arm(arm, self._plan(arm, queries, ctx_queries))
+
+    def _plan(
+        self, arm: Arm, queries: list[Query], ctx_queries: Sequence[Query] | None = None
+    ) -> list[tuple[str, Sequence[Query], TransformContext]]:
         if self.baseline is None:
             raise RuntimeError("run_baseline() first: page arms need each query's focus page")
         if ctx_queries is not None:
@@ -291,7 +305,30 @@ class Sandbox:
             ]
         else:
             plan = [("all", queries, self.ctx)]
-        return self._run_doc_arm(arm, plan)
+        return plan
+
+    def build_prompts(
+        self, arm: Arm, passage_policy: str | None = None, queries: Sequence[Query] | None = None
+    ) -> dict[str, tuple[str, Selection]]:
+        """Each query's prompt under this arm, built exactly as `run` would build it (same
+        edits, folds and source pinning) but with no answer sampled. `passage_policy` re-renders
+        the same sources under another passage policy."""
+        queries = list(queries or self.queries)
+
+        def render(engine: Engine) -> Engine:
+            return engine.with_passage_policy(passage_policy) if passage_policy else engine
+
+        if arm.kind != "doc":
+            eng = render(self.engine)
+            return {q.query_id: eng.build_prompt(q, arm.policy) for q in queries}
+        out: dict[str, tuple[str, Selection]] = {}
+        for _fold, _doc, group, engine, _new, _diff in self._doc_engines(
+            arm, self._plan(arm, queries)
+        ):
+            eng = render(engine)
+            for q in group:
+                out[q.query_id] = eng.build_prompt(q, arm.policy)
+        return out
 
     def clusters(self, run: ArmRun, ids: pd.Index) -> np.ndarray:
         """Cluster page-arm queries by the underlying page, across both cross-fit folds."""

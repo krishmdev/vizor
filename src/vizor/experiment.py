@@ -15,7 +15,7 @@ import pandas as pd
 import vizor
 from vizor.config import Config, build
 from vizor.generate.llm import BudgetExceeded
-from vizor.generate.prompt import INSTRUCTION
+from vizor.generate.prompt import INSTRUCTION, prompt_hash
 from vizor.ingest.corpus import load_project
 from vizor.metrics.sentiment import make_sentiment
 from vizor.metrics.visibility import domain_summary
@@ -381,6 +381,41 @@ def run_experiment(
             prompts.setdefault(r.answer.prompt_hash, r.prompt)
             responses.append({"arm": run.arm.name, **r.answer.to_dict()})
     write_jsonl_gz(out / "responses.jsonl.gz", responses)
+    # Prompt-only sets for `vizor score`: extra arms (e.g. content-only twins) and the run's arms
+    # under extra passage policies, built exactly like the sampled prompts, with no answers.
+    arm_prompts = []
+    sc = cfg.score
+    if sc.prompt_arms or sc.policies:
+        page_arms = ["baseline", *[a for a, r in arm_runs.items() if r.arm.kind == "doc"]]
+        todo = [(a, None) for a in sc.prompt_arms if a not in arm_runs]
+        todo += [(a, pol) for pol in sc.policies for a in dict.fromkeys(page_arms + sc.prompt_arms)]
+        for spec, pol in todo:
+            arm = Arm("baseline", "doc") if spec == "baseline" else Arm.parse(spec)
+            name = f"{spec}@{pol}" if pol else spec
+            built = attempt(f"prompts {name}", lambda a=arm, p=pol: sb.build_prompts(a, p))
+            if built is None:
+                continue
+            mode = "pinned" if arm.mode == "content" or spec in ("baseline", *CONTROLS) else "full"
+            for qid, (prompt, sel) in built.items():
+                h = prompt_hash(prompt)
+                prompts.setdefault(h, prompt)
+                arm_prompts.append(
+                    {
+                        "set": name,
+                        "arm": spec,
+                        "mode": mode,
+                        "policy": pol or engine.passage_policy,
+                        "query_id": qid,
+                        "prompt_hash": h,
+                        "sources": [
+                            {"position": i + 1, "doc_id": c.doc.doc_id, "domain": c.doc.domain}
+                            for i, c in enumerate(sel.sources)
+                        ],
+                    }
+                )
+            log(f"prompts {name} built ({time.time() - t0:.0f}s)")
+    if arm_prompts:
+        write_jsonl_gz(out / "arm_prompts.jsonl.gz", arm_prompts)
     write_jsonl_gz(
         out / "prompts.jsonl.gz",
         ({"prompt_hash": h, "prompt": p} for h, p in sorted(prompts.items())),
