@@ -94,6 +94,9 @@ class TransformContext:
     embedder: Embedder
     llm: LLM | None = None
     n_context_queries: int = 8
+    # Shared log of grounding-guard decisions for LLM rewrites ({transform, doc_id, accepted,
+    # violations}), so a run can report how often a rewrite was rejected.
+    events: list = field(default_factory=list)
     _qvec: np.ndarray | None = field(default=None, repr=False)
 
     def query_vectors(self) -> np.ndarray:
@@ -364,6 +367,157 @@ def keyword_stuffing(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, 
     return doc.evolve("keyword_stuffing", body=doc.body + "\n\n" + line), line
 
 
+# ------------------------------------------------------------------ Study 2 arms (query-blind)
+_UNIT = (
+    r"(?:kg|g|lb|lbs|psi|bar|mm|cm|m|km|km/h|mph|w|wh|nm|lumens?|%|percent|litres?|liters?|l|"
+    r"inch|inches|in|hours?|minutes?|seconds?|°c|db|cycles|speed|x)"
+)
+_KEY_FACT = re.compile(
+    rf"\$\s?\d|\b\d[\d,.]*\s?{_UNIT}(?![a-z])|\b\d+\s?-\s?speed\b|\b\d+\s?x\s?\d+", re.I
+)
+MAX_LEAD_FACTS = 4
+MAX_LEAD_WORDS = 90
+
+
+def key_fact(sentence: str) -> bool:
+    """A sentence states a key fact if it has a price, a number with a unit, or a spec pattern
+    such as "2 x 10" or "7-speed"."""
+    return bool(_KEY_FACT.search(sentence))
+
+
+def answer_first(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
+    """Move the page's key-fact sentences (prices, numbers with units, specs; at most 4 and 90
+    words, in page order) into a new first paragraph, so they land in the lead body window.
+    Nothing is added or reworded, and it reads no queries."""
+    picked: list[str] = []
+    words = 0
+    for p in doc.paragraphs:
+        for sent in split_sentences(p):
+            n = len(sent.split())
+            if key_fact(sent) and len(picked) < MAX_LEAD_FACTS and words + n <= MAX_LEAD_WORDS:
+                picked.append(sent)
+                words += n
+    if not picked:
+        return doc, ""
+    kept = []
+    for p in doc.paragraphs:
+        stay = [x for x in split_sentences(p) if x not in picked]
+        if stay:
+            kept.append(" ".join(stay))
+    body = "\n\n".join([" ".join(picked), *kept])
+    return doc.evolve("answer_first", body=body), "moved to the lead:\n" + "\n".join(picked)
+
+
+_NUM = re.compile(r"\d+(?:[.,]\d+)*")
+_CAP = re.compile(r"\b[A-Z][A-Za-z0-9&'’-]*")
+
+
+def _numbers(text: str) -> set[str]:
+    return {n.replace(",", "").rstrip(".") for n in _NUM.findall(text)}
+
+
+def grounding_violations(new: str, old: str) -> list[str]:
+    """Numbers and names in `new` that do not appear in `old`. Numbers are compared without
+    thousands separators. A capitalized word must appear with the same capitalization in `old`,
+    except at the start of a sentence, where any case counts."""
+    bad = sorted(_numbers(new) - _numbers(old))
+    old_words = set(re.findall(r"[A-Za-z0-9&'’-]+", old))
+    old_lower = {w.lower() for w in old_words}
+    for sent in split_sentences(new.replace("\n", " ")):
+        for m in _CAP.finditer(sent):
+            w = m.group(0).rstrip("'’-")
+            first = m.start() == len(sent) - len(sent.lstrip("\"'“([*-• "))
+            if w in old_words or (first and w.lower() in old_lower):
+                continue
+            bad.append(w)
+    return list(dict.fromkeys(bad))
+
+
+EVIDENCE_PROMPT = (
+    "Rewrite the following web page so that the numbers it already contains (prices, weights, "
+    "sizes, capacities, run times, speeds, percentages) are stated early and explicitly, in "
+    "short sentences near the start of the paragraphs where they belong. Use only the numbers, "
+    "names and facts that appear in the page. Do not add any new number, name, product, "
+    "statistic, source or claim, and do not remove any fact. Keep the paragraph structure."
+)
+
+
+def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
+    """GEO's statistics addition restricted to numbers already on the page: an LLM restates the
+    page with its own numbers surfaced. A grounding guard rejects any output with a number or
+    name that is not on the page; a rejected page keeps its original text."""
+    if ctx.llm is None:
+        raise RuntimeError("evidence_surface_llm needs a rewriter LLM")
+    user = (
+        f"{EVIDENCE_PROMPT}\n\nReturn only the rewritten page text, with paragraphs separated "
+        f"by blank lines and no commentary.\n\nPage:\n```\n{doc.body}\n```"
+    )
+    c = ctx.llm.complete(
+        [{"role": "system", "content": GEO_SYSTEM}, {"role": "user", "content": user}],
+        temperature=0.0,
+        seed=0,
+        max_tokens=1500,
+    )
+    body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", c.text.strip()).strip()
+    bad = grounding_violations(body, doc.body + "\n" + doc.title) if body else ["<empty>"]
+    ctx.events.append(
+        {
+            "transform": "evidence_surface_llm",
+            "doc_id": doc.doc_id,
+            "accepted": not bad,
+            "violations": bad[:10],
+        }
+    )
+    if bad:
+        return doc, ""
+    return doc.evolve("evidence_surface_llm", body=body), (
+        f"rewrote {len(doc.body.split())} -> {len(body.split())} words"
+    )
+
+
+_WH = re.compile(r"^(what|how|why|when|where|which|who|is|are|can|does|do|should)\b", re.I)
+MAX_FAQ_V2 = 2
+
+
+def _heading_question(heading: str, product: str | None) -> str:
+    """ "Battery life" on a product page -> "What should I know about battery life on the
+    Larkspur Beam 800?"; on a guide -> "What should I know about battery life?"."""
+    h = heading.strip().rstrip("?.:")
+    if _WH.match(h):
+        return h[0].upper() + h[1:] + "?"
+    tail = f" on the {product}" if product else ""
+    return f"What should I know about {h[0].lower() + h[1:]}{tail}?"
+
+
+def faq_rewrite_v2(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
+    """A query-blind FAQ: questions come from the page's own section headings (not from tracked
+    queries), each answer is the single page sentence that best matches its question, no
+    sentence answers two questions, and there are at most 2 pairs (the two best-matched)."""
+    sents = _sentences(doc)
+    heads = [h for h in doc.headings[1:] if h.strip()]
+    if not sents or not heads:
+        return doc, ""
+    h1 = doc.headings[0] if doc.headings else doc.title
+    product = h1 if _site_name(doc.domain).lower() in h1.lower() else None
+    qs = [_heading_question(h, product) for h in heads]
+    sims = ctx.embedder.encode(qs, kind="query") @ ctx.embedder.encode(sents).T
+    order = sorted(range(len(qs)), key=lambda i: (-float(sims[i].max()), i))
+    pairs: list[tuple[str, str]] = []
+    used: set[int] = set()
+    for i in order:
+        best = [int(j) for j in np.argsort(-sims[i], kind="stable") if int(j) not in used]
+        if not best:
+            continue
+        used.add(best[0])
+        pairs.append((qs[i], sents[best[0]]))
+        if len(pairs) == MAX_FAQ_V2:
+            break
+    if not pairs:
+        return doc, ""
+    new = doc.evolve("faq_rewrite_v2", faq=(*doc.faq, *pairs))
+    return new, "\n".join(f"Q: {q}\nA: {a}" for q, a in pairs)
+
+
 # LLM rewrites. Prompts adapted from GEO (src/geo_functions.py).
 GEO_SYSTEM = (
     "You are an expert in search engines and SEO. Websites are cited by language models that "
@@ -460,6 +614,25 @@ TRANSFORMS: dict[str, Transform] = {
             description="append top query keywords (control)",
             uses_queries=True,
         ),
+        Transform(
+            "answer_first",
+            "doc",
+            answer_first,
+            description="move key-fact sentences (prices, numbers with units) to the lead",
+        ),
+        Transform(
+            "evidence_surface_llm",
+            "doc",
+            evidence_surface_llm,
+            requires_llm=True,
+            description="LLM restates the page's own numbers early; grounding guard",
+        ),
+        Transform(
+            "faq_rewrite_v2",
+            "doc",
+            faq_rewrite_v2,
+            description="up to 2 FAQ pairs from the page's headings, best-matching sentences",
+        ),
         *[
             Transform(
                 n,
@@ -474,7 +647,8 @@ TRANSFORMS: dict[str, Transform] = {
     ]
 }
 DETERMINISTIC = [n for n, t in TRANSFORMS.items() if not t.requires_llm]
-LLM_REWRITES = [n for n, t in TRANSFORMS.items() if t.requires_llm and not t.fabrication_risk]
+# The GEO paper's rewrites (`llm_rewrites: true`); evidence_surface_llm is only run by name.
+LLM_REWRITES = [n for n in GEO_PROMPTS if n not in FABRICATING]
 
 
 def apply_chain(
