@@ -194,10 +194,51 @@ def inspect(
 def recompute(run_dir: Path) -> None:
     """Re-derive every metric from the committed raw responses (no LLM, no network)."""
     from vizor.inspect import recompute_rows
+    from vizor.scoring import recompute_ap
 
-    ok, n = recompute_rows(run_dir)
-    typer.echo(f"{n} rows recomputed; {'match' if ok else 'MISMATCH'}")
+    ok = True
+    if (run_dir / "responses.jsonl.gz").exists():
+        ok, n = recompute_rows(run_dir)
+        typer.echo(f"{n} rows recomputed; {'match' if ok else 'MISMATCH'}")
+    # Attribution-propensity rows: the directory itself, or any scoring output inside the run.
+    if (run_dir / "ap_rows.jsonl.gz").exists():
+        ap_dirs = [run_dir]
+    else:
+        ap_dirs = sorted(p.parent for p in run_dir.glob("*/ap_rows.jsonl.gz"))
+    for d in ap_dirs:
+        ok_ap, n_ap = recompute_ap(d)
+        ok = ok and ok_ap
+        typer.echo(f"{n_ap} AP rows recomputed in {d.name}; {'match' if ok_ap else 'MISMATCH'}")
     raise typer.Exit(0 if ok else 1)
+
+
+@app.command()
+def score(
+    run_dir: Path,
+    config: ConfigOpt = None,
+    out: Annotated[Path | None, typer.Option(help="output dir (default <run>/ap)")] = None,
+    server_commit: Annotated[
+        str | None, typer.Option(help="Localhost AI commit; the server must report the same")
+    ] = None,
+    backend: Annotated[str | None, typer.Option(help="override score.backend")] = None,
+) -> None:
+    """Teacher-forced attribution propensity (AP) for a stored run: score every citation site of
+    the baseline reference answers under each prompt set, then the paired page-level analysis."""
+    from vizor.config import Config
+    from vizor.scoring import score_run
+
+    if config is not None:
+        cfg = Config.load(config)
+    else:
+        cfg = Config.model_validate(json.loads((run_dir / "manifest.json").read_text())["config"])
+    if backend is not None:
+        cfg.score.backend = backend  # type: ignore[assignment]
+    if server_commit:
+        cfg.score.server_meta["commit"] = server_commit
+    if cfg.score.backend == "localhost" and not cfg.score.server_meta.get("commit"):
+        raise typer.BadParameter("pass --server-commit for a Localhost AI scorer")
+    path = score_run(run_dir, type(cfg).model_validate(cfg.model_dump()), out, log=_log)
+    typer.echo((path / "ap_summary.md").read_text())
 
 
 @app.command()
