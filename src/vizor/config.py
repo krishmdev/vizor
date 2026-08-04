@@ -120,6 +120,9 @@ class Config(BaseModel):
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     render: RenderConfig = Field(default_factory=RenderConfig)
     score: ScoreConfig = Field(default_factory=ScoreConfig)
+    # A separate model for LLM page rewrites (Study 2 runs them at temperature 0 through Localhost
+    # AI). Unset: rewrites use the answer model, as in Study 1.
+    rewriter: LLMConfig | None = None
     bandit: BanditConfig = Field(default_factory=BanditConfig)
 
     @classmethod
@@ -137,25 +140,27 @@ def cache_dir() -> Path:
     return project_root() / ".cache"
 
 
-def make_llm(cfg: Config, embedder=None):
+def make_llm(cfg: Config, embedder=None, llm_cfg: LLMConfig | None = None):
+    """The cached answer model for `cfg.llm`, or for `llm_cfg` when given (the rewriter)."""
     from vizor.generate.llm import CachedLLM, OllamaChat, OpenAIChat
 
-    if cfg.llm.backend == "fake":
+    lc = llm_cfg or cfg.llm
+    if lc.backend == "fake":
         from vizor.generate.fake_llm import FakeLLM
 
         assert embedder is not None
         return FakeLLM(embedder)
-    if cfg.llm.backend == "openai":
-        inner = OpenAIChat(cfg.llm.model, base_url=cfg.llm.base_url)
-    elif cfg.llm.backend == "openai_compat":
-        if not cfg.llm.base_url:
+    if lc.backend == "openai":
+        inner = OpenAIChat(lc.model, base_url=lc.base_url)
+    elif lc.backend == "openai_compat":
+        if not lc.base_url:
             raise ValueError("llm.base_url is required for backend openai_compat")
-        inner = OpenAIChat(cfg.llm.model, base_url=cfg.llm.base_url, timeout=600, api_key="local")
-        extra = {"backend": cfg.llm.backend, "base_url": cfg.llm.base_url, **cfg.llm.server_meta}
-        return CachedLLM(inner, cache_dir() / "llm", cfg.llm.max_cost_usd, key_extra=extra)
+        inner = OpenAIChat(lc.model, base_url=lc.base_url, timeout=600, api_key="local")
+        extra = {"backend": lc.backend, "base_url": lc.base_url, **lc.server_meta}
+        return CachedLLM(inner, cache_dir() / "llm", lc.max_cost_usd, key_extra=extra)
     else:
-        inner = OllamaChat(cfg.llm.model, base_url=cfg.llm.base_url or "http://localhost:11434")
-    return CachedLLM(inner, cache_dir() / "llm", cfg.llm.max_cost_usd)
+        inner = OllamaChat(lc.model, base_url=lc.base_url or "http://localhost:11434")
+    return CachedLLM(inner, cache_dir() / "llm", lc.max_cost_usd)
 
 
 def build(cfg: Config):

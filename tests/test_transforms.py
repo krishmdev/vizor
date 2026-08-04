@@ -147,3 +147,39 @@ def test_faq_v2_is_query_blind_and_short(docs, ctx):
         assert all(a in _page_sentences(doc) for a in answers)
         assert new.faq == faq_rewrite_v2(doc, ctx)[0].faq  # queries change nothing
     assert not TRANSFORMS["faq_rewrite_v2"].uses_queries
+
+
+def test_guard_summary_counts_each_page_once():
+    from vizor.experiment import guard_summary
+
+    ev = [
+        {"transform": "evidence_surface_llm", "doc_id": "a", "accepted": True, "violations": []},
+        {
+            "transform": "evidence_surface_llm",
+            "doc_id": "b",
+            "accepted": False,
+            "violations": ["7"],
+        },
+        {
+            "transform": "evidence_surface_llm",
+            "doc_id": "b",
+            "accepted": False,
+            "violations": ["7"],
+        },
+    ]
+    s = guard_summary(ev)["evidence_surface_llm"]
+    assert (s["pages"], s["rejected"], s["rejection_rate"]) == (2, 1, 0.5)
+    assert s["rejected_pages"] == {"b": ["7"]}
+
+
+def test_rewriter_config_builds_its_own_model():
+    from vizor.config import Config, make_llm
+
+    cfg = Config.model_validate(
+        {
+            "llm": {"backend": "ollama", "model": "answer-model"},
+            "rewriter": {"backend": "ollama", "model": "rewrite-model", "temperature": 0.0},
+        }
+    )
+    assert make_llm(cfg).model_id == "answer-model"
+    assert make_llm(cfg, llm_cfg=cfg.rewriter).model_id == "rewrite-model"

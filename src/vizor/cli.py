@@ -132,6 +132,8 @@ def experiment(
     )
     if server_commit:
         cfg.llm.server_meta["commit"] = server_commit
+        if cfg.rewriter is not None and cfg.rewriter.backend == "openai_compat":
+            cfg.rewriter.server_meta["commit"] = server_commit
     planned = None
     if pilot:
         planned = list(cfg.sandbox.arms)

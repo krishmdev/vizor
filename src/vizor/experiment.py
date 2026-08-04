@@ -150,6 +150,24 @@ def greedy_trajectory(
     return pd.DataFrame(rows), extra_runs
 
 
+def guard_summary(events: list[dict]) -> dict:
+    """Per rewrite transform: pages rewritten, pages rejected by the grounding guard, and the
+    rejection rate. A page rewritten more than once (e.g. again for a prompt-only set) counts
+    once; the rewrite is cached, so its verdict is the same each time."""
+    by: dict[str, dict[str, dict]] = {}
+    for e in events:
+        by.setdefault(e["transform"], {})[e["doc_id"]] = e
+    return {
+        t: {
+            "pages": len(pages),
+            "rejected": sum(not e["accepted"] for e in pages.values()),
+            "rejection_rate": sum(not e["accepted"] for e in pages.values()) / len(pages),
+            "rejected_pages": {d: e["violations"] for d, e in pages.items() if not e["accepted"]},
+        }
+        for t, pages in by.items()
+    }
+
+
 def preflight(cfg: Config, log: Log = print) -> dict:
     """Paid backends only start with a priced model, a cap, and an estimate that fits under the
     cap together with what the shared ledger has already spent."""
@@ -178,7 +196,8 @@ def preflight(cfg: Config, log: Log = print) -> dict:
 def run_experiment(
     cfg: Config, out: Path, log: Log = print, planned_arms: list[str] | None = None
 ) -> Path:
-    if cfg.llm.backend == "openai_compat" and not cfg.llm.server_meta.get("commit"):
+    compat = [c for c in (cfg.llm, cfg.rewriter) if c is not None and c.backend == "openai_compat"]
+    if any(not c.server_meta.get("commit") for c in compat):
         raise ValueError(
             "openai_compat runs must record the server's commit: pass --server-commit or set "
             "llm.server_meta.commit"
@@ -197,11 +216,17 @@ def run_experiment(
     project, docs, queries, engine = build(cfg)
     sentiment = make_sentiment(cfg.sentiment)
     embedder = engine.cascade.embedder
-    rewrite_llm = engine.llm if cfg.llm.backend != "fake" else None
+    if cfg.rewriter is not None:
+        from vizor.config import make_llm
+
+        rewrite_llm = make_llm(cfg, embedder, cfg.rewriter)
+    else:
+        rewrite_llm = engine.llm if cfg.llm.backend != "fake" else None
     doc_map = {d.doc_id: d for d in docs}
+    guard_events: list[dict] = []
 
     def ctx_for(qs) -> TransformContext:
-        return TransformContext(doc_map, list(qs), embedder, llm=rewrite_llm)
+        return TransformContext(doc_map, list(qs), embedder, llm=rewrite_llm, events=guard_events)
 
     sb = Sandbox(
         engine,
@@ -550,6 +575,12 @@ def run_experiment(
         "model_pins": {k: f"{v.repo}@{v.revision}" for k, v in PINS.items()},
         "score_scale": score_scale(base),
         "llm_usage": llm_stats,
+        "rewriter": (
+            {"model": rewrite_llm.model_id, **(cfg.rewriter.model_dump() if cfg.rewriter else {})}
+            if rewrite_llm is not None
+            else None
+        ),
+        "rewrite_guard": guard_summary(guard_events),
         "skipped_due_to_budget": skipped,
         "host": host_manifest(llm=engine.llm.model_id, device="cpu"),
     }
