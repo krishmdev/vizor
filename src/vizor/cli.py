@@ -244,6 +244,58 @@ def score(
 
 
 @app.command()
+def attribute(
+    run_dir: Path,
+    config: ConfigOpt = None,
+    sets: Annotated[
+        list[str] | None, typer.Option("--set", help="prompt set(s), e.g. baseline")
+    ] = None,
+    query: Annotated[list[str] | None, typer.Option(help="query id(s)")] = None,
+    top: Annotated[
+        int, typer.Option(help="also take the N queries whose AP fell most (needs --from-ap)")
+    ] = 0,
+    from_ap: Annotated[Path | None, typer.Option(help="AP dir from vizor score")] = None,
+    out: Annotated[Path | None, typer.Option(help="CSV output path")] = None,
+    server_commit: Annotated[str | None, typer.Option(help="Localhost AI commit")] = None,
+) -> None:
+    """Leave-one-passage-out attribution: how the target's AP changes when each rendered
+    passage is removed from the prompt, for chosen (prompt set, query) pairs."""
+    from vizor.config import Config
+    from vizor.scoring import attribute as run_attribute
+    from vizor.scoring import attribution_md
+
+    if config is not None:
+        cfg = Config.load(config)
+    else:
+        cfg = Config.model_validate(json.loads((run_dir / "manifest.json").read_text())["config"])
+    if server_commit:
+        cfg.score.server_meta["commit"] = server_commit
+    sets = sets or ["baseline"]
+    qids = list(query or [])
+    if top:
+        import pandas as pd
+
+        if from_ap is None:
+            raise typer.BadParameter("--top needs --from-ap")
+        from vizor.runstore import read_jsonl_gz
+        from vizor.scoring import rows_frame
+
+        rows = rows_frame(list(read_jsonl_gz(from_ap / "ap_rows.jsonl.gz")))
+        arm = next(s for s in sets if s != "baseline")
+        a = rows[rows["set"] == arm].groupby("query_id")["ap"].mean()
+        b = rows[rows["set"] == "baseline"].groupby("query_id")["ap"].mean()
+        qids += [q for q in (a - b).dropna().sort_values().index[:top] if q not in qids]
+    if not qids:
+        raise typer.BadParameter("pass --query or --top with --from-ap")
+    import pandas as pd
+
+    df = pd.concat([run_attribute(run_dir, cfg, s, qids, log=_log) for s in sets])
+    if out:
+        df.to_csv(out, index=False)
+    typer.echo(attribution_md(df))
+
+
+@app.command()
 def report(
     results: Annotated[list[Path] | None, typer.Argument(help="results dirs")] = None,
     out: Path = Path("experiments/RESULTS.md"),

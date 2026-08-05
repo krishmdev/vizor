@@ -356,3 +356,116 @@ def recompute_ap(ap_dir: Path) -> tuple[bool, int]:
             return False, n
         n += 1
     return True, n
+
+
+# --------------------------------------------------------------------- leave-one-passage-out
+def _passage_lines(content: str) -> list[int]:
+    """Indices of the rendered passage lines in a source's content (not the "Related:" line)."""
+    return [i for i, line in enumerate(content.split("\n")) if not line.startswith("Related: ")]
+
+
+def drop_passage(prompt: str, source: int, line: int) -> str:
+    """The prompt with one rendered passage line of one source removed, all else unchanged."""
+    from dataclasses import replace
+
+    from vizor.generate.prompt import format_prompt, parse_prompt
+
+    question, sources = parse_prompt(prompt)
+    if format_prompt(question, sources) != prompt:
+        raise ValueError("prompt does not round-trip through parse_prompt/format_prompt")
+    out = []
+    for s in sources:
+        if s.index == source:
+            lines = s.content.split("\n")
+            s = replace(s, content="\n".join(lines[:line] + lines[line + 1 :]))
+        out.append(s)
+    return format_prompt(question, out)
+
+
+def attribute(
+    run_dir: Path,
+    cfg,
+    set_name: str,
+    query_ids: list[str],
+    log: Log = print,
+) -> pd.DataFrame:
+    """Leave-one-passage-out AP for (prompt set, query) pairs: for each rendered passage of each
+    source, AP of the target with that passage removed. d_ap_pp = AP(full) - AP(without), so a
+    positive value means the passage pushes citations toward the target. A lighter ContextCite."""
+    from vizor.config import cache_dir
+    from vizor.generate.prompt import parse_prompt
+    from vizor.ingest.corpus import load_project
+
+    sc = cfg.score
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    project = load_project(cfg.project_path())
+    sets = load_prompt_sets(run_dir)
+    refs = load_references(run_dir, set(sc.refs))
+    system_prompt = manifest.get("system_prompt") or ""
+    scorer = make_scorer(sc, cache_dir() / "score")
+    rows = []
+    for qid in query_ids:
+        e = sets[set_name][qid]
+        slots = target_slots(e["sources"], project.target_domains)
+        domains = {int(s["position"]): s["domain"] for s in e["sources"]}
+        _, rendered = parse_prompt(e["prompt"])
+
+        def msgs(prompt: str) -> list[dict]:
+            m = [{"role": "user", "content": prompt}]
+            return [{"role": "system", "content": system_prompt}, *m] if system_prompt else m
+
+        for (rq, k), ref in sorted(refs.items()):
+            if rq != qid:
+                continue
+            sites = citation_sites(ref["text"], ref["n_sources"], len(e["sources"]))
+            if not sites:
+                continue
+            full = ap_from_result(scorer.score(msgs(e["prompt"]), ref["text"], sites), slots)
+            for s in rendered:
+                lines = s.content.split("\n")
+                for i in _passage_lines(s.content):
+                    p = drop_passage(e["prompt"], s.index, i)
+                    ap = ap_from_result(scorer.score(msgs(p), ref["text"], sites), slots)
+                    rows.append(
+                        {
+                            "set": set_name,
+                            "query_id": qid,
+                            "ref_sample": k,
+                            "source": s.index,
+                            "domain": domains.get(s.index, ""),
+                            "is_target": s.index in slots,
+                            "passage_no": i + 1,
+                            "passage": lines[i][:160],
+                            "ap_full_pct": full * 100,
+                            "ap_without_pct": ap * 100,
+                            "d_ap_pp": (full - ap) * 100,
+                        }
+                    )
+        log(f"attributed {set_name} {qid}")
+    return pd.DataFrame(rows)
+
+
+def attribution_md(df: pd.DataFrame, top: int = 8) -> str:
+    """Per (set, query): the passages whose removal moves the target's AP most, averaged over
+    reference answers."""
+    if not len(df):
+        return "No citation sites in the reference answers.\n"
+    lines = []
+    keys = ["set", "query_id", "source", "domain", "is_target", "passage_no", "passage"]
+    g = df.groupby(keys, as_index=False)[["ap_full_pct", "d_ap_pp"]].mean()
+    for (s, q), part in g.groupby(["set", "query_id"]):
+        part = part.reindex(part["d_ap_pp"].abs().sort_values(ascending=False).index).head(top)
+        lines += [
+            f"#### `{s}`, query `{q}` (target AP {part['ap_full_pct'].iloc[0]:.1f}%)",
+            "",
+            "| Source | Target | Passage | ΔAP pp if removed |",
+            "|---|---|---|---|",
+        ]
+        for r in part.itertuples():
+            text = r.passage.replace("|", "/")
+            lines.append(
+                f"| [{r.source}] {r.domain} | {'yes' if r.is_target else ''} | "
+                f"{r.passage_no}: {text} | {-r.d_ap_pp:+.2f} |"
+            )
+        lines.append("")
+    return "\n".join(lines)

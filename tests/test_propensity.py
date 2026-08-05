@@ -166,3 +166,50 @@ def test_cli_recompute_checks_ap_rows(scored):
     res = CliRunner().invoke(app, ["recompute", str(run)])
     assert res.exit_code == 0, res.output
     assert "AP rows recomputed in ap; match" in res.output
+
+
+def test_drop_passage_removes_exactly_one_line(scored):
+    from vizor.generate.prompt import parse_prompt
+    from vizor.scoring import drop_passage
+
+    run, _ = scored
+    prompt = next(iter(load_prompt_sets(run)["baseline"].values()))["prompt"]
+    _, before = parse_prompt(prompt)
+    _, after = parse_prompt(drop_passage(prompt, 2, 0))
+    assert after[0] == before[0]
+    assert after[1].content.split("\n") == before[1].content.split("\n")[1:]
+
+
+def test_attribute_runs_leave_one_out(scored):
+    from vizor.scoring import attribute, attribution_md
+
+    run, _ = scored
+    qid = sorted(load_prompt_sets(run)["baseline"])[0]
+    df = attribute(run, _cfg(), "baseline", [qid], log=lambda _: None)
+    assert len(df) and set(df.ref_sample) <= {0, 1}
+    assert (df.groupby(["ref_sample"]).size() >= 5).all()
+    assert np.allclose(df.d_ap_pp, df.ap_full_pct - df.ap_without_pct)
+    assert f"query `{qid}`" in attribution_md(df)
+
+
+def test_cli_attribute_top_queries(scored):
+    from typer.testing import CliRunner
+
+    from vizor.cli import app
+
+    run, out = scored
+    res = CliRunner().invoke(
+        app,
+        [
+            "attribute",
+            str(run),
+            "--set",
+            "content:faq_rewrite",
+            "--top",
+            "2",
+            "--from-ap",
+            str(out),
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert res.output.count("#### `content:faq_rewrite`") == 2
