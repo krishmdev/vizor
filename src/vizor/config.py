@@ -98,6 +98,21 @@ class ScoreConfig(BaseModel):
     workers: int = 1
 
 
+class GateConfig(BaseModel):
+    """The Study 2 validation gate (`scripts/validation_gate.py`): comparison names refer to
+    `score.comparisons`, arm names to the re-scored run."""
+
+    slot: str = "slot 5 vs 1"
+    faq_ap: str = "pinned:faq_rewrite"
+    faq_c_share: str = "content:faq_rewrite"
+    # AP comparison name -> the run's arm whose citation-share deltas it is correlated with
+    pairs: dict[str, str] = Field(default_factory=dict)
+    slot_alpha: float = 0.01
+    ci_ratio: float = 0.6
+    spearman: float = 0.5
+    mde_family: int = 3
+
+
 class BanditConfig(BaseModel):
     rounds: int = 2000
     runs: int = 20
@@ -120,6 +135,7 @@ class Config(BaseModel):
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     render: RenderConfig = Field(default_factory=RenderConfig)
     score: ScoreConfig = Field(default_factory=ScoreConfig)
+    gate: GateConfig = Field(default_factory=GateConfig)
     # A separate model for LLM page rewrites (Study 2 runs them at temperature 0 through Localhost
     # AI). Unset: rewrites use the answer model, as in Study 1.
     rewriter: LLMConfig | None = None
