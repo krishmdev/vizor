@@ -213,3 +213,41 @@ def test_cli_attribute_top_queries(scored):
     )
     assert res.exit_code == 0, res.output
     assert res.output.count("#### `content:faq_rewrite`") == 2
+
+
+def test_side_by_side_payload(scored):
+    from vizor.scoring import side_by_side
+
+    run, _ = scored
+    qid = sorted(load_prompt_sets(run)["baseline"])[0]
+    d = side_by_side(run, qid, 0, "content:faq_rewrite")
+    ref, arm = d["sides"]
+    assert ref["set"] == "baseline" and ref["sampled"] and not arm["sampled"]
+    assert [p["position"] for p in ref["passages"]] == [p["position"] for p in arm["passages"]]
+    assert set(d["ap"]) == {"baseline", "content:faq_rewrite"}
+    assert len(d["sites"]) > 0
+    s = d["sites"][0]
+    assert s["cited"].isdigit() and 0 <= s["p_target_ref"] <= 1
+    assert np.mean([x["p_target_ref"] for x in d["sites"]]) == pytest.approx(d["ap"]["baseline"])
+
+
+def test_api_compare_endpoint(scored, tmp_path, monkeypatch):
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import ROOT
+
+    run, _ = scored
+    shutil.copytree(ROOT / "data" / "demo", tmp_path / "data" / "demo")
+    shutil.copytree(run, tmp_path / "experiments" / "results" / "r1")
+    monkeypatch.setenv("VIZOR_ROOT", str(tmp_path))
+    from vizor.api import app as api
+
+    c = TestClient(api.app)
+    assert "content:faq_rewrite@body-top3" in c.get("/experiments/r1/sets").json()
+    qid = sorted(load_prompt_sets(run)["baseline"])[0]
+    r = c.get(f"/experiments/r1/compare/{qid}/0", params={"arm": "faq_rewrite"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sides"][0]["answer"]["text"] and body["sides"][1]["answer"]["text"]

@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 from vizor.generate.prompt import prompt_hash
-from vizor.generate.scorer import CachedScorer, FakeScorer, LocalhostScorer, Scorer
+from vizor.generate.scorer import CachedScorer, FakeScorer, LocalhostScorer, Scorer, renormalize
 from vizor.metrics.propensity import (
     ap_from_logprobs,
     ap_from_result,
@@ -469,3 +469,89 @@ def attribution_md(df: pd.DataFrame, top: int = 8) -> str:
             )
         lines.append("")
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------------------ side-by-side view
+def ap_dirs(run_dir: Path) -> list[Path]:
+    if (run_dir / "ap_rows.jsonl.gz").exists():
+        return [run_dir]
+    return sorted(p.parent for p in run_dir.glob("*/ap_rows.jsonl.gz"))
+
+
+def side_by_side(
+    run_dir: Path, query_id: str, sample: int, arm: str, ref: str = "baseline"
+) -> dict:
+    """Two prompt sets for one (query, sample): each side's rendered passages per source, and,
+    when AP rows exist for that reference answer, the target's probability at every citation
+    site of the reference under each side's prompt."""
+    from vizor.generate.prompt import parse_prompt
+
+    sets = load_prompt_sets(run_dir)
+    sampled = {
+        r["arm"] for r in read_jsonl_gz(run_dir / "responses.jsonl.gz") if r["sample"] == sample
+    }
+    sides = []
+    for name in (ref, arm):
+        e = sets.get(name, {}).get(query_id)
+        if e is None:
+            sides.append({"set": name, "sampled": False, "passages": []})
+            continue
+        _, rendered = parse_prompt(e["prompt"])
+        dom = {int(s["position"]): s["domain"] for s in e["sources"]}
+        sides.append(
+            {
+                "set": name,
+                "mode": e["mode"],
+                "policy": e["policy"],
+                "sampled": name in sampled,
+                "passages": [
+                    {
+                        "position": s.index,
+                        "domain": dom.get(s.index, ""),
+                        "title": s.title,
+                        "lines": s.content.split("\n"),
+                    }
+                    for s in rendered
+                ],
+            }
+        )
+    sites: list[dict] = []
+    ap: dict[str, float] = {}
+    ref_text = ""
+    for d in ap_dirs(run_dir):
+        found = {
+            r["set"]: r
+            for r in read_jsonl_gz(d / "ap_rows.jsonl.gz")
+            if r["query_id"] == query_id and r["ref_sample"] == sample and r["set"] in (ref, arm)
+        }
+        if len(found) < 2:
+            continue
+        refs = load_references(run_dir, {sample})
+        ref_text = refs.get((query_id, sample), {}).get("text", "")
+        for name, r in found.items():
+            ap[name] = r["ap"]
+        a, b = found[ref], found[arm]
+        for sa, sb in zip(a["sites"], b["sites"], strict=True):
+            off = sa["char_offset"]
+            pa = sum(renormalize(sa["logprobs"]).get(str(t), 0.0) for t in a["target_slots"])
+            pb = sum(renormalize(sb["logprobs"]).get(str(t), 0.0) for t in b["target_slots"])
+            sites.append(
+                {
+                    "char_offset": off,
+                    "context": ref_text[max(0, off - 60) : off + 2],
+                    "cited": ref_text[off : off + 1],
+                    "p_target_ref": pa,
+                    "p_target_arm": pb,
+                }
+            )
+        break
+    return {
+        "query_id": query_id,
+        "sample": sample,
+        "ref": ref,
+        "arm": arm,
+        "sides": sides,
+        "reference_text": ref_text,
+        "ap": ap,
+        "sites": sites,
+    }

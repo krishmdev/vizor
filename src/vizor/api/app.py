@@ -270,6 +270,33 @@ def experiment_answer(run_id: str, query_id: str, sample: int, arm: str = "basel
     return answer_payload(ans, prompt, roles, bool(m.get("llm_is_fake")))
 
 
+@app.get("/experiments/{run_id}/sets")
+def experiment_sets(run_id: str) -> list[str]:
+    """Prompt sets of a run: sampled arms plus prompt-only sets written for scoring."""
+    from vizor.scoring import load_prompt_sets
+
+    return sorted(load_prompt_sets(_find(run_id)))
+
+
+@app.get("/experiments/{run_id}/compare/{query_id}/{sample}")
+def experiment_compare(
+    run_id: str, query_id: str, sample: int, arm: str, ref: str = "baseline"
+) -> dict:
+    """Side by side: two prompt sets for one (query, sample), with their rendered passages,
+    their sampled answers where they exist, and per-site AP of the reference answer."""
+    from vizor.scoring import side_by_side
+
+    p = _find(run_id)
+    out = side_by_side(p, query_id, sample, arm, ref)
+    for side in out["sides"]:
+        side["answer"] = (
+            experiment_answer(run_id, query_id, sample, arm=side["set"]).model_dump()
+            if side["sampled"]
+            else None
+        )
+    return out
+
+
 @app.get("/experiments/{run_id}/diffs")
 def experiment_diffs(run_id: str) -> dict:
     p = _find(run_id) / "diffs.json"

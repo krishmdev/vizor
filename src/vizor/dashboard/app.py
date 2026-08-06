@@ -66,6 +66,9 @@ code, .num {{ font-family:{FONT_NUM}; font-variant-numeric: tabular-nums; }}
 .badge.target {{ background:#e8f0fb; color:#1c5cab; }}
 .badge.fake {{ background:#fdf6e3; color:#6b4e00; border:1px solid #e9c46a; }}
 .runline {{ color:var(--ink2); font-size:0.9rem; margin:-0.4rem 0 1rem 0; }}
+.psg {{ margin:0.1rem 0 0.8rem 2.2rem; padding:0; list-style:none; font-size:0.9rem; line-height:1.5; }}
+.psg li {{ padding:0.15rem 0.4rem; border-left:3px solid var(--rule); margin-bottom:0.2rem; }}
+.psg li.new {{ border-left-color:#b45309; background:#fef3c7; }}
 .answer {{ font-size:1.08rem; line-height:1.85; background:#fff; border:1px solid var(--rule); border-radius:8px; padding:1.1rem 1.3rem; }}
 .sent {{ padding:0.1rem 0.15rem; border-radius:3px; box-decoration-break:clone; -webkit-box-decoration-break:clone;
          background:linear-gradient(transparent 62%, var(--tint) 62%); }}
@@ -880,6 +883,87 @@ def optimizer() -> None:
         )
 
 
+def _passages_html(side: dict, colors: dict[str, str], other: dict) -> str:
+    """Rendered passages per source; lines the other side doesn't show are marked."""
+    theirs = {ln for p in other.get("passages", []) for ln in p["lines"]}
+    out = []
+    for p in side["passages"]:
+        c = colors.get(p["domain"], MUTED)
+        lines = "".join(
+            f'<li class="{"" if ln in theirs else "new"}">{html.escape(ln)}</li>'
+            for ln in p["lines"]
+        )
+        out.append(
+            f'<div class="src" style="--c:{c}"><span class="idx">[{p["position"]}]</span>'
+            f'<span class="dom">{html.escape(p["domain"])}</span>'
+            f'<span class="ttl">{html.escape(p["title"])}</span></div><ul class="psg">{lines}</ul>'
+        )
+    return "".join(out)
+
+
+def side_by_side() -> None:
+    header(
+        "Side by side",
+        "Baseline and arm for the same query and sample",
+        "Each column shows the passages the model saw for every source (lines only one side shows "
+        "are highlighted) and, if the arm was sampled, its answer. Below, the reference answer's "
+        "citation sites with the target's teacher-forced probability under each prompt.",
+    )
+    proj = api_or_stop("/project")
+    colors = domain_colors(proj["domains"])
+    exp = pick_experiment()
+    if exp is None:
+        return no_experiments()
+    run_line(exp)
+    sets = api_or_stop(f"/experiments/{exp['id']}/sets")
+    others = [s for s in sets if s != "baseline"]
+    if not others:
+        st.info("This run has no arm to compare with the baseline.")
+        return
+    arm = st.sidebar.selectbox("Arm", others)
+    ref = st.sidebar.selectbox(
+        "Against", sets, index=sets.index("baseline") if "baseline" in sets else 0
+    )
+    qtext = {q["query_id"]: q["query"] for q in proj["queries"]}
+    idx = api_or_stop(f"/experiments/{exp['id']}/answers?arm=baseline")
+    qids = sorted({r["query_id"] for r in idx})
+    c1, c2 = st.columns([4, 1])
+    qid = c1.selectbox("Query", qids, format_func=lambda k: f"{qtext.get(k, k)}  ({k})")
+    sample = c2.selectbox("Sample", sorted({r["sample"] for r in idx if r["query_id"] == qid}))
+    d = api_or_stop(f"/experiments/{exp['id']}/compare/{qid}/{sample}?arm={arm}&ref={ref}")
+    left, right = st.columns(2, gap="large")
+    for col, side, other in (
+        (left, d["sides"][0], d["sides"][1]),
+        (right, d["sides"][1], d["sides"][0]),
+    ):
+        with col:
+            ap = d["ap"].get(side["set"])
+            st.markdown(f"### `{side['set']}`" + (f" · AP {ap:.1%}" if ap is not None else ""))
+            if side.get("answer"):
+                st.markdown(
+                    f'<div class="answer">{html.escape(side["answer"]["text"])}</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("Prompt only: no answer was sampled for this set.")
+            st.markdown(_passages_html(side, colors, other), unsafe_allow_html=True)
+    if d["sites"]:
+        st.markdown(f"### Citation sites of reference answer {sample}")
+        rows = [
+            {
+                "sentence before the site": s["context"],
+                "cited": s["cited"],
+                f"P(target) {ref}": round(s["p_target_ref"], 3),
+                f"P(target) {arm}": round(s["p_target_arm"], 3),
+                "change": round(s["p_target_arm"] - s["p_target_ref"], 3),
+            }
+            for s in d["sites"]
+        ]
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    else:
+        st.caption("No AP rows for this reference answer (run `vizor score`, samples 0 and 1).")
+
+
 def main() -> None:
     st.set_page_config(
         page_title="Vizor", page_icon=None, layout="wide", initial_sidebar_state="auto"
@@ -900,6 +984,7 @@ def main() -> None:
     pages = [
         st.Page(overview, title="Overview", default=True),
         st.Page(inspector, title="Answer inspector", url_path="inspector"),
+        st.Page(side_by_side, title="Side by side", url_path="side-by-side"),
         st.Page(sandbox, title="Sandbox", url_path="sandbox"),
         st.Page(optimizer, title="Optimizer", url_path="optimizer"),
     ]
