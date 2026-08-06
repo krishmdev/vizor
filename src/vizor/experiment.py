@@ -576,7 +576,10 @@ def run_experiment(
         "score_scale": score_scale(base),
         "llm_usage": llm_stats,
         "rewriter": (
-            {"model": rewrite_llm.model_id, **(cfg.rewriter.model_dump() if cfg.rewriter else {})}
+            {
+                **(cfg.rewriter.model_dump() if cfg.rewriter else {}),
+                "model_id": rewrite_llm.model_id,
+            }
             if rewrite_llm is not None
             else None
         ),

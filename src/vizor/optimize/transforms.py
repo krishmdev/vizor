@@ -433,6 +433,7 @@ def grounding_violations(new: str, old: str) -> list[str]:
     return list(dict.fromkeys(bad))
 
 
+MIN_NUMBERS_KEPT = 0.9
 EVIDENCE_PROMPT = (
     "Rewrite the following web page so that the numbers it already contains (prices, weights, "
     "sizes, capacities, run times, speeds, percentages) are stated early and explicitly, in "
@@ -445,7 +446,8 @@ EVIDENCE_PROMPT = (
 def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
     """GEO's statistics addition restricted to numbers already on the page: an LLM restates the
     page with its own numbers surfaced. A grounding guard rejects any output with a number or
-    name that is not on the page; a rejected page keeps its original text."""
+    name that is not on the page, or that keeps fewer than 90% of the page's distinct numbers;
+    a rejected page keeps its original text."""
     if ctx.llm is None:
         raise RuntimeError("evidence_surface_llm needs a rewriter LLM")
     user = (
@@ -460,6 +462,10 @@ def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceD
     )
     body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", c.text.strip()).strip()
     bad = grounding_violations(body, doc.body + "\n" + doc.title) if body else ["<empty>"]
+    # Surfacing must not become cutting: most of the page's own numbers have to survive.
+    had, kept = _numbers(doc.body), _numbers(body) & _numbers(doc.body)
+    if had and len(kept) < MIN_NUMBERS_KEPT * len(had):
+        bad.append(f"<kept {len(kept)} of {len(had)} numbers>")
     ctx.events.append(
         {
             "transform": "evidence_surface_llm",

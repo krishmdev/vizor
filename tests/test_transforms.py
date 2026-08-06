@@ -183,3 +183,22 @@ def test_rewriter_config_builds_its_own_model():
     )
     assert make_llm(cfg).model_id == "answer-model"
     assert make_llm(cfg, llm_cfg=cfg.rewriter).model_id == "rewrite-model"
+
+
+def test_evidence_surface_rejects_a_rewrite_that_drops_numbers(docs, ctx):
+    from dataclasses import replace
+
+    from vizor.optimize.transforms import evidence_surface_llm
+
+    class _Short:
+        model_id = "stub"
+
+        def complete(self, messages, **kw):
+            from vizor.generate.llm import Completion
+
+            return Completion("A short page with no numbers at all.", "stub")
+
+    doc = next(d for d in _targets(docs) if any(c.isdigit() for c in d.body))
+    events = []
+    new, _ = evidence_surface_llm(doc, replace(ctx, llm=_Short(), events=events))
+    assert new is doc and any("numbers>" in v for v in events[-1]["violations"])
