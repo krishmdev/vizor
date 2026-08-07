@@ -685,7 +685,12 @@ def claim_arms_v2(r: dict) -> list[str]:
             "decomposition table for intervals)."
         )
     pm = page_means(r["dir"], primary, list(tested[tested["kind"] == "doc"].arm))
-    if pm:
+    if r["manifest"].get("weighting") == "page":
+        out.append(
+            f"- Weighting: the {name} estimates, intervals and tests above all use unweighted "
+            "page means."
+        )
+    elif pm:
         out.append(
             f"- Weighting: the {name} estimates and intervals above weight every query equally, "
             "while the Wilcoxon test ranks unweighted page means. The page means are "

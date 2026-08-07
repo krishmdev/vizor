@@ -251,3 +251,12 @@ def test_api_compare_endpoint(scored, tmp_path, monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["sides"][0]["answer"]["text"] and body["sides"][1]["answer"]["text"]
+
+
+def test_report_states_page_weighting(scored):
+    from vizor.metrics.report import claim_md, load
+
+    run, _ = scored
+    r = load(run)
+    r["manifest"]["llm_is_fake"] = False  # FakeLLM runs get only the FakeLLM caveat
+    assert "all use unweighted page means" in claim_md(r)
