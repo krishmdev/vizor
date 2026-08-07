@@ -1,0 +1,54 @@
+# Offline dry run of the Study 2 design (FakeLLM answers and rewrites, FakeScorer scores): the
+# same corpus, queries, arms, prompt sets and comparisons as configs/study2_qwen3b_localhost_ai.yaml.
+# It counts calls and checks the plumbing; its numbers are not evidence about any model.
+#
+#   vizor experiment --config configs/study2_dryrun.yaml --out runs/study2-dryrun
+#   vizor score runs/study2-dryrun --config configs/study2_dryrun.yaml
+label: "Study 2 dry run (FakeLLM, FakeScorer)"
+project: data/bench/project_study2.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: vader
+samples: 3
+seed: 0
+llm:
+  backend: fake
+rewriter:
+  backend: fake
+sandbox:
+  primary_metric: c_share
+  weighting: page
+  arms: [noop, aa_resample, answer_first, evidence_surface_llm, faq_rewrite_v2]
+  # positive control: the same pages with the target forced into the first or the last slot
+  position_sweep: [1, 5]
+  boost_sweep: []
+  sweep_queries: 36
+render:
+  passage_policy: query-top3
+bandit:
+  greedy_steps: 0
+score:
+  backend: fake
+  refs: [0, 1]
+  prompt_arms: [content:answer_first, content:evidence_surface_llm, content:faq_rewrite_v2]
+  policies: [body-top3]
+  bootstrap: 5000
+  draws: 20000
+  comparisons:
+    # primary: content-pinned AP, Holm over these three (docs/bench-design-study2.md)
+    - {name: "pinned:answer_first", set: "content:answer_first", family: primary}
+    - {name: "pinned:evidence_surface_llm", set: "content:evidence_surface_llm", family: primary}
+    - {name: "pinned:faq_rewrite_v2", set: "content:faq_rewrite_v2", family: primary}
+    # secondary, reported without claims
+    - {name: "full:answer_first", set: "answer_first", family: full}
+    - {name: "full:evidence_surface_llm", set: "evidence_surface_llm", family: full}
+    - {name: "full:faq_rewrite_v2", set: "faq_rewrite_v2", family: full}
+    - {name: "rank:answer_first", set: "answer_first", ref: "content:answer_first", family: rank}
+    - {name: "rank:evidence_surface_llm", set: "evidence_surface_llm", ref: "content:evidence_surface_llm", family: rank}
+    - {name: "rank:faq_rewrite_v2", set: "faq_rewrite_v2", ref: "content:faq_rewrite_v2", family: rank}
+    - {name: "body-top3:answer_first", set: "content:answer_first@body-top3", ref: "baseline@body-top3", family: body-top3}
+    - {name: "body-top3:evidence_surface_llm", set: "content:evidence_surface_llm@body-top3", ref: "baseline@body-top3", family: body-top3}
+    - {name: "body-top3:faq_rewrite_v2", set: "content:faq_rewrite_v2@body-top3", ref: "baseline@body-top3", family: body-top3}
+    - {name: "aa_resample", set: aa_resample, family: control}
+    - {name: "noop", set: noop, family: control}
+    - {name: "slot 5 vs 1", set: "engine:target_at:5", ref: "engine:target_at:1", family: slot}

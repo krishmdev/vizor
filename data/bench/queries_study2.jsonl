@@ -1,0 +1,72 @@
+{"query_id": "s2-info-01", "query": "how long does it take to fold a folding bike", "intent": "informational", "topic": "fold-20"}
+{"query_id": "s2-info-02", "query": "what gearing does a gravel bike need for hills", "intent": "informational", "topic": "gravel-gx"}
+{"query_id": "s2-info-03", "query": "how much weight can an electric longtail cargo bike carry", "intent": "informational", "topic": "haul"}
+{"query_id": "s2-info-04", "query": "how thick should a u-lock shackle be to resist bolt cutters", "intent": "informational", "topic": "lock-d9"}
+{"query_id": "s2-info-05", "query": "what does a seven-speed internal gear hub do", "intent": "informational", "topic": "metro-7"}
+{"query_id": "s2-info-06", "query": "what does a low-friction helmet liner do in a crash", "intent": "informational", "topic": "shell"}
+{"query_id": "s2-info-07", "query": "how accurate are direct-drive smart trainers at measuring power", "intent": "informational", "topic": "spin-t2"}
+{"query_id": "s2-info-08", "query": "how heavy should a kids pedal bike be", "intent": "informational", "topic": "sprout-16"}
+{"query_id": "s2-info-09", "query": "how fast does a commuter e-bike assist go", "intent": "informational", "topic": "volt-e1"}
+{"query_id": "s2-info-10", "query": "where is the safest place to park a bike in the city", "intent": "informational", "topic": "guides/bike-theft"}
+{"query_id": "s2-info-11", "query": "how do i clean a dirty bike chain with degreaser", "intent": "informational", "topic": "guides/chain-care"}
+{"query_id": "s2-info-12", "query": "how long does a 10 km bike commute take", "intent": "informational", "topic": "guides/first-commute"}
+{"query_id": "s2-info-13", "query": "how do i measure my inseam for a bike", "intent": "informational", "topic": "guides/frame-size"}
+{"query_id": "s2-info-14", "query": "what knee angle should i have at the bottom of the pedal stroke", "intent": "informational", "topic": "guides/saddle-height"}
+{"query_id": "s2-info-15", "query": "what tire pressure should i run for winter riding", "intent": "informational", "topic": "guides/winter-commuting"}
+{"query_id": "s2-info-16", "query": "how thin can disc brake pads get before replacing them", "intent": "informational", "topic": "support/disc-brake-squeal"}
+{"query_id": "s2-info-17", "query": "how often should i check my bike chain for wear", "intent": "informational", "topic": "support/gear-indexing"}
+{"query_id": "s2-info-18", "query": "how much side to side wobble is acceptable in a bike wheel", "intent": "informational", "topic": "support/wheel-truing"}
+{"query_id": "s2-comp-01", "query": "bike light with a cutoff beam vs a round beam for oncoming traffic", "intent": "comparison", "topic": "beam-800"}
+{"query_id": "s2-comp-02", "query": "floor pump vs co2 inflator for home tire checks", "intent": "comparison", "topic": "floor-pump"}
+{"query_id": "s2-comp-03", "query": "folding bike vs full-size bike for a train and bike commute", "intent": "comparison", "topic": "fold-20"}
+{"query_id": "s2-comp-04", "query": "drop bars vs flat bars for commuting more than 15 km", "intent": "comparison", "topic": "gravel-gx"}
+{"query_id": "s2-comp-05", "query": "u-lock vs cable lock for daily street parking", "intent": "comparison", "topic": "lock-d9"}
+{"query_id": "s2-comp-06", "query": "city bike with fenders and rack fitted vs adding them later", "intent": "comparison", "topic": "metro-7"}
+{"query_id": "s2-comp-07", "query": "roll-top pannier vs zippered pannier in heavy rain", "intent": "comparison", "topic": "pannier-20"}
+{"query_id": "s2-comp-08", "query": "balance bike vs pedal bike with training wheels for a 4 year old", "intent": "comparison", "topic": "sprout-16"}
+{"query_id": "s2-comp-09", "query": "504 wh vs 720 wh e-bike battery for a daily commute", "intent": "comparison", "topic": "volt-e1"}
+{"query_id": "s2-comp-10", "query": "one u-lock vs two locks for a bike left outside all day", "intent": "comparison", "topic": "guides/bike-theft"}
+{"query_id": "s2-comp-11", "query": "how often to lube a chain vs how often to fully clean it", "intent": "comparison", "topic": "guides/chain-care"}
+{"query_id": "s2-comp-12", "query": "patching a bike tube vs replacing it on the road", "intent": "comparison", "topic": "guides/flat-tire"}
+{"query_id": "s2-comp-13", "query": "frame size by height vs by inseam which is more accurate", "intent": "comparison", "topic": "guides/frame-size"}
+{"query_id": "s2-comp-14", "query": "inseam times 0.883 vs inseam times 1.09 for saddle height", "intent": "comparison", "topic": "guides/saddle-height"}
+{"query_id": "s2-comp-15", "query": "28 mm vs 40 mm tires what pressure difference", "intent": "comparison", "topic": "guides/tire-pressure"}
+{"query_id": "s2-comp-16", "query": "how long do resin pads last compared with sintered pads", "intent": "comparison", "topic": "support/disc-brake-squeal"}
+{"query_id": "s2-comp-17", "query": "storing an e-bike battery full vs half charged", "intent": "comparison", "topic": "support/e-bike-battery"}
+{"query_id": "s2-comp-18", "query": "truing a wheel at home vs taking it to a shop", "intent": "comparison", "topic": "support/wheel-truing"}
+{"query_id": "s2-tran-01", "query": "usb-c rechargeable bike headlight around $60", "intent": "transactional", "topic": "beam-800"}
+{"query_id": "s2-tran-02", "query": "track pump with a gauge that reaches 160 psi", "intent": "transactional", "topic": "floor-pump"}
+{"query_id": "s2-tran-03", "query": "folding commuter bike with disc brakes under $800", "intent": "transactional", "topic": "fold-20"}
+{"query_id": "s2-tran-04", "query": "gravel bike with fender and rack mounts for year-round commuting", "intent": "transactional", "topic": "gravel-gx"}
+{"query_id": "s2-tran-05", "query": "e-cargo bike that can replace a second car for school runs", "intent": "transactional", "topic": "haul"}
+{"query_id": "s2-tran-06", "query": "hardened steel u-lock that fits a frame and a bike rack", "intent": "transactional", "topic": "lock-d9"}
+{"query_id": "s2-tran-07", "query": "commuter bike with a lifetime frame warranty", "intent": "transactional", "topic": "metro-7"}
+{"query_id": "s2-tran-08", "query": "20 litre waterproof bike bag for a 15 inch laptop", "intent": "transactional", "topic": "pannier-20"}
+{"query_id": "s2-tran-09", "query": "bike helmet with a built-in rear light", "intent": "transactional", "topic": "shell"}
+{"query_id": "s2-tran-10", "query": "quiet direct-drive trainer for an apartment", "intent": "transactional", "topic": "spin-t2"}
+{"query_id": "s2-tran-11", "query": "lightweight aluminum 16 inch bike for a 5 year old", "intent": "transactional", "topic": "sprout-16"}
+{"query_id": "s2-tran-12", "query": "commuter e-bike with integrated lights and a removable battery", "intent": "transactional", "topic": "volt-e1"}
+{"query_id": "s2-tran-13", "query": "how much does it cost to start commuting by bike if i already have one", "intent": "transactional", "topic": "guides/first-commute"}
+{"query_id": "s2-tran-14", "query": "what tires reduce flats on a commuter bike", "intent": "transactional", "topic": "guides/flat-tire"}
+{"query_id": "s2-tran-15", "query": "do i need a pump with a gauge to check tire pressure", "intent": "transactional", "topic": "guides/tire-pressure"}
+{"query_id": "s2-tran-16", "query": "how much do studded bike tires cost", "intent": "transactional", "topic": "guides/winter-commuting"}
+{"query_id": "s2-tran-17", "query": "how much does a replacement e-bike battery cost", "intent": "transactional", "topic": "support/e-bike-battery"}
+{"query_id": "s2-tran-18", "query": "how much does a derailleur hanger alignment cost", "intent": "transactional", "topic": "support/gear-indexing"}
+{"query_id": "s2-trou-01", "query": "my bike headlight dazzles oncoming cyclists", "intent": "troubleshooting", "topic": "beam-800"}
+{"query_id": "s2-trou-02", "query": "my floor pump leaks air at the valve", "intent": "troubleshooting", "topic": "floor-pump"}
+{"query_id": "s2-trou-03", "query": "e-cargo bike motor overheats on steep hills", "intent": "troubleshooting", "topic": "haul"}
+{"query_id": "s2-trou-04", "query": "my pannier rubs my heel when i pedal", "intent": "troubleshooting", "topic": "pannier-20"}
+{"query_id": "s2-trou-05", "query": "my bike helmet rocks back and forth on my head", "intent": "troubleshooting", "topic": "shell"}
+{"query_id": "s2-trou-06", "query": "my indoor trainer does not fit my bike's rear axle spacing", "intent": "troubleshooting", "topic": "spin-t2"}
+{"query_id": "s2-trou-07", "query": "someone stole my front wheel while the bike was locked", "intent": "troubleshooting", "topic": "guides/bike-theft"}
+{"query_id": "s2-trou-08", "query": "my bike chain is rusty after a wet week", "intent": "troubleshooting", "topic": "guides/chain-care"}
+{"query_id": "s2-trou-09", "query": "i am nervous about riding in traffic on my commute", "intent": "troubleshooting", "topic": "guides/first-commute"}
+{"query_id": "s2-trou-10", "query": "my new inner tube went flat again right away", "intent": "troubleshooting", "topic": "guides/flat-tire"}
+{"query_id": "s2-trou-11", "query": "my hands go numb on my bike", "intent": "troubleshooting", "topic": "guides/frame-size"}
+{"query_id": "s2-trou-12", "query": "the back of my knee hurts after riding", "intent": "troubleshooting", "topic": "guides/saddle-height"}
+{"query_id": "s2-trou-13", "query": "i keep getting pinch flats with two small holes", "intent": "troubleshooting", "topic": "guides/tire-pressure"}
+{"query_id": "s2-trou-14", "query": "my hands and feet freeze on winter bike rides", "intent": "troubleshooting", "topic": "guides/winter-commuting"}
+{"query_id": "s2-trou-15", "query": "my disc brakes squeal even when it is dry", "intent": "troubleshooting", "topic": "support/disc-brake-squeal"}
+{"query_id": "s2-trou-16", "query": "my e-bike battery will not charge after sitting all winter", "intent": "troubleshooting", "topic": "support/e-bike-battery"}
+{"query_id": "s2-trou-17", "query": "my new bike's gears started skipping after a few weeks", "intent": "troubleshooting", "topic": "support/gear-indexing"}
+{"query_id": "s2-trou-18", "query": "my disc brake rubs once per wheel turn", "intent": "troubleshooting", "topic": "support/wheel-truing"}

@@ -1,0 +1,16 @@
+name: bike-commuting-bench
+target_domains: [larkspur.example]
+competitor_domains: [cogandchain.example, spokewise.example, pedalcheap.example, saddlesore.example]
+brands:
+  larkspur.example: [Larkspur]
+  cogandchain.example: [Cog & Chain, Cog and Chain]
+  spokewise.example: [Spokewise]
+  pedalcheap.example: [Pedalcheap]
+  saddlesore.example: [Saddlesore]
+html_dir: html
+queries: queries_study2.jsonl
+topics:
+  - commuter bikes and e-bikes
+  - bike accessories and gear
+  - bike maintenance and repair
+  - bike fit and commuting tips
