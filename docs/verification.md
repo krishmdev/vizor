@@ -79,3 +79,11 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
 - **Archive**: the 2026-08-05 qwen2.5:3b run moved to `experiments/archive/` as historical output.
 - **Offline suite**: `pytest -m 'not slow and not network' -o addopts='' -q` passed 361 tests
   (one network test deselected). `ruff check .` passed.
+- **Study 2 tooling (CPU only, no model called)**: `pytest -m 'not slow and not network' -o
+  addopts='' -q` passed 402 tests (two deselected: the network test and the MLX scorer test,
+  which needs local MLX weights). `ruff check .` passed. The Localhost AI scorer was tested
+  against a stub HTTP server that follows the `/v1/score` contract, not against the real
+  endpoint. With the fake scorer, `scripts/validation_gate.py` ran end to end on the Study 1 run
+  (2,160 rows, 1,156 distinct scorer calls) and `configs/study2_dryrun.yaml` ran the whole
+  Study 2 design (1,512 sampled answers, 2,016 scored rows, A/A and `noop` exactly 0). Those fake
+  numbers check plumbing only.

@@ -313,7 +313,23 @@ below 0.05.
   asks for a citation on every sentence.
 
 A second study with a lower-noise metric and edits chosen from this diagnosis is pre-registered
-in [docs/bench-design-study2.md](docs/bench-design-study2.md). It has not been run yet.
+in [docs/bench-design-study2.md](docs/bench-design-study2.md). It has not been run yet. Its
+primary metric, attribution propensity, keeps a baseline answer fixed and asks the model how
+likely each source index is at every citation site of that answer under the edited prompt, so an
+unchanged prompt gives exactly zero difference and no sampling noise enters. The tooling for it
+is in place and tested offline with a deterministic fake scorer:
+
+- `vizor score <run>` scores a stored run's prompt sets against its baseline answers
+  (Localhost AI's `/v1/score`, mlx-lm, or the fake) and writes page-level paired results;
+  `vizor recompute` rebuilds every score from the stored per-site log-probabilities.
+- `vizor attribute <run> --set <arm> --query <id>` removes each rendered passage in turn and
+  reports how the target's score moves (a small leave-one-out version of ContextCite).
+- `render.passage_policy` chooses which passages each source shows (`query-top3`, Study 1's
+  engine; `body-top3`, where FAQ passages never compete; `top2+faq1`).
+- The dashboard's side-by-side page shows the baseline and an arm for the same query and sample,
+  with the passages each prompt showed and the per-site scores.
+- `scripts/validation_gate.py` re-scores Study 1 and checks the four criteria the new metric
+  must meet before Study 2 relies on it.
 
 The FakeLLM tables show large position effects only because FakeLLM is built with a position
 penalty, so they confirm the sweep code works and nothing more. The GEO LLM rewrite arms
@@ -375,15 +391,17 @@ it that the API answers, the dashboard serves, and nothing can reach the interne
 src/vizor/
   ingest/       commoncrawl.py live.py extract.py corpus.py
   retrieve/     chunk.py index.py rerank.py cascade.py
-  generate/     prompt.py llm.py fake_llm.py engine.py
+  generate/     prompt.py llm.py fake_llm.py engine.py scorer.py
   attribution/  citations.py
-  metrics/      impression.py visibility.py sentiment.py report.py
+  metrics/      impression.py visibility.py sentiment.py propensity.py report.py
   optimize/     transforms.py retrieval_policy.py sandbox.py stats.py bandit.py reward.py
-  api/ dashboard/  experiment.py cli.py models.py embed.py summarize.py queries.py
+  api/ dashboard/  experiment.py scoring.py gate.py cli.py models.py embed.py summarize.py
+                queries.py
 data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
-data/bench/     larger synthetic corpus (72 pages, 24 of them target pages) and 72 queries
+data/bench/     larger synthetic corpus (72 pages, 24 of them target pages), Study 1's 72
+                queries and Study 2's 72 new ones
 experiments/    committed results and RESULTS.md
-tests/          361 offline tests, incl. vendored GEO reference functions
+tests/          402 offline tests, incl. vendored GEO reference functions
 ```
 
 ## Limitations
