@@ -34,6 +34,10 @@ import httpx
 from vizor.generate.llm import Messages
 
 SCORE_SCHEMA = "score-v1"
+# The server must report these, or scores could not be tied to one build, checkpoint and
+# tokenizer.
+REQUIRED_PIN = ("commit", "revision", "tokenizer_sha")
+RENORM_TOL = 1e-5
 
 
 @dataclass(frozen=True)
@@ -154,12 +158,21 @@ class LocalhostScorer:
                     [{"role": "user", "content": "Cite [1]."}], "[1]", [Site(1, ("1",))]
                 )
                 meta = self._meta(body)
+                missing = [k for k in REQUIRED_PIN if not meta.get(k)]
+                if missing:
+                    raise RuntimeError(f"/v1/score did not report {missing}; refusing to score")
                 want = self.server_meta.get("commit")
-                if want and meta.get("commit") and not str(meta["commit"]).startswith(want[:7]):
+                if want and not str(meta["commit"]).startswith(want[:7]):
                     raise RuntimeError(
                         f"server reports commit {meta['commit']}, config says {want}"
                     )
-                self._pin = {"backend": "localhost-ai", "url": self.url, **self.server_meta, **meta}
+                self._pin = {
+                    "backend": "localhost-ai",
+                    "url": self.url,
+                    **self.server_meta,
+                    **meta,
+                    "chat_template_kwargs": self.chat_template_kwargs,
+                }
             return dict(self._pin)
 
     def score(self, messages: Messages, continuation: str, sites: list[Site]) -> ScoreResult:
@@ -169,40 +182,68 @@ class LocalhostScorer:
         out = []
         for s, r in zip(sites, body["sites"], strict=True):
             lp = {str(k): float(v) for k, v in r["candidates"].items()}
-            ren = r.get("renorm") or renormalize(lp)
-            out.append(SiteScore(s.char_offset, int(r.get("token_index", -1)), lp, dict(ren)))
+            # Always renormalize here, from the log-probabilities that are stored, so `vizor
+            # recompute` reproduces every value exactly; the server's renorm is only a check.
+            ren = renormalize(lp)
+            for k, v in (r.get("renorm") or {}).items():
+                if abs(float(v) - ren.get(str(k), float("nan"))) > RENORM_TOL:
+                    raise ValueError(f"server renorm {k}={v} disagrees with {ren.get(str(k))}")
+            out.append(SiteScore(s.char_offset, int(r.get("token_index", -1)), lp, ren))
         return ScoreResult(out, self._meta(body))
 
 
 # ------------------------------------------------------------------------------------------ MLX
 class MLXScorer:
-    """mlx-lm in process. One forward per site over the prompt plus the continuation up to the
-    site; a candidate's log-probability is that of its tokens after the common token prefix, so
-    a tokenizer that merges "[1" into one token is still scored from the site. Slower than the
-    server's single forward per answer; meant for equivalence checks on real weights."""
+    """mlx-lm in process, following the /v1/score contract: the continuation is appended to the
+    chat template (add_generation_prompt=True, no end-of-turn), prompt and continuation are
+    tokenized jointly, and one forward pass gives the next-token distribution at every site.
+    A site that starts a token is read in place; a site inside a token backs off to that token's
+    start and teacher-forces each candidate from there. The checkpoint is resolved to a pinned
+    snapshot revision, and its weights and tokenizer files are hashed."""
 
     def __init__(
         self, repo: str, revision: str | None = None, chat_template_kwargs: dict | None = None
     ) -> None:
         import mlx.core as mx  # noqa: F401  (fail early when mlx is missing)
+        from huggingface_hub import snapshot_download
         from mlx_lm import load
 
-        self.repo, self.revision = repo, revision
+        path = (
+            Path(repo) if Path(repo).is_dir() else Path(snapshot_download(repo, revision=revision))
+        )
+        self.repo = repo
+        self.revision = revision or path.name
+        self.path = path
         self.scorer_id = f"mlx/{repo}"
         self.chat_template_kwargs = dict(chat_template_kwargs or {})
-        self.model, self.tokenizer = load(repo, revision=revision) if revision else load(repo)
+        self.model, self.tokenizer = load(str(path))
+        self._pin: dict | None = None
+
+    @staticmethod
+    def _sha(files: list[Path]) -> str:
+        h = hashlib.sha256()
+        for f in sorted(files):
+            h.update(f.name.encode())
+            with open(f, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+        return h.hexdigest()
 
     def pin(self) -> dict:
-        tok_sha = None
-        path = getattr(self.tokenizer, "name_or_path", None)
-        if path and Path(path, "tokenizer.json").exists():
-            tok_sha = hashlib.sha256(Path(path, "tokenizer.json").read_bytes()).hexdigest()
-        return {
-            "backend": "mlx",
-            "repo": self.repo,
-            "revision": self.revision,
-            "tokenizer_sha": tok_sha,
-        }
+        if self._pin is None:
+            weights = list(self.path.glob("*.safetensors"))
+            tok = [f for f in self.path.glob("tokenizer*") if f.is_file()]
+            if not weights or not tok:
+                raise RuntimeError(f"no weights or tokenizer files under {self.path}")
+            self._pin = {
+                "backend": "mlx",
+                "repo": self.repo,
+                "revision": self.revision,
+                "weights_sha": self._sha(weights),
+                "tokenizer_sha": self._sha(tok),
+                "chat_template_kwargs": self.chat_template_kwargs,
+            }
+        return dict(self._pin)
 
     def _logprobs(self, ids: list[int]):
         import mlx.core as mx
@@ -210,29 +251,43 @@ class MLXScorer:
         logits = self.model(mx.array([ids]))[0].astype(mx.float32)
         return logits - mx.logsumexp(logits, axis=-1, keepdims=True)
 
-    def _seq(self, ids: list[int], start: int) -> float:
-        if start >= len(ids):
-            return 0.0
-        lp = self._logprobs(ids)
-        return float(sum(lp[i - 1, ids[i]].item() for i in range(start, len(ids))))
+    def _forced(self, head_ids: list[int], piece: str, cand: str) -> float:
+        """log P(piece + cand | head) - log P(piece | head), tokens after head_ids forced."""
+        enc = self.tokenizer._tokenizer
+        a = enc(piece + cand, add_special_tokens=False)["input_ids"]
+        b = enc(piece, add_special_tokens=False)["input_ids"] if piece else []
+
+        def seq(tail: list[int]) -> float:
+            if not tail:
+                return 0.0
+            ids = head_ids + tail
+            lp = self._logprobs(ids)
+            n = len(head_ids)
+            return float(sum(lp[n + i - 1, t].item() for i, t in enumerate(tail)))
+
+        return seq(a) - seq(b)
 
     def score(self, messages: Messages, continuation: str, sites: list[Site]) -> ScoreResult:
         head = self.tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False, **self.chat_template_kwargs
         )
-        enc = self.tokenizer.encode
+        full = head + continuation
+        enc = self.tokenizer._tokenizer(full, add_special_tokens=False, return_offsets_mapping=True)
+        ids, offs = enc["input_ids"], enc["offset_mapping"]
+        lp_all = self._logprobs(ids)
         out = []
         for s in sites:
-            prefix = head + continuation[: s.char_offset]
-            p_ids = enc(prefix, add_special_tokens=False)
-            lp = {}
+            a = len(head) + s.char_offset
+            t = next(i for i, (st, en) in enumerate(offs) if en > a)
+            start = offs[t][0]
+            lp: dict[str, float] = {}
             for c in s.candidates:
-                c_ids = enc(prefix + c, add_special_tokens=False)
-                k = 0
-                while k < min(len(p_ids), len(c_ids)) and p_ids[k] == c_ids[k]:
-                    k += 1
-                lp[c] = self._seq(c_ids, k) - self._seq(p_ids, k)
-            out.append(SiteScore(s.char_offset, len(p_ids), lp, renormalize(lp)))
+                c_ids = self.tokenizer._tokenizer(c, add_special_tokens=False)["input_ids"]
+                if start == a and len(c_ids) == 1 and t > 0:
+                    lp[c] = float(lp_all[t - 1, c_ids[0]].item())
+                else:
+                    lp[c] = self._forced(ids[:t], full[start:a], c)
+            out.append(SiteScore(s.char_offset, t, lp, renormalize(lp)))
         return ScoreResult(out, self.pin())
 
 

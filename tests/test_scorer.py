@@ -29,6 +29,8 @@ def _prompt() -> str:
 
 class _Stub(BaseHTTPRequestHandler):
     requests: list = []
+    drop: tuple = ()
+    renorm: dict | None = None
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -36,7 +38,10 @@ class _Stub(BaseHTTPRequestHandler):
         sites = []
         for s in body["sites"]:
             cands = {c: -float(i + 1) for i, c in enumerate(s["candidates"])}
-            sites.append({"token_index": 7 + s["char_offset"], "candidates": cands})
+            site = {"token_index": 7 + s["char_offset"], "candidates": cands}
+            if _Stub.renorm is not None:
+                site["renorm"] = _Stub.renorm
+            sites.append(site)
         out = {
             "model": body["model"],
             "revision": "abc123",
@@ -44,6 +49,8 @@ class _Stub(BaseHTTPRequestHandler):
             "tokenizer_sha": "t0k",
             "sites": sites,
         }
+        for k in _Stub.drop:
+            out.pop(k)
         data = json.dumps(out).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -57,7 +64,7 @@ class _Stub(BaseHTTPRequestHandler):
 
 @pytest.fixture()
 def stub_server():
-    _Stub.requests = []
+    _Stub.requests, _Stub.drop, _Stub.renorm = [], (), None
     srv = HTTPServer(("127.0.0.1", 0), _Stub)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
@@ -140,3 +147,25 @@ def test_mlx_scorer_on_real_weights():
     assert s.renorm["2"] > s.renorm["1"]
     again = sc.score(msgs, "The pump weighs 1.9 kg [2].", [Site(24, ("1", "2"))])
     assert again.sites[0].logprobs == pytest.approx(s.logprobs, abs=1e-5)
+
+
+def test_localhost_pin_fails_closed(stub_server):
+    for field in ("revision", "tokenizer_sha", "commit"):
+        _Stub.drop = (field,)
+        with pytest.raises(RuntimeError, match=field):
+            LocalhostScorer("m", base_url=stub_server).pin()
+    _Stub.drop = ()
+    pin = LocalhostScorer("m", base_url=stub_server, chat_template_kwargs={"x": 1}).pin()
+    assert pin["chat_template_kwargs"] == {"x": 1}
+
+
+def test_localhost_renorm_is_client_side_and_checked(stub_server):
+    sc = LocalhostScorer("m", base_url=stub_server)
+    msgs = [{"role": "user", "content": _prompt()}]
+    p1 = 1 / (1 + math.exp(-1))
+    _Stub.renorm = {"1": p1 + 5e-6, "2": 1 - p1}  # within 1e-5: accepted, not used
+    (s,) = sc.score(msgs, "x [1].", [Site(3, ("1", "2"))]).sites
+    assert s.renorm["1"] == renormalize(s.logprobs)["1"]
+    _Stub.renorm = {"1": 0.5, "2": 0.5}
+    with pytest.raises(ValueError, match="renorm"):
+        sc.score(msgs, "x [1].", [Site(3, ("1", "2"))])
