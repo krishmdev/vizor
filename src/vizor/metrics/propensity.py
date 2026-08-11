@@ -44,6 +44,30 @@ def citation_sites(text: str, n_sources: int, n_candidates: int | None = None) -
     return out
 
 
+def remap_citations(text: str, mapping: dict[int, int]) -> tuple[str, int]:
+    """Renumber the indices inside every citation marker of `text` (baseline numbering) to
+    another prompt's numbering, through the sources' doc ids. An index whose source is not in
+    the other prompt keeps its number and is counted as unmapped. With at most 9 sources every
+    index is one digit, so character offsets (and so citation sites) are unchanged."""
+    out: list[str] = []
+    last = 0
+    unmapped = 0
+    for a, b, _form, _idx in find_markers(text):
+
+        def sub(m: re.Match) -> str:
+            nonlocal unmapped
+            n = int(m.group(0))
+            if n in mapping:
+                return str(mapping[n])
+            unmapped += 1
+            return m.group(0)
+
+        out += [text[last:a], re.sub(r"\d+", sub, text[a:b])]
+        last = b
+    out.append(text[last:])
+    return "".join(out), unmapped
+
+
 def ap_from_probs(site_probs: Sequence[dict[str, float]], target_slots: Iterable[int]) -> float:
     """Mean over sites of the probability mass on the target's slots (NaN without sites)."""
     slots = [str(s) for s in target_slots]

@@ -260,3 +260,30 @@ def test_report_states_page_weighting(scored):
     r = load(run)
     r["manifest"]["llm_is_fake"] = False  # FakeLLM runs get only the FakeLLM caveat
     assert "all use unweighted page means" in claim_md(r)
+
+
+def test_remap_citations_follows_the_pages():
+    from vizor.metrics.propensity import remap_citations
+    from vizor.scoring import reference_text
+
+    text = "A is light [1]. B is cheap [2][5]. C [Source 3]."
+    new, unmapped = remap_citations(text, {1: 5, 2: 1, 3: 2})
+    assert new == "A is light [5]. B is cheap [1][5]. C [Source 2]."
+    assert unmapped == 1 and len(new) == len(text)
+    ref = {"text": text, "doc_ids": ["a", "b", "c", "d", "e"]}
+    assert reference_text(ref, ["a", "b", "c", "d", "e"]) == (text, False, 0)
+    out, moved, _ = reference_text(ref, ["b", "c", "d", "e", "a"])
+    assert moved and out.startswith("A is light [5]. B is cheap [1][4].")
+
+
+def test_slot_rows_are_remapped_and_report_first_site(scored):
+    _, out = scored
+    df = _rows(out)
+    slot5 = df[df.set == "engine:target_at:5"]
+    assert slot5["remapped"].any() and not df[df.set == "content:faq_rewrite"]["remapped"].any()
+    res = pd.read_csv(out / "ap_deltas.csv").set_index("name")
+    assert {"d_ap_first_pp", "p_perm_first", "focus_in_sources_pct", "n_zero_units"} <= set(
+        res.columns
+    )
+    assert res.loc["aa", "d_ap_first_pp"] == 0.0
+    assert 0 <= res.loc["faq pinned", "focus_in_sources_pct"] <= 100

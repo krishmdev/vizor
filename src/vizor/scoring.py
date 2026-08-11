@@ -31,9 +31,11 @@ from vizor.generate.prompt import prompt_hash
 from vizor.generate.scorer import CachedScorer, FakeScorer, LocalhostScorer, Scorer, renormalize
 from vizor.metrics.propensity import (
     ap_from_logprobs,
+    ap_from_probs,
     ap_from_result,
     citation_sites,
     is_close,
+    remap_citations,
     target_slots,
 )
 from vizor.optimize.stats import bootstrap_ci, holm, sign_flip_p, wilcoxon_exact_p
@@ -104,7 +106,11 @@ def load_references(run_dir: Path, samples, arm: str = "baseline") -> dict[tuple
     out = {}
     for r in read_jsonl_gz(run_dir / "responses.jsonl.gz"):
         if r["arm"] == arm and r["sample"] in samples:
-            out[(r["query_id"], r["sample"])] = {"text": r["text"], "n_sources": len(r["sources"])}
+            out[(r["query_id"], r["sample"])] = {
+                "text": r["text"],
+                "n_sources": len(r["sources"]),
+                "doc_ids": [s["doc_id"] for s in sorted(r["sources"], key=lambda s: s["position"])],
+            }
     return out
 
 
@@ -114,23 +120,43 @@ def load_units(run_dir: Path) -> dict[str, str]:
     return dict(zip(q["query_id"], q["focus_doc"], strict=True))
 
 
+def reference_text(ref: dict, doc_ids: list[str]) -> tuple[str, bool, int]:
+    """The reference answer renumbered to a prompt whose sources are `doc_ids` (in order):
+    (text, whether anything was renumbered, markers whose page is not in that prompt)."""
+    base_ids = ref.get("doc_ids") or doc_ids
+    pos = {d: i + 1 for i, d in enumerate(doc_ids)}
+    mapping = {i + 1: pos[d] for i, d in enumerate(base_ids) if d in pos}
+    if all(a == b for a, b in mapping.items()) and len(mapping) == len(base_ids):
+        return ref["text"], False, 0
+    text, unmapped = remap_citations(ref["text"], mapping)
+    return text, True, unmapped
+
+
 def build_jobs(
     sets: dict[str, dict[str, dict]],
     refs: dict[tuple[str, int], dict],
     targets: list[str],
     system_prompt: str,
     which: list[str] | None = None,
+    units: dict[str, str] | None = None,
 ) -> list[dict]:
+    """One job per (prompt set, query, reference answer). When a prompt orders the sources
+    differently from the baseline the reference was written against (full mode, the slot
+    control), the reference's citation indices are renumbered to that prompt's order first, so
+    the earlier markers in the prefix point at the same pages they did in the baseline."""
     jobs = []
+    units = units or {}
     for name in which or sorted(sets):
         if name not in sets:
             raise KeyError(f"prompt set {name!r} is not in this run")
         for qid, e in sets[name].items():
+            doc_ids = [s["doc_id"] for s in sorted(e["sources"], key=lambda s: s["position"])]
             for (rq, k), ref in sorted(refs.items()):
                 if rq != qid:
                     continue
                 n = len(e["sources"])
                 sites = citation_sites(ref["text"], ref["n_sources"], n)
+                text, remapped, unmapped = reference_text(ref, doc_ids)
                 messages = [{"role": "user", "content": e["prompt"]}]
                 if system_prompt:
                     messages.insert(0, {"role": "system", "content": system_prompt})
@@ -145,8 +171,11 @@ def build_jobs(
                         "prompt_hash": prompt_hash(e["prompt"]),
                         "n_sources": n,
                         "target_slots": list(target_slots(e["sources"], targets)),
+                        "focus_in_sources": units.get(qid) in doc_ids if units else None,
+                        "remapped": remapped,
+                        "n_unmapped": unmapped,
                         "messages": messages,
-                        "continuation": ref["text"],
+                        "continuation": text,
                         "sites": sites,
                     }
                 )
@@ -163,8 +192,13 @@ def run_jobs(scorer: Scorer, jobs: list[dict], workers: int = 1, log: Log = prin
             "prompt_hash": j["prompt_hash"],
             "n_sources": j["n_sources"],
             "target_slots": j["target_slots"],
+            "focus_in_sources": j.get("focus_in_sources"),
+            "remapped": j.get("remapped", False),
+            "n_unmapped": j.get("n_unmapped", 0),
             "n_sites": len(res.sites),
             "ap": ap_from_result(res, j["target_slots"]),
+            # the first site's prefix holds no earlier marker, so it cannot be steered by them
+            "ap_first": ap_from_probs([s.renorm for s in res.sites[:1]], j["target_slots"]),
             "sites": [
                 {"char_offset": s.char_offset, "token_index": s.token_index, "logprobs": s.logprobs}
                 for s in res.sites
@@ -189,11 +223,12 @@ def rows_frame(rows: list[dict]) -> pd.DataFrame:
 
 
 def paired_deltas(
-    df: pd.DataFrame, name: str, ref: str, units: dict[str, str], subset=None
+    df: pd.DataFrame, name: str, ref: str, units: dict[str, str], subset=None, col: str = "ap"
 ) -> pd.DataFrame:
-    """Per-query AP deltas (arm minus reference set, mean over reference answers) with units."""
-    a = df[df["set"] == name].set_index(["query_id", "ref_sample"])["ap"]
-    b = df[df["set"] == ref].set_index(["query_id", "ref_sample"])["ap"]
+    """Per-query AP deltas (arm minus reference set, mean over reference answers) with units.
+    `col="ap_first"` uses only each reference answer's first citation site."""
+    a = df[df["set"] == name].set_index(["query_id", "ref_sample"])[col]
+    b = df[df["set"] == ref].set_index(["query_id", "ref_sample"])[col]
     j = pd.concat({"a": a, "b": b}, axis=1, join="inner").dropna()
     j["d"] = j["a"] - j["b"]
     q = j.groupby(level="query_id")[["a", "b", "d"]].mean()
@@ -216,6 +251,17 @@ def compare_ap(
     page = q.groupby("unit")[["a", "b", "d"]].mean() * 100
     d = page["d"].to_numpy()
     est, lo, hi = bootstrap_ci(d, b=bootstrap) if len(d) else (np.nan, np.nan, np.nan)
+    qf = paired_deltas(df, name, ref, units, subset, col="ap_first")
+    df_ = (qf.groupby("unit")["d"].mean() * 100).to_numpy()
+    f_est, f_lo, f_hi = bootstrap_ci(df_, b=bootstrap) if len(df_) else (np.nan,) * 3
+    arm = df[df["set"] == name]
+    if subset is not None:
+        arm = arm[arm["query_id"].isin(subset)]
+    focus = (
+        arm.groupby("query_id")["focus_in_sources"].first().astype(float).mean() * 100
+        if "focus_in_sources" in arm and arm["focus_in_sources"].notna().any()
+        else np.nan
+    )
     return {
         "set": name,
         "ref": ref,
@@ -230,6 +276,12 @@ def compare_ap(
         "p_wilcoxon": wilcoxon_exact_p(d),
         "p_perm": sign_flip_p(d, draws=draws),
         "n_zero_units": int(np.sum(np.abs(d) < 1e-9)),
+        "focus_in_sources_pct": focus,
+        "remapped_pct": float(arm["remapped"].mean() * 100) if "remapped" in arm else np.nan,
+        "d_ap_first_pp": f_est,
+        "d_ap_first_lo": f_lo,
+        "d_ap_first_hi": f_hi,
+        "p_perm_first": sign_flip_p(df_, draws=draws),
     }
 
 
@@ -282,19 +334,24 @@ def _summary(res: pd.DataFrame, meta: dict) -> str:
         "means. AP deltas are in percentage points of citation probability.",
         "",
         "| Comparison | Family | ΔAP pp [95% CI] | AP ref % | n queries / pages | p Wilcoxon "
-        "(Holm) | p sign-flip (Holm) | Significant |",
-        "|---|---|---|---|---|---|---|---|",
+        "(Holm) | p sign-flip (Holm) | Significant | ΔAP first site pp | Focus page shown % "
+        "| Pages with Δ = 0 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in res.itertuples():
         lines.append(
             f"| `{r.name}` | {r.family} | {r.d_ap_pp:+.2f} [{r.d_ap_lo:+.2f}, {r.d_ap_hi:+.2f}] "
             f"| {r.ap_ref_pct:.1f} | {r.n_queries} / {r.n_units} | {r.p_wilcoxon:.3g} "
             f"({r.p_wilcoxon_holm:.3g}) | {r.p_perm:.3g} ({r.p_perm_holm:.3g}) "
-            f"| {'yes' if r.significant else 'no'} |"
+            f"| {'yes' if r.significant else 'no'} | {r.d_ap_first_pp:+.2f} "
+            f"| {r.focus_in_sources_pct:.0f} | {r.n_zero_units} |"
         )
     lines += [
         "",
-        "Significant: primary family only, both Holm-adjusted p values below 0.05.",
+        "Significant: primary family only, both Holm-adjusted p values below 0.05. In full mode "
+        "and the slot control the reference answer's indices are renumbered to each prompt's "
+        "source order; the first-site column uses only each reference's first citation site, "
+        "whose prefix holds no earlier marker.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -314,7 +371,8 @@ def score_run(run_dir: Path, cfg, out: Path | None = None, log: Log = print) -> 
     which = sc.sets or None
     if which is None and sc.comparisons:
         which = sorted({x for c in sc.comparisons for x in (c.set, c.ref)})
-    jobs = build_jobs(sets, refs, project.target_domains, system_prompt, which)
+    units = load_units(run_dir)
+    jobs = build_jobs(sets, refs, project.target_domains, system_prompt, which, units)
     scorer = make_scorer(sc, cache_dir() / "score")
     pin = scorer.pin()
     log(
@@ -324,7 +382,7 @@ def score_run(run_dir: Path, cfg, out: Path | None = None, log: Log = print) -> 
     rows = run_jobs(scorer, jobs, sc.workers, log)
     df = rows_frame(rows)
     comparisons = sc.comparisons or default_comparisons(sorted(df["set"].unique()))
-    res = analyze(df, comparisons, load_units(run_dir), sc)
+    res = analyze(df, comparisons, units, sc)
     write_jsonl_gz(out / "ap_rows.jsonl.gz", rows)
     write_csv(out / "ap_deltas.csv", res)
     meta = {
@@ -354,6 +412,10 @@ def recompute_ap(ap_dir: Path) -> tuple[bool, int]:
         again = ap_from_logprobs([s["logprobs"] for s in r["sites"]], r["target_slots"])
         if not is_close(again, float("nan") if r["ap"] is None else r["ap"], 1e-9):
             return False, n
+        if "ap_first" in r:
+            first = ap_from_logprobs([s["logprobs"] for s in r["sites"][:1]], r["target_slots"])
+            if not is_close(first, float("nan") if r["ap_first"] is None else r["ap_first"], 1e-9):
+                return False, n
         n += 1
     return True, n
 
@@ -420,12 +482,14 @@ def attribute(
             sites = citation_sites(ref["text"], ref["n_sources"], len(e["sources"]))
             if not sites:
                 continue
-            full = ap_from_result(scorer.score(msgs(e["prompt"]), ref["text"], sites), slots)
+            ids = [x["doc_id"] for x in sorted(e["sources"], key=lambda x: x["position"])]
+            text = reference_text(ref, ids)[0]
+            full = ap_from_result(scorer.score(msgs(e["prompt"]), text, sites), slots)
             for s in rendered:
                 lines = s.content.split("\n")
                 for i in _passage_lines(s.content):
                     p = drop_passage(e["prompt"], s.index, i)
-                    ap = ap_from_result(scorer.score(msgs(p), ref["text"], sites), slots)
+                    ap = ap_from_result(scorer.score(msgs(p), text, sites), slots)
                     rows.append(
                         {
                             "set": set_name,
