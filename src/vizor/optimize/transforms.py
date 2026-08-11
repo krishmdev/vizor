@@ -368,9 +368,11 @@ def keyword_stuffing(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, 
 
 
 # ------------------------------------------------------------------ Study 2 arms (query-blind)
+# Units a key fact or a guarded quantity can carry. Longer forms come first (km/h before km, wh
+# before w); bare letters that are common words ("in", "m", "l", "x") are left out.
 _UNIT = (
-    r"(?:kg|g|lb|lbs|psi|bar|mm|cm|m|km|km/h|mph|w|wh|nm|lumens?|%|percent|litres?|liters?|l|"
-    r"inch|inches|in|hours?|minutes?|seconds?|°c|db|cycles|speed|x)"
+    r"(?:km/h|kg|km|lbs?|psi|bar|mm|cm|mph|wh|w|nm|lumens?|%|percent|litres?|liters?|"
+    r"inch(?:es)?|hours?|minutes?|seconds?|°\s?c|db|cycles|g)"
 )
 _KEY_FACT = re.compile(
     rf"\$\s?\d|\b\d[\d,.]*\s?{_UNIT}(?![a-z])|\b\d+\s?-\s?speed\b|\b\d+\s?x\s?\d+", re.I
@@ -410,25 +412,169 @@ def answer_first(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]
 
 _NUM = re.compile(r"\d+(?:[.,]\d+)*")
 _CAP = re.compile(r"\b[A-Z][A-Za-z0-9&'’-]*")
+_QTY = re.compile(rf"(\d+(?:[.,]\d+)*)\s?-?\s?({_UNIT})(?![a-z])", re.I)
+_PRICE_QTY = re.compile(r"\$\s?(\d+(?:[.,]\d+)*)")
+_UNIT_ALIAS = {
+    "lb": "lbs",
+    "lumen": "lumens",
+    "percent": "%",
+    "litre": "l",
+    "litres": "l",
+    "liter": "l",
+    "liters": "l",
+    "inches": "inch",
+    "hour": "hours",
+    "minute": "minutes",
+    "second": "seconds",
+}
+NUMBER_WORDS = set(
+    [
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+        "fourteen",
+        "fifteen",
+        "sixteen",
+        "seventeen",
+        "eighteen",
+        "nineteen",
+        "twenty",
+        "thirty",
+        "forty",
+        "fifty",
+        "sixty",
+        "seventy",
+        "eighty",
+        "ninety",
+        "hundred",
+        "thousand",
+        "million",
+        "dozen",
+        "twice",
+        "double",
+        "triple",
+        "half",
+        "quarter",
+    ]
+)
+# Words that often start a sentence in a rewrite without being names.
+STARTERS = STOP | set(
+    [
+        "this",
+        "these",
+        "that",
+        "those",
+        "it",
+        "its",
+        "our",
+        "we",
+        "they",
+        "there",
+        "here",
+        "then",
+        "also",
+        "additionally",
+        "however",
+        "moreover",
+        "furthermore",
+        "overall",
+        "finally",
+        "first",
+        "second",
+        "third",
+        "next",
+        "plus",
+        "note",
+        "unlike",
+        "compared",
+        "like",
+        "each",
+        "every",
+        "both",
+        "most",
+        "many",
+        "some",
+        "all",
+        "because",
+        "while",
+        "if",
+        "but",
+        "so",
+        "after",
+        "before",
+    ]
+)
+MIN_WORDS_KEPT = 0.7
 
 
 def _numbers(text: str) -> set[str]:
     return {n.replace(",", "").rstrip(".") for n in _NUM.findall(text)}
 
 
+def _quantities(text: str) -> set[tuple[str, str]]:
+    """(number, unit) pairs, e.g. ("160", "psi") and ("49", "$")."""
+    out = set()
+    for n, u in _QTY.findall(text):
+        u = re.sub(r"\s", "", u.lower())
+        out.add((n.replace(",", "").rstrip("."), _UNIT_ALIAS.get(u, u)))
+    out |= {(n.replace(",", "").rstrip("."), "$") for n in _PRICE_QTY.findall(text)}
+    return out
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 3 and w not in STOP}
+
+
 def grounding_violations(new: str, old: str) -> list[str]:
-    """Numbers and names in `new` that do not appear in `old`. Numbers are compared without
-    thousands separators. A capitalized word must appear with the same capitalization in `old`,
-    except at the start of a sentence, where any case counts."""
+    """What in `new` is not supported by `old`:
+    - a number that is not in `old` (thousands separators ignored);
+    - a number with a unit (or a price) whose pairing is not in `old`, so "160 psi" cannot
+      become "160 bar";
+    - a spelled-out number word ("two", "dozen", "twice") that `old` does not use;
+    - a name: a capitalized word after the start of a sentence that `old` does not have with
+      the same capitalization, or a sentence-initial capitalized word that `old` lacks in any
+      case, is not a common sentence starter, and looks like a name (it is followed by another
+      capitalized word, or appears capitalized mid-sentence in `new`)."""
     bad = sorted(_numbers(new) - _numbers(old))
+    bad += [f"{n} {u}" for n, u in sorted(_quantities(new) - _quantities(old))]
+    old_lower_words = set(re.findall(r"[a-z]+", old.lower()))
+    bad += sorted(
+        w
+        for w in set(re.findall(r"[a-z]+", new.lower())) & NUMBER_WORDS
+        if w not in old_lower_words
+    )
     old_words = set(re.findall(r"[A-Za-z0-9&'’-]+", old))
     old_lower = {w.lower() for w in old_words}
-    for sent in split_sentences(new.replace("\n", " ")):
-        for m in _CAP.finditer(sent):
+    sentences = split_sentences(new.replace("\n", " "))
+    mid_caps = set()
+    for sent in sentences:
+        lead = len(sent) - len(sent.lstrip("\"'“([*-• "))
+        mid_caps |= {m.group(0) for m in _CAP.finditer(sent) if m.start() != lead}
+    for sent in sentences:
+        lead = len(sent) - len(sent.lstrip("\"'“([*-• "))
+        caps = list(_CAP.finditer(sent))
+        for i, m in enumerate(caps):
             w = m.group(0).rstrip("'’-")
-            first = m.start() == len(sent) - len(sent.lstrip("\"'“([*-• "))
-            if w in old_words or (first and w.lower() in old_lower):
+            if w in old_words:
                 continue
+            if m.start() == lead:
+                if w.lower() in old_lower or w.lower() in STARTERS:
+                    continue
+                nxt = caps[i + 1] if i + 1 < len(caps) else None
+                joined = nxt is not None and sent[m.end() : nxt.start()].strip() == ""
+                if not (joined or w in mid_caps):
+                    continue
             bad.append(w)
     return list(dict.fromkeys(bad))
 
@@ -446,8 +592,9 @@ EVIDENCE_PROMPT = (
 def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
     """GEO's statistics addition restricted to numbers already on the page: an LLM restates the
     page with its own numbers surfaced. A grounding guard rejects any output with a number or
-    name that is not on the page, or that keeps fewer than 90% of the page's distinct numbers;
-    a rejected page keeps its original text."""
+    name that is not on the page (see `grounding_violations`), or that keeps fewer than 90% of
+    the page's distinct numbers or 70% of its distinct content words; a rejected page keeps its
+    original text."""
     if ctx.llm is None:
         raise RuntimeError("evidence_surface_llm needs a rewriter LLM")
     user = (
@@ -461,11 +608,24 @@ def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceD
         max_tokens=1500,
     )
     body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", c.text.strip()).strip()
-    bad = grounding_violations(body, doc.body + "\n" + doc.title) if body else ["<empty>"]
-    # Surfacing must not become cutting: most of the page's own numbers have to survive.
+    # Everything the page itself says: body, title, description, headings and FAQ.
+    source = "\n".join(
+        [
+            doc.body,
+            doc.title,
+            doc.meta_description,
+            *doc.headings,
+            *(f"{q} {a}" for q, a in doc.faq),
+        ]
+    )
+    bad = grounding_violations(body, source) if body else ["<empty>"]
+    # Surfacing must not become cutting: most of the page's own numbers and words have to survive.
     had, kept = _numbers(doc.body), _numbers(body) & _numbers(doc.body)
     if had and len(kept) < MIN_NUMBERS_KEPT * len(had):
         bad.append(f"<kept {len(kept)} of {len(had)} numbers>")
+    words, kept_w = _content_words(doc.body), _content_words(body) & _content_words(doc.body)
+    if words and len(kept_w) < MIN_WORDS_KEPT * len(words):
+        bad.append(f"<kept {len(kept_w)} of {len(words)} words>")
     ctx.events.append(
         {
             "transform": "evidence_surface_llm",

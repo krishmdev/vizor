@@ -94,7 +94,7 @@ def test_grounding_guard_rejects_invented_numbers_and_names():
 
     old = "The Harrow weighs 1.9 kg. It costs $1,399 and ships in May."
     assert grounding_violations("It costs $1399. The Harrow weighs 1.9 kg.", old) == []
-    assert grounding_violations("The Harrow weighs 2.1 kg.", old) == ["2.1"]
+    assert grounding_violations("The Harrow weighs 2.1 kg.", old) == ["2.1", "2.1 kg"]
     assert grounding_violations("It ships from Shimano in May.", old) == ["Shimano"]
     # sentence-initial capitals only need the word, in any case
     assert grounding_violations("Ships in May.", old) == []
@@ -202,3 +202,35 @@ def test_evidence_surface_rejects_a_rewrite_that_drops_numbers(docs, ctx):
     events = []
     new, _ = evidence_surface_llm(doc, replace(ctx, llm=_Short(), events=events))
     assert new is doc and any("numbers>" in v for v in events[-1]["violations"])
+
+
+def test_guard_allows_ordinary_rewording_and_catches_swaps():
+    from vizor.optimize.transforms import grounding_violations
+
+    old = "Floor Pump\nThe pump reaches 160 psi (11 bar). It weighs 1.9 kg and costs $49."
+    ok = (
+        "This pump reaches 160 psi, or 11 bar. Additionally, it weighs 1.9 kg. "
+        "Overall, it costs $49. Floor pump owners like it."
+    )
+    assert grounding_violations(ok, old) == []
+    assert grounding_violations("The pump reaches 11 psi.", old) == ["11 psi"]
+    assert grounding_violations("It costs $1.9.", old) == ["1.9 $"]
+    assert grounding_violations("It weighs two kilograms.", old) == ["two"]
+    # a sentence-initial name followed by another capitalized word is still a name
+    assert grounding_violations("Acme Labs rated it highly.", old) == ["Acme", "Labs"]
+
+
+def test_key_fact_units_are_tight():
+    from vizor.optimize.transforms import key_fact
+
+    assert not key_fact("Ride 2 in a row.") and not key_fact("Top 5 m of the path.")
+    assert key_fact("It holds 20 litres.") and key_fact("Assist stops at 32 km/h.")
+
+
+def test_guard_accepts_every_bench_page_unchanged():
+    from tests.conftest import ROOT
+    from vizor.ingest.corpus import load_docs, load_project
+    from vizor.optimize.transforms import grounding_violations
+
+    docs = load_docs(load_project(ROOT / "data" / "bench" / "project.yaml"))
+    assert all(grounding_violations(d.body, d.body) == [] for d in docs if d.role == "target")
