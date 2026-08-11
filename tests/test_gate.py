@@ -50,10 +50,8 @@ def _cfg():
                 ],
             },
             "gate": {
-                "pairs": {
-                    **{f"pinned:{a}": f"content:{a}" for a in ARMS},
-                    **{f"full:{a}": a for a in ARMS},
-                },
+                "pairs": {f"pinned:{a}": f"content:{a}" for a in ARMS},
+                "rel": 0.3,
                 "mde_family": 3,
             },
             "bandit": {"rounds": 20, "runs": 2, "greedy_steps": 0},
@@ -79,7 +77,10 @@ def test_gate_reports_all_four_criteria(gated):
         "4_spearman",
     }
     assert r["passed"] == all(c["pass"] for c in r["criteria"].values())
-    assert r["criteria"]["4_spearman"]["n_points"] > 0
+    s4 = r["criteria"]["4_spearman"]
+    assert s4["n_points"] > 0 and 0 < s4["p_one_sided"] <= 1
+    if s4["rho"] == s4["rho"]:  # FakeLLM can leave the C-SoV deltas constant (rho undefined)
+        assert s4["rho_corrected"] == pytest.approx(s4["rho"] / 0.3**0.5)
     assert r["criteria"]["3_ci_narrower"]["c_share_half_width_pp"] >= 0
     assert json.loads((out / "gate.json").read_text())["passed"] == r["passed"]
     assert "validation gate" in gate_md(r)
@@ -118,3 +119,16 @@ def test_gate_script_offline(gated, tmp_path):
     )
     assert res.returncode in (0, 3), res.stderr
     assert (tmp_path / "g" / "gate.md").exists()
+
+
+def test_page_permutation_detects_shared_signal_and_not_noise():
+    import numpy as np
+
+    from vizor.gate import spearman_page_permutation
+
+    rng = np.random.default_rng(0)
+    signal = rng.normal(size=(3, 24))
+    rho, p = spearman_page_permutation(signal, signal + rng.normal(size=(3, 24)), 500)
+    assert rho > 0.4 and p < 0.01
+    rho0, p0 = spearman_page_permutation(signal, rng.normal(size=(3, 24)), 500)
+    assert p0 > 0.05

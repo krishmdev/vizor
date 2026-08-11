@@ -108,8 +108,12 @@ class GateConfig(BaseModel):
     # AP comparison name -> the run's arm whose citation-share deltas it is correlated with
     pairs: dict[str, str] = Field(default_factory=dict)
     slot_alpha: float = 0.01
+    # criterion 3: C-SoV's relative precision may be at most this fraction of AP's
     ci_ratio: float = 0.6
+    # criterion 4: threshold on rho / sqrt(rel), plus rho > 0 with one-sided p < spearman_alpha
     spearman: float = 0.5
+    rel: float | None = None
+    spearman_alpha: float = 0.05
     mde_family: int = 3
 
 
