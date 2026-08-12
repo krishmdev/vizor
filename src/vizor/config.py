@@ -57,6 +57,9 @@ class SandboxConfig(BaseModel):
     # "query": estimates weight queries equally and the test ranks page means (Study 1).
     # "page": estimate, interval and test all use the unweighted mean of page means (Study 2).
     weighting: Literal["query", "page"] = "query"
+    # For guarded LLM rewrites: fewer accepted pages than this makes the arm inconclusive (its
+    # comparisons are reported but can support no claim). 0 disables the rule.
+    rewrite_min_accepted: int = 0
 
 
 class RenderConfig(BaseModel):

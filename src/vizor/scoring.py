@@ -310,6 +310,21 @@ def analyze(df: pd.DataFrame, comparisons, units: dict[str, str], sc) -> pd.Data
     return res
 
 
+def mark_inconclusive(res: pd.DataFrame, guard: dict, min_accepted: int) -> pd.DataFrame:
+    """A guarded rewrite arm with fewer than `min_accepted` accepted pages is inconclusive: its
+    comparisons stay in the table (and in their Holm family) but cannot count."""
+    res = res.copy()
+    res["inconclusive"] = False
+    for t, g in guard.items():
+        accepted = g["pages"] - g["rejected"]
+        if min_accepted and accepted < min_accepted and len(res):
+            hit = res["set"].str.contains(t, regex=False)
+            res.loc[hit, "inconclusive"] = True
+    if "significant" in res:
+        res["significant"] = res["significant"] & ~res["inconclusive"]
+    return res
+
+
 def default_comparisons(sets: list[str]):
     """Every set against the baseline in its own passage policy, as secondary comparisons."""
     from vizor.config import Comparison
@@ -383,6 +398,9 @@ def score_run(run_dir: Path, cfg, out: Path | None = None, log: Log = print) -> 
     df = rows_frame(rows)
     comparisons = sc.comparisons or default_comparisons(sorted(df["set"].unique()))
     res = analyze(df, comparisons, units, sc)
+    res = mark_inconclusive(
+        res, manifest.get("rewrite_guard") or {}, cfg.sandbox.rewrite_min_accepted
+    )
     write_jsonl_gz(out / "ap_rows.jsonl.gz", rows)
     write_csv(out / "ap_deltas.csv", res)
     meta = {

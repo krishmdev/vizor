@@ -234,3 +234,55 @@ def test_guard_accepts_every_bench_page_unchanged():
 
     docs = load_docs(load_project(ROOT / "data" / "bench" / "project.yaml"))
     assert all(grounding_violations(d.body, d.body) == [] for d in docs if d.role == "target")
+
+
+def test_mark_inconclusive_blocks_claims_for_a_rejected_rewrite():
+    import pandas as pd
+
+    from vizor.scoring import mark_inconclusive
+
+    res = pd.DataFrame(
+        {
+            "set": ["content:evidence_surface_llm", "content:answer_first"],
+            "significant": [True, True],
+        }
+    )
+    guard = {"evidence_surface_llm": {"pages": 24, "rejected": 20}}
+    out = mark_inconclusive(res, guard, 12)
+    assert list(out["inconclusive"]) == [True, False]
+    assert list(out["significant"]) == [False, True]
+    assert mark_inconclusive(res, guard, 0)["significant"].all()
+
+
+def test_pregenerate_script_reports_acceptance(tmp_path):
+    import json
+    import subprocess
+    import sys
+
+    import yaml
+
+    from tests.conftest import ROOT
+
+    cfg = {
+        "project": "data/bench/project.yaml",
+        "rewriter": {"backend": "fake"},
+        "sandbox": {"rewrite_min_accepted": 12},
+    }
+    (tmp_path / "c.yaml").write_text(yaml.safe_dump(cfg))
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "pregenerate_rewrites.py"),
+            "--config",
+            str(tmp_path / "c.yaml"),
+            "--out",
+            str(tmp_path / "o"),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    # FakeLLM "rewrites" are extractive fragments, which the guard rejects
+    assert res.returncode == 4, res.stderr
+    out = json.loads((tmp_path / "o" / "rewrites.json").read_text())
+    assert out["pages"] == 24 and out["accepted"] < 12 and not out["conclusive"]
