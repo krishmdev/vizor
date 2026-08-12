@@ -190,7 +190,7 @@ def gate_md(r: dict) -> str:
         f"{s1['n_units']} pages | {s1['threshold']} |",
         f"| 2. FAQ rewrite negative | {ok[s2['pass']]} | {s2['d_ap_pp']:+.2f} pp "
         f"[{s2['ci'][0]:+.2f}, {s2['ci'][1]:+.2f}] | < 0 |",
-        f"| 3. Relative precision, FAQ rewrite | {ok[s3['pass']]} | AP |d|/half-width "
+        f"| 3. Relative precision, FAQ rewrite | {ok[s3['pass']]} | AP abs(d)/half-width "
         f"{s3['ap_precision']:.2f} vs C-SoV {s3['c_share_precision']:.2f} (ratio "
         f"{s3['ratio']:.2f}) | C-SoV / AP <= {s3['threshold']} |",
         f"| 4. Spearman, AP vs C-SoV page deltas | {ok[s4['pass']]} | rho {s4['rho']:.2f} over "
