@@ -87,7 +87,8 @@ can leak into its own edit.
    the page's own numbers early and explicitly and to add nothing. A guard rejects the output if
    it contains any number or capitalized name that is not on the page, or keeps fewer than 90% of
    the page's distinct numbers. A rejected page keeps its original text, which gives that page a
-   delta of exactly 0. The rejection rate is reported in the manifest (`rewrite_guard`).
+   delta of exactly 0. The rejection rate is reported in the manifest (`rewrite_guard`). The guard
+   was amended before the gate, and the arm needs at least 12 accepted pages; see Deviations.
 3. `faq_rewrite_v2`: a direct test of the diagnosis. Questions come from the page's own section
    headings, not from queries. Each answer is the single page sentence that best matches its
    question, no sentence is used twice, and at most 2 pairs are added (the two best matched).
@@ -139,10 +140,11 @@ only as text). `scripts/validation_gate.py` with `configs/study2_gate.yaml` does
    negative sign.
 3. That AP delta's page-level 95% CI half-width is at most 60% of the half-width of Study 1's
    sampled citation-share delta for the same prompts, both from unweighted page means with the
-   same bootstrap.
+   same bootstrap. (Replaced by relative precision; see the amendment under Deviations.)
 4. Across Study 1's twelve page arms (six full, six content-only), the Spearman correlation
    between per-page AP deltas and per-page citation-share deltas of the same prompts is at least
-   0.5, pooled over (arm, page) points.
+   0.5, pooled over (arm, page) points. (Replaced by a reliability-corrected test on the six
+   content-pinned arms; see the amendment under Deviations.)
 
 If the gate fails, the failure is reported, and Study 2's primary metric becomes the sampled
 citation share with the same units, weighting, tests and Holm over the three arms. AP is then
@@ -176,3 +178,62 @@ after an edit; the sampled metrics are there to check that the two move together
 ## Deviations
 
 (Any change from this plan, with the reason, is listed here.)
+
+### Amendment before the gate (2026-09-18, before any GPU run)
+
+A review of the code and design before the gate found problems in two gate criteria, in the
+rewrite guard and in how reference answers are scored under reordered prompts. No gate score,
+Study 2 answer, rewrite or score existed when this was written. The changes:
+
+1. Gate criterion 4 is replaced. The sampled citation-share deltas are noisy at the page
+   level: in Study 1 the A/A re-sample's page-delta variance is 122.71, and the pooled page-delta
+   variance of the six content-only arms is 171.38, so their reliability is
+   rel = 1 - 122.71 / 171.38 = 0.284. Even a perfect metric could only correlate with them at
+   about sqrt(0.284) = 0.53, which made the old threshold of 0.5 close to unpassable. The new
+   criterion uses the six content-pinned arms only (the full arms repeat the same pages with rank
+   noise added). It passes if rho / sqrt(0.284) >= 0.5 (a raw Spearman rho of at least about
+   0.27), rho > 0, and a one-sided page-permutation p < 0.05. The permutation relabels pages the
+   same way in every arm, so arm-level agreement (every page moving with the FAQ arm) is kept
+   under the null and the test asks whether AP agrees with the citation share page by page.
+   rel = 0.284 is fixed in `configs/study2_gate.yaml`; the gate also reports the value it
+   measures from the run, for information.
+2. Gate criterion 3 is replaced. AP deltas are in points of citation probability and citation
+   share deltas in points of marker share, so a ratio of CI half-widths depends on the scale of
+   each metric. The criterion now compares relative precision, |delta| / CI half-width: it
+   passes if AP's is at least 1 / 0.6 times the citation share's, for the same content-pinned
+   FAQ prompts and the same bootstrap.
+3. Reported for every AP comparison (secondary, no claims): the share of queries whose focus
+   page is among the prompt's sources, and the number of pages whose delta is exactly 0 (for
+   `evidence_surface_llm`, these include the rejected pages).
+4. In full mode and in the slot control the arm's prompt numbers the sources differently from
+   the baseline the reference answer was written against. The reference's citation indices are
+   now renumbered through the sources' page ids before scoring, so earlier markers in the prefix
+   still point at the same pages; an index whose page is not in the arm's prompt keeps its
+   number and is counted. AP from each reference's first citation site alone, whose prefix holds
+   no earlier marker, is reported next to every comparison as a check that criterion 1 and the
+   full-mode results do not come from the prefix's markers. Content-pinned prompts keep the
+   baseline order, so the primary analysis is unchanged.
+5. The rewrite guard for `evidence_surface_llm` is tightened and loosened where it was wrong.
+   It flagged ordinary sentence starters ("This", "Additionally") and words from the page's own
+   headings, which would have rejected most rewrites. It now checks capitalized words after a
+   sentence's start against the page's body, title, description, headings and FAQ, and a
+   sentence-initial word only if it looks like a name (followed by another capitalized word, or
+   capitalized elsewhere mid-sentence) and is not a common starter. It could also be bypassed,
+   so it now also compares number and unit pairs ("160 psi" cannot become "160 bar"), rejects
+   spelled-out number words the page does not use, and requires that at least 70% of the page's
+   distinct content words survive, next to the existing 90% of its numbers.
+6. The 24 rewrites are generated right after the gate, before any Study 2 answer, with
+   `scripts/pregenerate_rewrites.py` and the run's rewriter config, and the run reuses them from
+   the cache. The pre-registered minimum is 12 accepted pages of 24
+   (`sandbox.rewrite_min_accepted`). With fewer, most of the arm's pages would be unedited and
+   its delta would mostly measure zeros, so the arm is reported as inconclusive: its comparisons
+   stay in the table and in the Holm family of three, and it cannot count as an effect.
+7. Key-fact detection for `answer_first` no longer treats "in", "m", "l" or "x" after a number
+   as a unit (spec patterns such as "2 x 10" are still matched on their own).
+
+Implementation fixes with no effect on the design: the scorer renormalizes each site's
+probabilities itself from the stored log-probabilities (the server's renormalized values are
+only checked against them, to 1e-5), so `vizor recompute` reproduces every AP value exactly;
+and it refuses to score unless the server reports its commit, checkpoint revision and tokenizer
+hash, with the chat-template options also part of the cache key.
+

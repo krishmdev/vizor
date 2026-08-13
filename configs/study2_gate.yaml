@@ -40,10 +40,15 @@ gate:
   faq_ap: "pinned:faq_rewrite"
   faq_c_share: "content:faq_rewrite"
   slot_alpha: 0.01
+  # criterion 3 (amended 2026-09-18): C-SoV's |d| / CI half-width may be at most 0.6 x AP's
   ci_ratio: 0.6
+  # criterion 4 (amended 2026-09-18): content-pinned arms only; rho / sqrt(rel) >= 0.5, rho > 0,
+  # one-sided page-permutation p < 0.05. rel = 1 - 122.71 / 171.38 from Study 1's stored C-SoV
+  # (A/A page-delta variance over the pooled content-arm page-delta variance).
   spearman: 0.5
+  rel: 0.284
+  spearman_alpha: 0.05
   mde_family: 3
-  # criterion 4: per-page AP deltas against the same prompts' per-page C-SoV deltas, pooled
   pairs:
     "pinned:metadata": "content:metadata"
     "pinned:faq_rewrite": "content:faq_rewrite"
@@ -51,9 +56,3 @@ gate:
     "pinned:internal_links": "content:internal_links"
     "pinned:stats_surface": "content:stats_surface"
     "pinned:keyword_stuffing": "content:keyword_stuffing"
-    "full:metadata": "metadata"
-    "full:faq_rewrite": "faq_rewrite"
-    "full:jsonld_insert": "jsonld_insert"
-    "full:internal_links": "internal_links"
-    "full:stats_surface": "stats_surface"
-    "full:keyword_stuffing": "keyword_stuffing"

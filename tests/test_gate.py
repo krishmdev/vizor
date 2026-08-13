@@ -92,7 +92,9 @@ def test_gate_config_is_complete():
     cfg = Config.load(ROOT / "configs" / "study2_gate.yaml")
     names = {c.name for c in cfg.score.comparisons}
     assert {cfg.gate.slot, cfg.gate.faq_ap} <= names
-    assert set(cfg.gate.pairs) <= names and len(cfg.gate.pairs) == 12
+    assert set(cfg.gate.pairs) <= names and len(cfg.gate.pairs) == 6
+    assert all(v.startswith("content:") for v in cfg.gate.pairs.values())
+    assert cfg.gate.rel == 0.284
     assert cfg.score.backend == "localhost" and cfg.score.refs == [0, 1]
 
 

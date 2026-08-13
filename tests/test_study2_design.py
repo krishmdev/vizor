@@ -36,6 +36,7 @@ def test_study2_configs_agree():
     )
     primary = [c for c in main.score.comparisons if c.family == "primary"]
     assert [c.set for c in primary] == main.score.prompt_arms
+    assert main.sandbox.rewrite_min_accepted == dry.sandbox.rewrite_min_accepted == 12
     assert main.sandbox.weighting == "page" and main.render.passage_policy == "query-top3"
     assert main.rewriter.model == main.llm.model == main.score.model == "qwen2.5-3b-mlx4"
     assert (

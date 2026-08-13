@@ -41,6 +41,8 @@ rewriter:
 sandbox:
   primary_metric: c_share
   weighting: page
+  # amended 2026-09-18: evidence_surface_llm is inconclusive with fewer than 12 accepted pages
+  rewrite_min_accepted: 12
   arms: [noop, aa_resample, answer_first, evidence_surface_llm, faq_rewrite_v2]
   # positive control: the same pages with the target forced into the first or the last slot
   position_sweep: [1, 5]
