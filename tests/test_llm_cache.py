@@ -116,3 +116,63 @@ def test_openai_compat_run_needs_server_commit(tmp_path):
     )
     with pytest.raises(ValueError, match="server-commit"):
         run_experiment(cfg, tmp_path / "out")
+
+
+def test_request_extras_are_sent_and_keyed(tmp_path):
+    import httpx
+
+    from vizor.generate.llm import OpenAIChat
+
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+
+        seen.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "x",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "role": "assistant",
+                            "content": "page",
+                            "reasoning_content": "thought",
+                        },
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 3,
+                    "completion_tokens": 9,
+                    "total_tokens": 12,
+                    "thinking_tokens": 5,
+                },
+            },
+        )
+
+    extra = {"top_p": 0.95, "chat_template_kwargs": {"enable_thinking": True}}
+    extra["max_thinking_tokens"] = 2048
+    inner = OpenAIChat("m", base_url="http://x/v1", api_key="k", request_extra=extra)
+    inner._client = inner._client.with_options(
+        http_client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    llm = CachedLLM(inner, tmp_path, key_extra={"commit": "c"})
+    msg = [{"role": "user", "content": "hi"}]
+    c = llm.complete(msg, temperature=0.6, seed=7, max_tokens=4096)
+    assert seen["top_p"] == 0.95 and seen["max_thinking_tokens"] == 2048
+    assert seen["chat_template_kwargs"] == {"enable_thinking": True} and seen["seed"] == 7
+    assert c.text == "page" and c.reasoning == "thought" and c.usage["thinking_tokens"] == 5
+    again = llm.complete(msg, temperature=0.6, seed=7, max_tokens=4096)
+    assert again.cached and again.reasoning == "thought"
+    # the extras are part of the key; without any, the key is the old one
+    plain = CachedLLM(
+        OpenAIChat("m", base_url="http://x/v1", api_key="k"), tmp_path, key_extra={"commit": "c"}
+    )
+    assert plain._key(msg, 0.6, 7, 4096) != llm._key(msg, 0.6, 7, 4096)
+    assert plain.request_extra == {}

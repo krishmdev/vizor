@@ -1,6 +1,7 @@
 """Chat backends behind one `complete()` call, plus a disk cache and a spend cap.
 
-The cache key is sha256(model, messages, temperature, seed, max_tokens). OpenAI's `seed` is best
+The cache key is sha256(model, messages, temperature, seed, max_tokens), plus the server facts and
+request extras when there are any. OpenAI's `seed` is best
 effort, so the cache (and the committed responses) is what makes a real-model run reproducible.
 """
 
@@ -34,6 +35,8 @@ class Completion:
     model: str
     usage: dict = field(default_factory=dict)
     cached: bool = False
+    # A thinking model's reasoning block, kept apart from `text` (which is only the answer).
+    reasoning: str = ""
 
 
 class LLM(Protocol):
@@ -64,6 +67,7 @@ class OpenAIChat:
         base_url: str | None = None,
         timeout: float = 60,
         api_key: str | None = None,
+        request_extra: dict | None = None,
     ) -> None:
         from openai import OpenAI
 
@@ -71,6 +75,9 @@ class OpenAIChat:
             raise RuntimeError("OPENAI_API_KEY is not set")
         self.model_id = model
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0)
+        # Extra request fields sent with every call: top_p, and server extensions such as
+        # chat_template_kwargs and max_thinking_tokens (sent in the body as they are).
+        self.request_extra = dict(request_extra or {})
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -81,12 +88,16 @@ class OpenAIChat:
     def complete(
         self, messages: Messages, *, temperature: float, seed: int, max_tokens: int
     ) -> Completion:
+        extra = dict(self.request_extra)
+        kw = {"top_p": extra.pop("top_p")} if "top_p" in extra else {}
         r = self._client.chat.completions.create(
             model=self.model_id,
             messages=messages,
             temperature=temperature,
             seed=seed,
             max_tokens=max_tokens,
+            **kw,
+            **({"extra_body": extra} if extra else {}),
         )
         u = r.usage
         usage = {
@@ -95,7 +106,12 @@ class OpenAIChat:
             "system_fingerprint": r.system_fingerprint,
             "finish_reason": r.choices[0].finish_reason,
         }
-        return Completion(r.choices[0].message.content or "", r.model, usage)
+        thinking = (u.model_extra or {}).get("thinking_tokens") if u else None
+        if thinking is not None:
+            usage["thinking_tokens"] = thinking
+        msg = r.choices[0].message
+        reasoning = (msg.model_extra or {}).get("reasoning_content") or ""
+        return Completion(msg.content or "", r.model, usage, reasoning=reasoning)
 
 
 class OllamaChat:
@@ -221,6 +237,9 @@ class CachedLLM:
         # commit). Part of the cache key when given, so a different server build never reuses
         # another's answers. Left out for Ollama and OpenAI, whose cached answers predate it.
         self.key_extra = dict(key_extra) if key_extra else None
+        # The backend's per-request extras (top_p, chat template options, thinking budget) are
+        # part of the key too, only when there are any, so older cache entries keep their keys.
+        self.request_extra = dict(getattr(inner, "request_extra", None) or {})
         self.model_id = inner.model_id
         self.cache_dir = Path(cache_dir) if cache_dir else None
         self.max_cost_usd = max_cost_usd
@@ -235,6 +254,8 @@ class CachedLLM:
         parts: list = [self.model_id, messages, temperature, seed, max_tokens]
         if self.key_extra:
             parts.append(self.key_extra)
+        if self.request_extra:
+            parts.append({"request": self.request_extra})
         blob = json.dumps(parts, sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()
 
@@ -253,7 +274,9 @@ class CachedLLM:
                 d = json.loads(p.read_text())
                 with self._lock:
                     self.hits += 1
-                return Completion(d["text"], d["model"], d["usage"], cached=True)
+                return Completion(
+                    d["text"], d["model"], d["usage"], cached=True, reasoning=d.get("reasoning", "")
+                )
         # Reserve the worst-case cost of this call before making it, so parallel workers can't
         # jointly overshoot the cap with calls that were all admitted under it.
         worst = worst_case_cost(self.model_id, messages, max_tokens)
@@ -284,7 +307,10 @@ class CachedLLM:
             p = self._path(key)
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"text": c.text, "model": c.model, "usage": c.usage}))
+            d = {"text": c.text, "model": c.model, "usage": c.usage}
+            if c.reasoning:
+                d["reasoning"] = c.reasoning
+            tmp.write_text(json.dumps(d))
             os.replace(tmp, p)
         return c
 

@@ -27,6 +27,23 @@ class LLMConfig(BaseModel):
     # manifest with the rest of the config. For openai_compat they are part of the cache key,
     # and `vizor experiment --server-commit` fills in "commit" (the run refuses to start without).
     server_meta: dict[str, str] = Field(default_factory=dict)
+    # openai_compat only, sent with every request and part of the cache key when set: top_p,
+    # chat template options (e.g. {"enable_thinking": true}) and a thinking-token budget.
+    top_p: float | None = None
+    chat_template_kwargs: dict = Field(default_factory=dict)
+    max_thinking_tokens: int | None = None
+    # The seed of a rewriter's calls (the answer model's seeds come from the run's `seed`).
+    seed: int = 0
+
+    def request_extra(self) -> dict:
+        out: dict = {}
+        if self.top_p is not None:
+            out["top_p"] = self.top_p
+        if self.chat_template_kwargs:
+            out["chat_template_kwargs"] = dict(self.chat_template_kwargs)
+        if self.max_thinking_tokens is not None:
+            out["max_thinking_tokens"] = self.max_thinking_tokens
+        return out
 
 
 class SandboxConfig(BaseModel):
@@ -178,7 +195,13 @@ def make_llm(cfg: Config, embedder=None, llm_cfg: LLMConfig | None = None):
     elif lc.backend == "openai_compat":
         if not lc.base_url:
             raise ValueError("llm.base_url is required for backend openai_compat")
-        inner = OpenAIChat(lc.model, base_url=lc.base_url, timeout=600, api_key="local")
+        inner = OpenAIChat(
+            lc.model,
+            base_url=lc.base_url,
+            timeout=1800,
+            api_key="local",
+            request_extra=lc.request_extra(),
+        )
         extra = {"backend": lc.backend, "base_url": lc.base_url, **lc.server_meta}
         return CachedLLM(inner, cache_dir() / "llm", lc.max_cost_usd, key_extra=extra)
     else:
