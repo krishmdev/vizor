@@ -77,6 +77,10 @@ class SandboxConfig(BaseModel):
     # For guarded LLM rewrites: fewer accepted pages than this makes the arm inconclusive (its
     # comparisons are reported but can support no claim). 0 disables the rule.
     rewrite_min_accepted: int = 0
+    # A rewrites.json from scripts/pregenerate_rewrites.py (relative to the project root): the
+    # guarded LLM rewrites are read from it instead of calling the rewriter, and the run refuses
+    # it unless its rewriter fingerprint matches the config's.
+    frozen_rewrites: str | None = None
 
 
 class RenderConfig(BaseModel):

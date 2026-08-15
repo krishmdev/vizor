@@ -286,3 +286,56 @@ def test_pregenerate_script_reports_acceptance(tmp_path):
     assert res.returncode == 4, res.stderr
     out = json.loads((tmp_path / "o" / "rewrites.json").read_text())
     assert out["pages"] == 24 and out["accepted"] < 12 and not out["conclusive"]
+
+
+def test_evidence_surface_uses_rewriter_settings_and_frozen_text(docs, ctx):
+    from dataclasses import replace
+
+    from vizor.generate.llm import Completion
+    from vizor.optimize.transforms import evidence_surface_llm
+
+    seen = {}
+
+    class _Thinker:
+        model_id = "thinker"
+
+        def complete(self, messages, *, temperature, seed, max_tokens):
+            seen.update(temperature=temperature, seed=seed, max_tokens=max_tokens)
+            body = messages[-1]["content"].split("```\n", 1)[1].rsplit("\n```", 1)[0]
+            return Completion(
+                body, "thinker", {"thinking_tokens": 2048}, reasoning="Rated 9.9 by Acme."
+            )
+
+    doc = _targets(docs)[0]
+    events = []
+    rw = {"temperature": 0.6, "seed": 17, "max_tokens": 4096}
+    new, _ = evidence_surface_llm(doc, replace(ctx, llm=_Thinker(), events=events, rewrite=rw))
+    assert seen == rw and new is not doc and events[-1]["accepted"]
+    # the reasoning is recorded but never guarded or used
+    assert events[-1]["reasoning"] == "Rated 9.9 by Acme." and events[-1]["thinking_tokens"] == 2048
+    # frozen: no call, the stored text goes through the same guard (a stray think block dropped)
+    frozen = {doc.doc_id: "<think>Acme 9.9</think>\n" + events[-1]["text"]}
+    again, _ = evidence_surface_llm(doc, replace(ctx, llm=None, events=events, frozen=frozen))
+    assert again.body == new.body and events[-1]["accepted"] and events[-1]["frozen"]
+    with pytest.raises(RuntimeError):
+        evidence_surface_llm(_targets(docs)[1], replace(ctx, llm=None, frozen=frozen))
+
+
+def test_frozen_rewrites_need_the_same_rewriter(tmp_path):
+    import json
+
+    from vizor.config import Config
+    from vizor.experiment import load_frozen_rewrites
+    from vizor.optimize.transforms import rewriter_fingerprint
+
+    rw = {"backend": "openai_compat", "model": "r", "base_url": "http://x/v1", "temperature": 0.6}
+    cfg = Config.model_validate({"rewriter": rw, "sandbox": {"frozen_rewrites": "rw.json"}})
+    doc = {"rewriter": {"server_meta": {"commit": "c"}}, "accepted": 1, "pages": 1}
+    doc["rewrites"] = [{"doc_id": "a", "text": "page"}]
+    doc["fingerprint"] = rewriter_fingerprint(cfg.rewriter)
+    (tmp_path / "rw.json").write_text(json.dumps(doc))
+    texts, meta = load_frozen_rewrites(cfg, tmp_path)
+    assert texts == {"a": "page"} and meta["server_commit"] == "c" and len(meta["sha256"]) == 64
+    cfg.rewriter.seed = 1
+    with pytest.raises(ValueError):
+        load_frozen_rewrites(cfg, tmp_path)

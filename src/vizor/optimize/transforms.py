@@ -97,6 +97,14 @@ class TransformContext:
     # Shared log of grounding-guard decisions for LLM rewrites ({transform, doc_id, accepted,
     # violations}), so a run can report how often a rewrite was rejected.
     events: list = field(default_factory=list)
+    # Sampling settings of the rewriter's calls (the rewriter config's temperature, seed and
+    # max_tokens when the run has one).
+    rewrite: dict = field(
+        default_factory=lambda: {"temperature": 0.0, "seed": 0, "max_tokens": 1500}
+    )
+    # Frozen rewrites (doc_id -> the rewriter's raw output), read from a pre-generated
+    # rewrites.json: the transform then makes no call and applies the same guard to that text.
+    frozen: dict[str, str] | None = None
     _qvec: np.ndarray | None = field(default=None, repr=False)
 
     def query_vectors(self) -> np.ndarray:
@@ -589,25 +597,62 @@ EVIDENCE_PROMPT = (
 )
 
 
+def rewriter_fingerprint(rc) -> dict:
+    """What decides a rewrite besides the page: the rewriter's model and request settings and
+    the prompt. A run only reuses frozen rewrites whose fingerprint equals its own."""
+    import hashlib
+
+    return {
+        "model": rc.model,
+        "preset": rc.server_meta.get("preset"),
+        "temperature": rc.temperature,
+        "seed": rc.seed,
+        "max_tokens": rc.max_tokens,
+        "request": rc.request_extra(),
+        "prompt_sha256": hashlib.sha256((GEO_SYSTEM + EVIDENCE_PROMPT).encode()).hexdigest(),
+    }
+
+
+def evidence_messages(doc: SourceDoc) -> list[dict[str, str]]:
+    user = (
+        f"{EVIDENCE_PROMPT}\n\nReturn only the rewritten page text, with paragraphs separated "
+        f"by blank lines and no commentary.\n\nPage:\n```\n{doc.body}\n```"
+    )
+    return [{"role": "system", "content": GEO_SYSTEM}, {"role": "user", "content": user}]
+
+
 def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
     """GEO's statistics addition restricted to numbers already on the page: an LLM restates the
     page with its own numbers surfaced. A grounding guard rejects any output with a number or
     name that is not on the page (see `grounding_violations`), or that keeps fewer than 90% of
     the page's distinct numbers or 70% of its distinct content words; a rejected page keeps its
     original text."""
-    if ctx.llm is None:
-        raise RuntimeError("evidence_surface_llm needs a rewriter LLM")
-    user = (
-        f"{EVIDENCE_PROMPT}\n\nReturn only the rewritten page text, with paragraphs separated "
-        f"by blank lines and no commentary.\n\nPage:\n```\n{doc.body}\n```"
-    )
-    c = ctx.llm.complete(
-        [{"role": "system", "content": GEO_SYSTEM}, {"role": "user", "content": user}],
-        temperature=0.0,
-        seed=0,
-        max_tokens=1500,
-    )
-    body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", c.text.strip()).strip()
+    info: dict = {}
+    if ctx.frozen is not None:
+        if doc.doc_id not in ctx.frozen:
+            raise RuntimeError(f"no frozen rewrite for {doc.doc_id}")
+        text = ctx.frozen[doc.doc_id]
+        info["frozen"] = True
+    else:
+        if ctx.llm is None:
+            raise RuntimeError("evidence_surface_llm needs a rewriter LLM")
+        c = ctx.llm.complete(
+            evidence_messages(doc),
+            temperature=ctx.rewrite["temperature"],
+            seed=ctx.rewrite["seed"],
+            max_tokens=ctx.rewrite["max_tokens"],
+        )
+        text = c.text
+        info = {
+            "finish_reason": c.usage.get("finish_reason"),
+            "thinking_tokens": c.usage.get("thinking_tokens"),
+            "completion_tokens": c.usage.get("completion_tokens"),
+            "reasoning": c.reasoning,
+        }
+    info["text"] = text
+    # Only the final page text is used: a thinking model's block never reaches the guard.
+    text = re.sub(r"^\s*<think>.*?</think>", "", text, flags=re.S)
+    body = re.sub(r"^```[\w-]*\s*\n|\n?```\s*$", "", text.strip()).strip()
     # Everything the page itself says: body, title, description, headings and FAQ.
     source = "\n".join(
         [
@@ -632,6 +677,7 @@ def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceD
             "doc_id": doc.doc_id,
             "accepted": not bad,
             "violations": bad[:10],
+            **info,
         }
     )
     if bad:

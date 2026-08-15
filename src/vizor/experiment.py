@@ -168,6 +168,34 @@ def guard_summary(events: list[dict]) -> dict:
     }
 
 
+def load_frozen_rewrites(cfg: Config, root: Path) -> tuple[dict[str, str] | None, dict | None]:
+    """`sandbox.frozen_rewrites`: doc_id -> raw rewriter output, and the file's sha256 and
+    rewriter facts for the manifest. Refuses a file made with other rewriter settings."""
+    from vizor.optimize.transforms import rewriter_fingerprint
+
+    if not cfg.sandbox.frozen_rewrites:
+        return None, None
+    if cfg.rewriter is None:
+        raise ValueError("sandbox.frozen_rewrites needs the rewriter config that made them")
+    path = root / cfg.sandbox.frozen_rewrites
+    raw = path.read_bytes()
+    d = json.loads(raw)
+    want = rewriter_fingerprint(cfg.rewriter)
+    if d.get("fingerprint") != want:
+        raise ValueError(
+            f"{path} was made with rewriter {d.get('fingerprint')}, the config has {want}"
+        )
+    texts = {r["doc_id"]: r["text"] for r in d["rewrites"]}
+    meta = {
+        "path": cfg.sandbox.frozen_rewrites,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "server_commit": (d["rewriter"].get("server_meta") or {}).get("commit"),
+        "accepted": d["accepted"],
+        "pages": d["pages"],
+    }
+    return texts, meta
+
+
 def preflight(cfg: Config, log: Log = print) -> dict:
     """Paid backends only start with a priced model, a cap, and an estimate that fits under the
     cap together with what the shared ledger has already spent."""
@@ -224,9 +252,22 @@ def run_experiment(
         rewrite_llm = engine.llm if cfg.llm.backend != "fake" else None
     doc_map = {d.doc_id: d for d in docs}
     guard_events: list[dict] = []
+    rewrite = {"temperature": 0.0, "seed": 0, "max_tokens": 1500}
+    if cfg.rewriter is not None:
+        rc = cfg.rewriter
+        rewrite = {"temperature": rc.temperature, "seed": rc.seed, "max_tokens": rc.max_tokens}
+    frozen, frozen_meta = load_frozen_rewrites(cfg, root)
 
     def ctx_for(qs) -> TransformContext:
-        return TransformContext(doc_map, list(qs), embedder, llm=rewrite_llm, events=guard_events)
+        return TransformContext(
+            doc_map,
+            list(qs),
+            embedder,
+            llm=rewrite_llm,
+            events=guard_events,
+            rewrite=rewrite,
+            frozen=frozen,
+        )
 
     sb = Sandbox(
         engine,
@@ -584,6 +625,7 @@ def run_experiment(
             else None
         ),
         "rewrite_guard": guard_summary(guard_events),
+        "frozen_rewrites": frozen_meta,
         "skipped_due_to_budget": skipped,
         "host": host_manifest(llm=engine.llm.model_id, device="cpu"),
     }
