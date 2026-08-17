@@ -38,7 +38,13 @@ def test_study2_configs_agree():
     assert [c.set for c in primary] == main.score.prompt_arms
     assert main.sandbox.rewrite_min_accepted == dry.sandbox.rewrite_min_accepted == 12
     assert main.sandbox.weighting == "page" and main.render.passage_policy == "query-top3"
-    assert main.rewriter.model == main.llm.model == main.score.model == "qwen2.5-3b-mlx4"
+    assert main.llm.model == main.score.model == "qwen2.5-3b-mlx4"
+    # second amendment: a thinking Qwen3.5-9B rewriter, read back from its frozen output
+    rw = main.rewriter
+    assert rw.model == "qwen3.5-9b-mlx4" and rw.chat_template_kwargs == {"enable_thinking": True}
+    assert (rw.temperature, rw.top_p, rw.max_thinking_tokens) == (0.6, 0.95, 2048)
+    assert main.sandbox.frozen_rewrites.endswith("_study2-rewrites/rewrites.json")
+    assert not main.llm.chat_template_kwargs
     assert (
         main.llm.system_prompt
         == Config.load(ROOT / "configs" / "bench_qwen3b.yaml").llm.system_prompt

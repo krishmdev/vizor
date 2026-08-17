@@ -140,6 +140,7 @@ def test_mlx_scorer_on_real_weights():
     from vizor.generate.scorer import MLXScorer
 
     sc = MLXScorer(repo)
+    assert sc.pin()["chat_template_kwargs"] == {"enable_thinking": False}
     msgs = [{"role": "user", "content": _prompt()}]
     res = sc.score(msgs, "The pump weighs 1.9 kg [2].", [Site(24, ("1", "2"))])
     (s,) = res.sites

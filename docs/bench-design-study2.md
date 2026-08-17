@@ -237,3 +237,33 @@ only checked against them, to 1e-5), so `vizor recompute` reproduces every AP va
 and it refuses to score unless the server reports its commit, checkpoint revision and tokenizer
 hash, with the chat-template options also part of the cache key.
 
+
+### Second amendment, before the gate and the rewrites (2026-09-18)
+
+Written after the first amendment and before any gate score, rewrite, Study 2 answer or score
+exists. Each item was committed on its own, before the GPU step it affects.
+
+1. The rewriter changes (`evidence_surface_llm` only). It was `qwen2.5-3b-mlx4` at temperature
+   0; it is now `qwen3.5-9b-mlx4` (Qwen3.5-9B, MLX 4-bit, pinned revision in Localhost AI's
+   `models.yaml`) with thinking on, served by Localhost AI in its own session. Reasons: the
+   rewriter is no longer the answer model, so the arm is less exposed to a model preferring its
+   own phrasing; a larger model that reasons first should pass the grounding guard more often;
+   and rewriting with a stronger model than the one answering is closer to how such edits are
+   made in practice. Settings, in the `rewriter` block of `configs/study2_qwen3b_localhost_ai.yaml`:
+   temperature 0.6 and top_p 0.95 (Qwen's advice for thinking mode), seed 0, at most 4,096 new
+   tokens of which at most 2,048 are thinking (`max_thinking_tokens`; the server closes the
+   block at the budget and the model then writes the page), and
+   `chat_template_kwargs: {enable_thinking: true}` sent per request. The server's preset is not
+   changed, so every answering run still has thinking off. The server returns the thinking block
+   separately; only the final page text goes through the guard and into the arm. The server
+   runs with `LHAI_MAX_CONTEXT=8192` so a page plus 4,096 new tokens fits.
+   The 24 rewrites are generated once by `scripts/pregenerate_rewrites.py`, and the output is a
+   frozen artifact committed with the results: `rewrites.json` (every page's raw output,
+   verdict, violations and thinking-token count, plus the rewriter's model, revision, server
+   commit, seed and settings) and `reasoning.jsonl` (the thinking blocks, kept for provenance
+   and never shown to an answer model). The run reads the pages from that file
+   (`sandbox.frozen_rewrites`) and refuses it if its rewriter settings or prompt differ from the
+   config's; it makes no rewriter call. This replaces "the run reuses them from the cache" in
+   item 6 above. How many of the 24 rewrites reached the thinking budget is reported; a
+   truncated rewrite that fails the guard counts as rejected like any other. Unchanged: the
+   guard, the minimum of 12 accepted pages, the other two arms, and the answer model.
