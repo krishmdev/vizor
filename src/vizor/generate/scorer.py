@@ -199,7 +199,9 @@ class MLXScorer:
     tokenized jointly, and one forward pass gives the next-token distribution at every site.
     A site that starts a token is read in place; a site inside a token backs off to that token's
     start and teacher-forces each candidate from there. The checkpoint is resolved to a pinned
-    snapshot revision, and its weights and tokenizer files are hashed."""
+    snapshot revision, and its weights and tokenizer files are hashed. Thinking is off unless
+    the caller turns it on: mlx-lm's tokenizer wrapper enables it by default for Gemma 4 and
+    Qwen3.5, and Localhost AI scores with it off."""
 
     def __init__(
         self, repo: str, revision: str | None = None, chat_template_kwargs: dict | None = None
@@ -215,7 +217,7 @@ class MLXScorer:
         self.revision = revision or path.name
         self.path = path
         self.scorer_id = f"mlx/{repo}"
-        self.chat_template_kwargs = dict(chat_template_kwargs or {})
+        self.chat_template_kwargs = {"enable_thinking": False, **(chat_template_kwargs or {})}
         self.model, self.tokenizer = load(str(path))
         self._pin: dict | None = None
 

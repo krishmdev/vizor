@@ -303,3 +303,9 @@ exists. Each item was committed on its own, before the GPU step it affects.
    the first Gemma answer the determinism check runs on Gemma at batch 1 (item 2), and
    `/v1/score` on Gemma is checked against in-process mlx-lm scoring (`MLXScorer`) on a sample
    of rows, since Gemma's sliding-window layers are a different code path from Qwen2.5's.
+4. `MLXScorer`, the in-process mlx-lm scorer used to check `/v1/score`, now passes
+   `enable_thinking: false` to the chat template unless told otherwise. mlx-lm's tokenizer
+   wrapper turns thinking on by default for Gemma 4 and Qwen3.5, while Localhost AI scores with
+   it off, so without this the two would build different prompts for those models and the
+   equivalence check in item 3 would compare different things. Qwen2.5's template ignores the
+   option, so nothing scored with Qwen2.5 changes.
