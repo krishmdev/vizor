@@ -33,6 +33,12 @@ def main() -> int:
     ap.add_argument("--server-commit", required=True)
     ap.add_argument("--base-url", help="defaults to llm.base_url from the config")
     ap.add_argument("--n", type=int, default=10, help="prompts in the concurrent batch")
+    ap.add_argument(
+        "--server-batch",
+        type=int,
+        help="the server's fixed batch size, recorded in the result (1: concurrent requests are "
+        "queued and run one at a time)",
+    )
     args = ap.parse_args()
 
     cfg = Config.load(args.config)
@@ -66,6 +72,7 @@ def main() -> int:
                 "max_tokens": cfg.llm.max_tokens,
                 "seed": job["seed"],
                 "messages": job["messages"],
+                **cfg.llm.request_extra(),
             },
         )
         r.raise_for_status()
@@ -96,6 +103,8 @@ def main() -> int:
         "server_meta": cfg.llm.server_meta,
         "temperature": cfg.llm.temperature,
         "max_tokens": cfg.llm.max_tokens,
+        "request_extra": cfg.llm.request_extra(),
+        "server_batch": args.server_batch,
         "n_prompts": len(jobs),
         "alone_vs_alone_identical": sum(same_repeat),
         "alone_vs_batch_identical": sum(same_batch),

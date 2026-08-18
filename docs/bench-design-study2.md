@@ -267,3 +267,15 @@ exists. Each item was committed on its own, before the GPU step it affects.
    item 6 above. How many of the 24 rewrites reached the thinking budget is reported; a
    truncated rewrite that fails the guard counts as rejected like any other. Unchanged: the
    guard, the minimum of 12 accepted pages, the other two arms, and the answer model.
+2. Everything sampled or scored runs at batch 1 and concurrency 1. Localhost AI's own check
+   (its commit 2aeada3) found that its MLX models give byte-identical output from run to run
+   when a request runs alone, but not when it shares a batch with other requests, at any batch
+   width from 2 up (the padded multi-row prefill appears to be the cause). The earlier plan
+   above ("an answer sent alone and inside a concurrent batch is byte-identical") therefore
+   cannot be met by batching, and is replaced: every server session in this study (the
+   sampled answers, the reference answers, the rewrites and the `/v1/score` scoring) starts
+   with `LHAI_CONTROLLER=fixed LHAI_FIXED_BATCH=1`, and the client keeps `workers: 1`.
+   `scripts/determinism_check.py` still runs on the answer model before its first sampled
+   answer, now at that setting: ten prompts sent alone twice, then all at once (the server
+   queues them and runs them one at a time), and it passes only if all three sets are
+   byte-identical. The result is saved with the run.
