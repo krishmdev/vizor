@@ -279,3 +279,27 @@ exists. Each item was committed on its own, before the GPU step it affects.
    answer, now at that setting: ten prompts sent alone twice, then all at once (the server
    queues them and runs them one at a time), and it passes only if all three sets are
    byte-identical. The result is saved with the run.
+3. A replication on a second model family, run last, after Study 2: Gemma 4 E4B
+   (`gemma-4-e4b-mlx4`, Gemma 4 E4B instruct, MLX 4-bit) served by Localhost AI, with thinking
+   off (`chat_template_kwargs: {enable_thinking: false}` on every answer and every scoring
+   request). Only the answer and scoring model changes. The pages are the same, including the
+   frozen Qwen3.5-9B rewrites, so this is a cross-family check of the same edits. Two parts:
+   - Study 1's key arms on Study 1's 72 queries (`configs/gemma_e4b_study1.yaml`), sampled at
+     3 samples per query (Study 1 used 5): `noop`, `aa_resample`, `faq_rewrite`,
+     `content:faq_rewrite`, and the slot control (target forced to slot 1 or slot 5 on 36
+     queries). The primary metric is the sampled citation share with Study 1's weighting and
+     tests (Holm-adjusted exact Wilcoxon on page units). `faq_rewrite` is the only page arm, so
+     Holm over one arm changes nothing; `content:faq_rewrite` is its own family of one.
+   - Study 2's arms on Study 2's 72 queries (`configs/gemma_e4b_study2.yaml`): the same arms,
+     controls, prompt-only sets, 3 samples, and AP scored by Gemma through `/v1/score` against
+     reference answers that are Gemma's own baseline samples 0 and 1. The same tests as Study 2,
+     with Holm over the three content-pinned arms and the same both-tests rule.
+   Claim rule, fixed now: a Study 1 or Study 2 result "replicates" on Gemma if the Gemma
+   estimate has the same sign and its Holm-adjusted p is below 0.05 (for Study 2's AP arms, both
+   Holm-adjusted p values). A result that does not meet this is reported as not replicated,
+   whatever the reason. With 3 samples the replication has less power than the originals; its
+   MDE is computed afterwards from its own page-level SDs (the Study 1 part from the A/A
+   re-sample, the Study 2 part the same way as Study 2's) and reported with the results. Before
+   the first Gemma answer the determinism check runs on Gemma at batch 1 (item 2), and
+   `/v1/score` on Gemma is checked against in-process mlx-lm scoring (`MLXScorer`) on a sample
+   of rows, since Gemma's sliding-window layers are a different code path from Qwen2.5's.
