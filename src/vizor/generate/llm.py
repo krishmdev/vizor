@@ -55,8 +55,12 @@ def _retryable(exc: BaseException) -> bool:
     status = getattr(exc, "status_code", None) or getattr(
         getattr(exc, "response", None), "status_code", None
     )
+    try:  # the OpenAI SDK wraps timeouts and dropped connections in its own error
+        from openai import APIConnectionError
+    except ImportError:  # pragma: no cover
+        APIConnectionError = ()  # noqa: N806
     return status in (408, 409, 429, 500, 502, 503, 504) or isinstance(
-        exc, httpx.TransportError | TimeoutError
+        exc, httpx.TransportError | TimeoutError | APIConnectionError
     )
 
 

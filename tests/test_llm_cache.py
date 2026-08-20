@@ -176,3 +176,14 @@ def test_request_extras_are_sent_and_keyed(tmp_path):
     )
     assert plain._key(msg, 0.6, 7, 4096) != llm._key(msg, 0.6, 7, 4096)
     assert plain.request_extra == {}
+
+
+def test_timeouts_and_dropped_connections_are_retried():
+    import httpx
+    from openai import APIConnectionError, APITimeoutError
+
+    from vizor.generate.llm import _retryable
+
+    req = httpx.Request("POST", "http://x")
+    assert _retryable(APITimeoutError(req)) and _retryable(APIConnectionError(request=req))
+    assert not _retryable(ValueError("no"))

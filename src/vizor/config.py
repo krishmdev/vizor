@@ -202,7 +202,9 @@ def make_llm(cfg: Config, embedder=None, llm_cfg: LLMConfig | None = None):
         inner = OpenAIChat(
             lc.model,
             base_url=lc.base_url,
-            timeout=1800,
+            # long enough for the longest request (a thinking rewrite); a reply that never
+            # comes is retried (generate/llm.py)
+            timeout=120 + 0.25 * lc.max_tokens,
             api_key="local",
             request_extra=lc.request_extra(),
         )
