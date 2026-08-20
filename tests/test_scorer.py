@@ -1,8 +1,10 @@
 import json
 import math
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import httpx
 import pytest
 
 from vizor.generate.prompt import RenderedSource, format_prompt
@@ -31,10 +33,15 @@ class _Stub(BaseHTTPRequestHandler):
     requests: list = []
     drop: tuple = ()
     renorm: dict | None = None
+    stall: int = 0  # this many requests never get a reply in time
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         _Stub.requests.append((self.path, body))
+        if _Stub.stall:
+            _Stub.stall -= 1
+            time.sleep(0.5)
+            return
         sites = []
         for s in body["sites"]:
             cands = {c: -float(i + 1) for i, c in enumerate(s["candidates"])}
@@ -64,7 +71,7 @@ class _Stub(BaseHTTPRequestHandler):
 
 @pytest.fixture()
 def stub_server():
-    _Stub.requests, _Stub.drop, _Stub.renorm = [], (), None
+    _Stub.requests, _Stub.drop, _Stub.renorm, _Stub.stall = [], (), None, 0
     srv = HTTPServer(("127.0.0.1", 0), _Stub)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
@@ -170,3 +177,13 @@ def test_localhost_renorm_is_client_side_and_checked(stub_server):
     _Stub.renorm = {"1": 0.5, "2": 0.5}
     with pytest.raises(ValueError, match="renorm"):
         sc.score(msgs, "x [1].", [Site(3, ("1", "2"))])
+
+
+def test_localhost_scorer_resends_a_request_that_gets_no_reply(stub_server):
+    _Stub.stall = 1
+    sc = LocalhostScorer("m", base_url=stub_server, timeout=0.2, backoff_s=0.01)
+    res = sc.score([{"role": "user", "content": "q"}], "It is [1].", [Site(7, ("1", "2"))])
+    assert res.sites[0].logprobs == {"1": -1.0, "2": -2.0} and sc.retries >= 1
+    _Stub.stall = 9
+    with pytest.raises(httpx.TimeoutException):
+        LocalhostScorer("m", base_url=stub_server, timeout=0.2, attempts=2, backoff_s=0.01).pin()

@@ -24,7 +24,9 @@ import json
 import math
 import os
 import re
+import sys
 import threading
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -112,9 +114,11 @@ class LocalhostScorer:
         self,
         model: str,
         base_url: str = "http://127.0.0.1:8431",
-        timeout: float = 600,
+        timeout: float = 120,
         chat_template_kwargs: dict | None = None,
         server_meta: dict | None = None,
+        attempts: int = 5,
+        backoff_s: float = 2.0,
     ) -> None:
         self.model = model
         self.scorer_id = f"localhost-ai/{model}"
@@ -124,6 +128,11 @@ class LocalhostScorer:
         self.chat_template_kwargs = dict(chat_template_kwargs or {})
         self.server_meta = dict(server_meta or {})
         self._http = httpx.Client(timeout=timeout)
+        # A scoring request is deterministic and has no side effects, so one that times out or
+        # loses its connection is sent again on a fresh connection (seen on a loaded machine:
+        # a response that never arrived while the server went on serving other requests).
+        self.attempts, self.backoff_s = attempts, backoff_s
+        self.retries = 0
         self._pin: dict | None = None
         self._lock = threading.Lock()
 
@@ -135,7 +144,18 @@ class LocalhostScorer:
             "sites": [s.to_dict() for s in sites],
             "chat_template_kwargs": self.chat_template_kwargs,
         }
-        r = self._http.post(self.url, json=payload)
+        for attempt in range(1, self.attempts + 1):
+            try:
+                r = self._http.post(self.url, json=payload)
+                break
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                if attempt == self.attempts:
+                    raise
+                self.retries += 1
+                print(f"/v1/score attempt {attempt} failed ({exc!r}); retrying", file=sys.stderr)
+                self._http.close()
+                self._http = httpx.Client(timeout=self._http.timeout)
+                time.sleep(self.backoff_s * attempt)
         r.raise_for_status()
         body = r.json()
         if len(body.get("sites", [])) != len(sites):
