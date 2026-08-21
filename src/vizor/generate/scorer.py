@@ -114,7 +114,7 @@ class LocalhostScorer:
         self,
         model: str,
         base_url: str = "http://127.0.0.1:8431",
-        timeout: float = 120,
+        timeout: float = 60,
         chat_template_kwargs: dict | None = None,
         server_meta: dict | None = None,
         attempts: int = 5,
@@ -127,7 +127,7 @@ class LocalhostScorer:
         self.url = root + "/v1/score"
         self.chat_template_kwargs = dict(chat_template_kwargs or {})
         self.server_meta = dict(server_meta or {})
-        self._http = httpx.Client(timeout=timeout)
+        self._http = self._client(timeout)
         # A scoring request is deterministic and has no side effects, so one that times out or
         # loses its connection is sent again on a fresh connection (seen on a loaded machine:
         # a response that never arrived while the server went on serving other requests).
@@ -135,6 +135,11 @@ class LocalhostScorer:
         self.retries = 0
         self._pin: dict | None = None
         self._lock = threading.Lock()
+
+    @staticmethod
+    def _client(timeout) -> httpx.Client:
+        # a fresh connection per request: the stalls seen so far were on a reused one
+        return httpx.Client(timeout=timeout, limits=httpx.Limits(max_keepalive_connections=0))
 
     def _post(self, messages: Messages, continuation: str, sites: list[Site]) -> dict:
         payload = {
@@ -154,7 +159,7 @@ class LocalhostScorer:
                 self.retries += 1
                 print(f"/v1/score attempt {attempt} failed ({exc!r}); retrying", file=sys.stderr)
                 self._http.close()
-                self._http = httpx.Client(timeout=self._http.timeout)
+                self._http = self._client(self._http.timeout)
                 time.sleep(self.backoff_s * attempt)
         r.raise_for_status()
         body = r.json()
