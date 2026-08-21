@@ -1,0 +1,94 @@
+{
+  "run": "2026-09-05_bench-qwen3b",
+  "ap_dir": "2026-09-18_study2-gate",
+  "criteria": {
+    "1_slot_detected": {
+      "pass": true,
+      "d_ap_pp": -44.3626,
+      "ci": [
+        -58.4749,
+        -29.701
+      ],
+      "p_perm_holm": 0.00019999,
+      "p_wilcoxon_holm": 0.000213623,
+      "n_units": 17,
+      "threshold": "negative, both Holm p < 0.01"
+    },
+    "2_faq_negative": {
+      "pass": true,
+      "d_ap_pp": -8.06798,
+      "ci": [
+        -11.0801,
+        -5.38207
+      ]
+    },
+    "3_ci_narrower": {
+      "pass": false,
+      "ap_d_pp": -8.06798,
+      "ap_half_width_pp": 2.849015,
+      "ap_precision": 2.8318489021644324,
+      "c_share_d_pp": -13.661934166666668,
+      "c_share_half_width_pp": 6.105390895833333,
+      "c_share_precision": 2.2376837781165415,
+      "ratio": 0.7901847363417731,
+      "threshold": 0.6
+    },
+    "4_spearman": {
+      "pass": false,
+      "rho": 0.24806787385071308,
+      "rel": 0.284,
+      "rho_corrected": 0.4654910705366352,
+      "p_one_sided": 0.3347332633368332,
+      "rel_this_run": 0.2839862281768146,
+      "n_points": 138,
+      "pairs": [
+        {
+          "ap": "pinned:metadata",
+          "c_share": "content:metadata",
+          "n_pages": 23
+        },
+        {
+          "ap": "pinned:faq_rewrite",
+          "c_share": "content:faq_rewrite",
+          "n_pages": 23
+        },
+        {
+          "ap": "pinned:jsonld_insert",
+          "c_share": "content:jsonld_insert",
+          "n_pages": 23
+        },
+        {
+          "ap": "pinned:internal_links",
+          "c_share": "content:internal_links",
+          "n_pages": 23
+        },
+        {
+          "ap": "pinned:stats_surface",
+          "c_share": "content:stats_surface",
+          "n_pages": 23
+        },
+        {
+          "ap": "pinned:keyword_stuffing",
+          "c_share": "content:keyword_stuffing",
+          "n_pages": 23
+        }
+      ],
+      "threshold": 0.5,
+      "alpha": 0.05
+    }
+  },
+  "passed": false,
+  "study2_mde_pp": {
+    "range": [
+      2.0862949906322488,
+      5.071242909624519
+    ],
+    "unit_sd_range_pp": [
+      2.97153,
+      7.22302
+    ],
+    "n_pages": 24,
+    "family": 3,
+    "method": "t quantiles, 80% power, two-sided alpha 0.05 / family"
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "run": "2026-09-05_bench-qwen3b",
+  "run_git_commit": "0444d1e",
+  "scorer_id": "localhost-ai/qwen2.5-3b-mlx4",
+  "pin": {
+    "backend": "localhost-ai",
+    "url": "http://127.0.0.1:8431/v1/score",
+    "server": "localhost-ai",
+    "preset": "qwen2.5-3b-mlx4",
+    "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f",
+    "model": "qwen2.5-3b-mlx4",
+    "revision": "4f83f8f146fdf28b512a06562b671d7af4fab457",
+    "tokenizer_sha": "53532ad570e43718e4a465c9db068b743cf3bcae665b7608dbb80ed044b2b1d8",
+    "chat_template_kwargs": {}
+  },
+  "score_schema": "score-v1",
+  "refs": [
+    0,
+    1
+  ],
+  "config": {
+    "label": "Study 2 validation gate: AP on Study 1 (qwen2.5-3b-mlx4 via Localhost AI)",
+    "project": "data/bench/project.yaml",
+    "embedder": "bge",
+    "reranker": "cross-encoder",
+    "index": "auto",
+    "sentiment": "auto",
+    "decay": "paper",
+    "samples": 5,
+    "queries": null,
+    "seed": 0,
+    "llm": {
+      "backend": "fake",
+      "model": "gpt-4o-mini",
+      "base_url": null,
+      "temperature": 0.7,
+      "max_tokens": 450,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "",
+      "server_meta": {},
+      "top_p": null,
+      "chat_template_kwargs": {},
+      "max_thinking_tokens": null,
+      "seed": 0
+    },
+    "sandbox": {
+      "arms": [
+        "noop",
+        "aa_resample",
+        "metadata",
+        "faq_rewrite",
+        "jsonld_insert",
+        "internal_links",
+        "stats_surface",
+        "quote_surface",
+        "keyword_stuffing",
+        "engine:reverse"
+      ],
+      "llm_rewrites": false,
+      "allow_fabrication": false,
+      "position_sweep": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "boost_sweep": [
+        0.0,
+        0.02,
+        0.05,
+        0.1
+      ],
+      "bootstrap": 5000,
+      "sweep_queries": null,
+      "primary_metric": "imp_pwc",
+      "weighting": "query",
+      "rewrite_min_accepted": 0,
+      "frozen_rewrites": null
+    },
+    "render": {
+      "passage_policy": "query-top3"
+    },
+    "score": {
+      "backend": "localhost",
+      "model": "qwen2.5-3b-mlx4",
+      "revision": null,
+      "base_url": "http://127.0.0.1:8431",
+      "chat_template_kwargs": {},
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen2.5-3b-mlx4",
+        "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f"
+      },
+      "refs": [
+        0,
+        1
+      ],
+      "sets": [],
+      "comparisons": [
+        {
+          "name": "pinned:metadata",
+          "set": "content:metadata",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "pinned:faq_rewrite",
+          "set": "content:faq_rewrite",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "pinned:jsonld_insert",
+          "set": "content:jsonld_insert",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "pinned:internal_links",
+          "set": "content:internal_links",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "pinned:stats_surface",
+          "set": "content:stats_surface",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "pinned:keyword_stuffing",
+          "set": "content:keyword_stuffing",
+          "ref": "baseline",
+          "family": "pinned"
+        },
+        {
+          "name": "full:metadata",
+          "set": "metadata",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:faq_rewrite",
+          "set": "faq_rewrite",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:jsonld_insert",
+          "set": "jsonld_insert",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:internal_links",
+          "set": "internal_links",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:stats_surface",
+          "set": "stats_surface",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:keyword_stuffing",
+          "set": "keyword_stuffing",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "rank:faq_rewrite",
+          "set": "faq_rewrite",
+          "ref": "content:faq_rewrite",
+          "family": "rank"
+        },
+        {
+          "name": "aa_resample",
+          "set": "aa_resample",
+          "ref": "baseline",
+          "family": "control"
+        },
+        {
+          "name": "slot 5 vs 1",
+          "set": "engine:target_at:5",
+          "ref": "engine:target_at:1",
+          "family": "slot"
+        }
+      ],
+      "prompt_arms": [],
+      "policies": [],
+      "bootstrap": 5000,
+      "draws": 20000,
+      "workers": 1
+    },
+    "gate": {
+      "slot": "slot 5 vs 1",
+      "faq_ap": "pinned:faq_rewrite",
+      "faq_c_share": "content:faq_rewrite",
+      "pairs": {
+        "pinned:metadata": "content:metadata",
+        "pinned:faq_rewrite": "content:faq_rewrite",
+        "pinned:jsonld_insert": "content:jsonld_insert",
+        "pinned:internal_links": "content:internal_links",
+        "pinned:stats_surface": "content:stats_surface",
+        "pinned:keyword_stuffing": "content:keyword_stuffing"
+      },
+      "slot_alpha": 0.01,
+      "ci_ratio": 0.6,
+      "spearman": 0.5,
+      "rel": 0.284,
+      "spearman_alpha": 0.05,
+      "mde_family": 3
+    },
+    "rewriter": null,
+    "bandit": {
+      "rounds": 2000,
+      "runs": 20,
+      "greedy_steps": 4
+    }
+  },
+  "n_rows": 2160,
+  "n_rows_with_sites": 1706,
+  "scorer_stats": {
+    "calls": 639,
+    "cache_hits": 1521
+  },
+  "elapsed_s": 2839.1,
+  "rows_sha256": "db62ecea6e511c419f8a14b10ab4204af48aa5f8b0c134cdfc87cab5bb1d8b0c"
+}

@@ -1,0 +1,16 @@
+name,family,set,ref,n_queries,n_units,ap_ref_pct,ap_pct,d_ap_pp,d_ap_lo,d_ap_hi,sd_unit_pp,p_wilcoxon,p_perm,n_zero_units,focus_in_sources_pct,remapped_pct,d_ap_first_pp,d_ap_first_lo,d_ap_first_hi,p_perm_first,p_wilcoxon_holm,p_perm_holm,significant,inconclusive
+pinned:metadata,pinned,content:metadata,baseline,64,23,41.094,42.4079,1.31384,0.116495,2.82529,3.37252,0.118646,0.0586971,0,93.0556,0,0.302971,-0.758271,1.71501,0.757312,0.474585,0.234788,False,False
+pinned:faq_rewrite,pinned,content:faq_rewrite,baseline,64,23,41.094,33.026,-8.06798,-11.0801,-5.38207,7.22302,1.19209e-06,4.99975e-05,0,93.0556,0,-6.89929,-11.4011,-3.36537,0.000149993,7.15256e-06,0.000299985,False,False
+pinned:jsonld_insert,pinned,content:jsonld_insert,baseline,64,23,41.094,40.1872,-0.906828,-3.05946,1.11566,5.28524,0.300133,0.435078,0,93.0556,0,-1.07787,-3.306,1.4896,0.428529,0.9004,1,False,False
+pinned:internal_links,pinned,content:internal_links,baseline,64,23,41.094,38.8924,-2.2016,-4.01493,-0.541045,4.39924,0.0254226,0.0269987,0,93.0556,0,-2.6863,-4.54507,-1.07259,0.00434978,0.127113,0.134993,False,False
+pinned:stats_surface,pinned,content:stats_surface,baseline,64,23,41.094,40.6012,-0.492808,-1.76088,0.610253,2.97153,0.731389,0.461677,0,93.0556,0,-0.87361,-1.97718,0.19114,0.154792,1,1,False,False
+pinned:keyword_stuffing,pinned,content:keyword_stuffing,baseline,64,23,41.094,41.3948,0.300747,-1.33869,2.07278,4.22193,0.753985,0.745263,0,93.0556,0,0.945233,-0.848585,3.10133,0.39143,1,1,False,False
+full:metadata,full,metadata,baseline,64,23,41.094,44.1219,3.02784,0.943434,5.33934,5.65979,0.0195572,0.0138493,0,91.6667,6.94444,2.43491,0.0814029,5.62844,0.0928954,0.0977862,0.0692465,False,False
+full:faq_rewrite,full,faq_rewrite,baseline,64,23,41.094,32.6814,-8.41265,-11.4358,-5.65235,7.25928,1.19209e-06,4.99975e-05,0,93.0556,13.8889,-9.03694,-16.4603,-1.69737,0.0232988,7.15256e-06,0.000299985,False,False
+full:jsonld_insert,full,jsonld_insert,baseline,64,23,41.094,40.6317,-0.462337,-2.76642,1.75937,5.77179,0.500905,0.714664,0,94.4444,1.38889,-1.07573,-3.30391,1.49175,0.429279,1,1,False,False
+full:internal_links,full,internal_links,baseline,64,23,41.094,38.8924,-2.2016,-4.01493,-0.541045,4.39924,0.0254226,0.0269987,0,93.0556,0,-2.6863,-4.54507,-1.07259,0.00434978,0.10169,0.107995,False,False
+full:stats_surface,full,stats_surface,baseline,64,23,41.094,44.0805,2.98646,-3.17758,10.6341,17.9309,0.893212,0.522874,0,88.8889,34.7222,1.84225,-9.10787,14.7197,0.79201,1,1,False,False
+full:keyword_stuffing,full,keyword_stuffing,baseline,64,23,41.094,41.877,0.782935,-1.00942,2.73017,4.60481,0.376522,0.434228,0,93.0556,2.77778,0.97006,-0.8309,3.11137,0.379231,1,1,False,False
+rank:faq_rewrite,rank,faq_rewrite,content:faq_rewrite,64,23,33.026,32.6814,-0.34467,-2.47849,2.10201,5.75874,0.296875,0.764712,16,93.0556,13.8889,-2.13765,-8.08655,3.38684,0.423179,0.296875,0.764712,False,False
+aa_resample,control,aa_resample,baseline,64,23,41.094,41.094,0,0,0,0,1,1,23,93.0556,0,0,0,0,1,1,1,False,False
+slot 5 vs 1,slot,engine:target_at:5,engine:target_at:1,33,17,56.5755,12.2129,-44.3626,-58.4749,-29.701,31.6752,0.000213623,0.00019999,0,100,97.2222,-71.778,-85.9262,-55.1761,0.000149993,0.000213623,0.00019999,False,False
