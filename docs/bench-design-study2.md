@@ -158,6 +158,14 @@ so a failure there does not by itself mean AP is wrong. It still counts as a fai
 content-pinned AP deltas of Study 1's page arms, t(23) quantiles, 80% power, two-sided alpha
 0.05 / 3, reported as a range over arms.)
 
+Filled in on 2026-09-18 from `experiments/results/2026-09-18_study2-gate/gate.json`, before any
+Study 2 answer: the page-level SDs of the six content-pinned AP deltas on Study 1 range from
+2.97 to 7.22 pp, which gives an MDE on AP of 2.1 to 5.1 pp (24 pages, t quantiles, 80% power,
+two-sided alpha 0.05 / 3). The gate failed (see Deviations), so AP is a secondary metric and
+these numbers describe it only. The primary is now the sampled citation share, whose MDE at 3
+samples is computed from Study 2's own A/A re-sample and reported with the results; Study 1's
+was about 8 pp at 5 samples, so something near or above that is expected.
+
 ## Budget
 
 A FakeLLM and FakeScorer dry run of this exact design (`configs/study2_dryrun.yaml`) makes 1,512
@@ -309,3 +317,30 @@ exists. Each item was committed on its own, before the GPU step it affects.
    it off, so without this the two would build different prompts for those models and the
    equivalence check in item 3 would compare different things. Qwen2.5's template ignores the
    option, so nothing scored with Qwen2.5 changes.
+
+### Gate result (2026-09-18, before any Study 2 answer)
+
+The gate ran on `qwen2.5-3b-mlx4` through Localhost AI at commit c61e05d (a docs and tests
+commit on top of 154b4cd; the server code is the same), at batch 1, and failed two of four
+criteria (`experiments/results/2026-09-18_study2-gate/gate.md`):
+
+1. Slot 5 vs slot 1 on AP: -44.4 pp [-58.5, -29.7], Holm p 0.0002 (sign-flip) and 0.0002
+   (Wilcoxon) on 17 pages. Pass.
+2. FAQ rewrite, content-pinned, on AP: -8.1 pp [-11.1, -5.4]. Pass.
+3. Relative precision: AP's |delta| / CI half-width is 2.83, the citation share's 2.24. AP's
+   is 1.27 times the citation share's, short of the 1 / 0.6 = 1.67 required. Fail.
+4. Spearman between AP and citation-share page deltas over the six content-pinned arms: rho
+   0.25 over 138 points, 0.47 after the reliability correction (rel 0.284; the run itself
+   measures 0.284), one-sided page-permutation p 0.33. Fail.
+
+As pre-registered, Study 2's primary metric is therefore the sampled citation share, with page
+units and weighting, the same two tests and Holm over the three arms; AP is reported as a
+secondary metric with no claims. Criterion 4's failure means AP does not track the sampled
+citation share page by page on Study 1's mostly null arms; it does not show that AP is wrong,
+and the design said beforehand that it would count as a failure anyway.
+
+Operational note: during the gate some `/v1/score` requests got no reply (the server went on
+serving later requests). The first attempt stopped on a 600 s timeout; the scorer now resends a
+request after 60 s on a fresh connection (b6c47a0, c017b31), and the gate that counts resent 9
+requests. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
+values; `vizor recompute` matches all 2,160 rows.
