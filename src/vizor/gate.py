@@ -123,7 +123,8 @@ def evaluate(run_dir: Path, ap_dir: Path, cfg) -> dict:
     mdes = [mde(float(s), n_pages, g.mde_family, t=True) for s in arm_sds]
     return {
         "run": run_dir.name,
-        "ap_dir": str(ap_dir),
+        # the directory's name, like "run": the absolute path would name the machine's user
+        "ap_dir": ap_dir.name,
         "criteria": {
             "1_slot_detected": {
                 "pass": c1,
