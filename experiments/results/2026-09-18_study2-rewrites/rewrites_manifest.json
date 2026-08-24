@@ -1,0 +1,208 @@
+{
+ "artifact": "rewrites.json",
+ "sha256": "a09cb77458c251ea1911f233d8a9efd47595ddbc759877a6a9829f0932928ade",
+ "reasoning_sha256": "ae3e6ba7ccf0d3fb63bb3f8560b2a1fe5717120a8f015d8616a6e1ae7d1fad72",
+ "model": "qwen3.5-9b-mlx4",
+ "repo": "mlx-community/Qwen3.5-9B-MLX-4bit",
+ "revision": "938d8919941c6e7efd3c7150eff7fe9d12afa631",
+ "server": "localhost-ai",
+ "server_commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f",
+ "server_settings": {
+  "LHAI_CONTROLLER": "fixed",
+  "LHAI_FIXED_BATCH": 1,
+  "LHAI_MAX_CONTEXT": 8192
+ },
+ "fingerprint": {
+  "model": "qwen3.5-9b-mlx4",
+  "preset": "qwen3.5-9b-mlx4",
+  "temperature": 0.6,
+  "seed": 0,
+  "max_tokens": 4096,
+  "request": {
+   "top_p": 0.95,
+   "chat_template_kwargs": {
+    "enable_thinking": true
+   },
+   "max_thinking_tokens": 2048
+  },
+  "prompt_sha256": "5bf41bfb22c16b6342643fc60fbc783acc3e7dda4909134d9a79c1392ca1c747"
+ },
+ "pages": 24,
+ "accepted": 23,
+ "min_accepted": 12,
+ "hit_thinking_cap": 24,
+ "hit_thinking_cap_accepted": 23,
+ "verdicts": {
+  "b41c59fcb2e0": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2432,
+   "finish_reason": "stop"
+  },
+  "baf916977aa2": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2370,
+   "finish_reason": "stop"
+  },
+  "96c105e5400c": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2370,
+   "finish_reason": "stop"
+  },
+  "21fb30346f35": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2417,
+   "finish_reason": "stop"
+  },
+  "1daf8466e88a": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2367,
+   "finish_reason": "stop"
+  },
+  "6d34f770bef1": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2402,
+   "finish_reason": "stop"
+  },
+  "f416cdb602aa": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2311,
+   "finish_reason": "stop"
+  },
+  "0a8b4cbfd175": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2396,
+   "finish_reason": "stop"
+  },
+  "b19cb69ab942": {
+   "accepted": false,
+   "violations": [
+    "<kept 18 of 88 words>"
+   ],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2219,
+   "finish_reason": "stop"
+  },
+  "4abe88d5bd5d": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2373,
+   "finish_reason": "stop"
+  },
+  "ba8a4a013889": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2386,
+   "finish_reason": "stop"
+  },
+  "baa1726cb87a": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2406,
+   "finish_reason": "stop"
+  },
+  "1304b2be9547": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2404,
+   "finish_reason": "stop"
+  },
+  "44084e8d0a55": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2392,
+   "finish_reason": "stop"
+  },
+  "e6d53256b798": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2414,
+   "finish_reason": "stop"
+  },
+  "72e6a1c8a458": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2388,
+   "finish_reason": "stop"
+  },
+  "5707ebc75771": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2393,
+   "finish_reason": "stop"
+  },
+  "5c7425502f0e": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2369,
+   "finish_reason": "stop"
+  },
+  "c946a6d27921": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2370,
+   "finish_reason": "stop"
+  },
+  "43ddf48c5681": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2413,
+   "finish_reason": "stop"
+  },
+  "d75d1cd34b38": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2424,
+   "finish_reason": "stop"
+  },
+  "19e3e9489af7": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2345,
+   "finish_reason": "stop"
+  },
+  "ab321b55d147": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2388,
+   "finish_reason": "stop"
+  },
+  "ca42a18ad475": {
+   "accepted": true,
+   "violations": [],
+   "thinking_tokens": 2048,
+   "completion_tokens": 2391,
+   "finish_reason": "stop"
+  }
+ },
+ "note": "revision and repo read from localhost-ai models.yaml at server_commit; the reasoning blocks are provenance only and never reach an answer model"
+}
