@@ -341,6 +341,6 @@ and the design said beforehand that it would count as a failure anyway.
 
 Operational note: during the gate some `/v1/score` requests got no reply (the server went on
 serving later requests). The first attempt stopped on a 600 s timeout; the scorer now resends a
-request after 60 s on a fresh connection (b6c47a0, c017b31), and the gate that counts resent 9
-requests. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
+request after 60 s on a fresh connection (b6c47a0, c017b31). The gate run reported here resent
+9 requests. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
 values; `vizor recompute` matches all 2,160 rows.
