@@ -1,0 +1,15 @@
+eval,policy,final_regret,final_regret_ci,mean_reward_pp,top_arm,top_arm_share
+replay,linucb(a=0.1),163.179,3.0585,-0.0978567,noop,0.893975
+replay,linucb(a=0.5),173.86,3.99424,-0.583823,noop,0.6661
+replay,linucb(a=1),190.49,4.92442,-1.4763,noop,0.5275
+replay,lints(v=0.1),168.46,3.17561,-0.395037,noop,0.815875
+replay,eps-greedy(0.1),175.715,2.63367,-0.621692,noop,0.7534
+replay,linucb-bias-only(a=0.1),163.207,2.58674,-0.0698206,noop,0.9873
+replay,random,275.261,3.35058,-5.56533,noop,0.253675
+replay,best fixed arm (hindsight),161.744,2.41965,0,noop,1
+replay,oracle,0,0,8.05063,,
+heldout,"linucb (frozen, contextual)",4.55337,1.9636,-5.69799,noop,0.555556
+heldout,linucb-bias-only (frozen),2.50209,1.26518,0,noop,1
+heldout,best fixed arm (chosen on train),2.50209,1.26518,0,noop,1
+heldout,random (expected),4.762,,-6.27751,,
+heldout,oracle,0,0,6.95026,,

@@ -1,0 +1,86 @@
+{
+ "run": "2026-09-18_study2-qwen3b",
+ "metric": "c_share",
+ "weighting": "page",
+ "family": [
+  "answer_first",
+  "evidence_surface_llm",
+  "faq_rewrite_v2"
+ ],
+ "arms": [
+  {
+   "arm": "answer_first",
+   "n_pages": 24,
+   "d_c_share_pp": -9.544115541666667,
+   "lo": -15.75426118784722,
+   "hi": -3.8416995482638896,
+   "sd_page_pp": 15.03973212962652,
+   "p_wilcoxon": 0.0039006471633911133,
+   "p_perm": 0.002599870006499675,
+   "n_zero_pages": 0,
+   "p_wilcoxon_holm": 0.0078012943267822266,
+   "p_perm_holm": 0.00519974001299935,
+   "accepted_pages": null,
+   "inconclusive": false,
+   "significant": true
+  },
+  {
+   "arm": "evidence_surface_llm",
+   "n_pages": 24,
+   "d_c_share_pp": -4.290421708333333,
+   "lo": -9.055386829166666,
+   "hi": -0.39266311666667053,
+   "sd_page_pp": 11.183411555936187,
+   "p_wilcoxon": 0.04599285125732422,
+   "p_perm": 0.043647817609119545,
+   "n_zero_pages": 3,
+   "p_wilcoxon_holm": 0.04599285125732422,
+   "p_perm_holm": 0.043647817609119545,
+   "accepted_pages": 23,
+   "inconclusive": false,
+   "significant": true
+  },
+  {
+   "arm": "faq_rewrite_v2",
+   "n_pages": 24,
+   "d_c_share_pp": -9.99129725,
+   "lo": -15.788120501736111,
+   "hi": -4.750487741319455,
+   "sd_page_pp": 13.951526691192488,
+   "p_wilcoxon": 0.001209259033203125,
+   "p_perm": 0.0008499575021248938,
+   "n_zero_pages": 4,
+   "p_wilcoxon_holm": 0.003627777099609375,
+   "p_perm_holm": 0.0025498725063746812,
+   "accepted_pages": null,
+   "inconclusive": false,
+   "significant": true
+  }
+ ],
+ "controls": [
+  {
+   "arm": "aa_resample",
+   "n_pages": 24,
+   "d_c_share_pp": -3.4378571944444456,
+   "lo": -6.622525572916668,
+   "hi": -0.45325993472223025,
+   "sd_page_pp": 7.959409880987607,
+   "p_wilcoxon": 0.08937323093414307,
+   "p_perm": 0.04534773261336933,
+   "n_zero_pages": 0
+  },
+  {
+   "arm": "noop",
+   "n_pages": 24,
+   "d_c_share_pp": 0.0,
+   "lo": 0.0,
+   "hi": 0.0,
+   "sd_page_pp": 0.0,
+   "p_wilcoxon": 1.0,
+   "p_perm": 1.0,
+   "n_zero_pages": 24
+  }
+ ],
+ "mde_pp": 5.588258224918904,
+ "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family"
+}

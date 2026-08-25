@@ -1,0 +1,241 @@
+{
+  "run": "2026-09-18_study2-qwen3b",
+  "run_git_commit": "c07c57b",
+  "scorer_id": "localhost-ai/qwen2.5-3b-mlx4",
+  "pin": {
+    "backend": "localhost-ai",
+    "url": "http://127.0.0.1:8431/v1/score",
+    "server": "localhost-ai",
+    "preset": "qwen2.5-3b-mlx4",
+    "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f",
+    "model": "qwen2.5-3b-mlx4",
+    "revision": "4f83f8f146fdf28b512a06562b671d7af4fab457",
+    "tokenizer_sha": "53532ad570e43718e4a465c9db068b743cf3bcae665b7608dbb80ed044b2b1d8",
+    "chat_template_kwargs": {}
+  },
+  "score_schema": "score-v1",
+  "refs": [
+    0,
+    1
+  ],
+  "config": {
+    "label": "Study 2: qwen2.5-3b-mlx4 via Localhost AI, bench corpus, Study 2 queries (pre-registered)",
+    "project": "data/bench/project_study2.yaml",
+    "embedder": "bge",
+    "reranker": "cross-encoder",
+    "index": "auto",
+    "sentiment": "vader",
+    "decay": "paper",
+    "samples": 3,
+    "queries": null,
+    "seed": 0,
+    "llm": {
+      "backend": "openai_compat",
+      "model": "qwen2.5-3b-mlx4",
+      "base_url": "http://127.0.0.1:8431/v1",
+      "temperature": 0.7,
+      "max_tokens": 450,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "You answer questions using numbered search results. Write short sentences. Put a citation in square brackets at the end of EVERY sentence, right before the period, naming the search result that supports that sentence. Format example, with made-up facts unrelated to any question: \"The Harrow kettle holds 1.7 litres [2]. It ships in three colours [2]. The Linden toaster has four slots [4].\" Never collect citations at the end of the answer.",
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen2.5-3b-mlx4"
+      },
+      "top_p": null,
+      "chat_template_kwargs": {},
+      "max_thinking_tokens": null,
+      "seed": 0
+    },
+    "sandbox": {
+      "arms": [
+        "noop",
+        "aa_resample",
+        "answer_first",
+        "evidence_surface_llm",
+        "faq_rewrite_v2"
+      ],
+      "llm_rewrites": false,
+      "allow_fabrication": false,
+      "position_sweep": [
+        1,
+        5
+      ],
+      "boost_sweep": [],
+      "bootstrap": 5000,
+      "sweep_queries": 36,
+      "primary_metric": "c_share",
+      "weighting": "page",
+      "rewrite_min_accepted": 12,
+      "frozen_rewrites": "experiments/results/2026-09-18_study2-rewrites/rewrites.json"
+    },
+    "render": {
+      "passage_policy": "query-top3"
+    },
+    "score": {
+      "backend": "localhost",
+      "model": "qwen2.5-3b-mlx4",
+      "revision": null,
+      "base_url": "http://127.0.0.1:8431",
+      "chat_template_kwargs": {},
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen2.5-3b-mlx4",
+        "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f"
+      },
+      "refs": [
+        0,
+        1
+      ],
+      "sets": [],
+      "comparisons": [
+        {
+          "name": "pinned:answer_first",
+          "set": "content:answer_first",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "pinned:evidence_surface_llm",
+          "set": "content:evidence_surface_llm",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "pinned:faq_rewrite_v2",
+          "set": "content:faq_rewrite_v2",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "full:answer_first",
+          "set": "answer_first",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:evidence_surface_llm",
+          "set": "evidence_surface_llm",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:faq_rewrite_v2",
+          "set": "faq_rewrite_v2",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "rank:answer_first",
+          "set": "answer_first",
+          "ref": "content:answer_first",
+          "family": "rank"
+        },
+        {
+          "name": "rank:evidence_surface_llm",
+          "set": "evidence_surface_llm",
+          "ref": "content:evidence_surface_llm",
+          "family": "rank"
+        },
+        {
+          "name": "rank:faq_rewrite_v2",
+          "set": "faq_rewrite_v2",
+          "ref": "content:faq_rewrite_v2",
+          "family": "rank"
+        },
+        {
+          "name": "body-top3:answer_first",
+          "set": "content:answer_first@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "body-top3:evidence_surface_llm",
+          "set": "content:evidence_surface_llm@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "body-top3:faq_rewrite_v2",
+          "set": "content:faq_rewrite_v2@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "aa_resample",
+          "set": "aa_resample",
+          "ref": "baseline",
+          "family": "control"
+        },
+        {
+          "name": "noop",
+          "set": "noop",
+          "ref": "baseline",
+          "family": "control"
+        },
+        {
+          "name": "slot 5 vs 1",
+          "set": "engine:target_at:5",
+          "ref": "engine:target_at:1",
+          "family": "slot"
+        }
+      ],
+      "prompt_arms": [
+        "content:answer_first",
+        "content:evidence_surface_llm",
+        "content:faq_rewrite_v2"
+      ],
+      "policies": [
+        "body-top3"
+      ],
+      "bootstrap": 5000,
+      "draws": 20000,
+      "workers": 1
+    },
+    "gate": {
+      "slot": "slot 5 vs 1",
+      "faq_ap": "pinned:faq_rewrite",
+      "faq_c_share": "content:faq_rewrite",
+      "pairs": {},
+      "slot_alpha": 0.01,
+      "ci_ratio": 0.6,
+      "spearman": 0.5,
+      "rel": null,
+      "spearman_alpha": 0.05,
+      "mde_family": 3
+    },
+    "rewriter": {
+      "backend": "openai_compat",
+      "model": "qwen3.5-9b-mlx4",
+      "base_url": "http://127.0.0.1:8432/v1",
+      "temperature": 0.6,
+      "max_tokens": 4096,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "",
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen3.5-9b-mlx4"
+      },
+      "top_p": 0.95,
+      "chat_template_kwargs": {
+        "enable_thinking": true
+      },
+      "max_thinking_tokens": 2048,
+      "seed": 0
+    },
+    "bandit": {
+      "rounds": 2000,
+      "runs": 20,
+      "greedy_steps": 0
+    }
+  },
+  "n_rows": 2016,
+  "n_rows_with_sites": 2003,
+  "scorer_stats": {
+    "calls": 998,
+    "cache_hits": 1018
+  },
+  "elapsed_s": 5495.3,
+  "rows_sha256": "91513dbdbd6758136b35be88f1b33e7b17403f0bf017af4ea55bd8155520ca6d"
+}

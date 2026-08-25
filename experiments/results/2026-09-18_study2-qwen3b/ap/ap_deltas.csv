@@ -1,0 +1,16 @@
+name,family,set,ref,n_queries,n_units,ap_ref_pct,ap_pct,d_ap_pp,d_ap_lo,d_ap_hi,sd_unit_pp,p_wilcoxon,p_perm,n_zero_units,focus_in_sources_pct,remapped_pct,d_ap_first_pp,d_ap_first_lo,d_ap_first_hi,p_perm_first,p_wilcoxon_holm,p_perm_holm,significant,inconclusive
+pinned:answer_first,primary,content:answer_first,baseline,72,24,53.9278,52.5836,-1.34422,-2.99576,0.208081,4.01345,0.107383,0.117794,0,98.6111,0,-1.86983,-4.66433,0.42992,0.180991,0.214765,0.235588,False,False
+pinned:evidence_surface_llm,primary,content:evidence_surface_llm,baseline,72,24,53.9278,53.8833,-0.0445051,-0.745485,0.628473,1.77517,0.838194,0.904755,3,98.6111,0,0.730722,-0.522279,2.09015,0.311184,0.838194,0.904755,False,False
+pinned:faq_rewrite_v2,primary,content:faq_rewrite_v2,baseline,72,24,53.9278,49.9806,-3.94722,-6.73326,-1.61793,6.47408,0.00198555,0.00109995,4,98.6111,0,-5.60583,-10.5594,-1.81089,0.00234988,0.00595665,0.00329984,True,False
+full:answer_first,full,answer_first,baseline,72,24,53.9278,52.3178,-1.61001,-5.03447,2.14898,9.20224,0.12084,0.410929,0,91.6667,40.2778,-6.18162,-12.8217,0.339849,0.0858957,0.24168,0.456177,False,False
+full:evidence_surface_llm,full,evidence_surface_llm,baseline,72,24,53.9278,53.4022,-0.525594,-1.33447,0.250876,2.06778,0.431911,0.228089,3,97.2222,5.55556,-3.34571,-11.5838,1.49427,0.721764,0.431911,0.456177,False,False
+full:faq_rewrite_v2,full,faq_rewrite_v2,baseline,72,24,53.9278,48.6399,-5.28787,-8.8739,-2.43908,8.33709,0.000850677,0.000449978,4,98.6111,2.77778,-9.13986,-17.5086,-3.01344,0.000849958,0.00255203,0.00134993,False,False
+rank:answer_first,rank,answer_first,content:answer_first,72,24,52.5836,52.3178,-0.265792,-3.91549,3.79775,9.93205,0.403748,0.893505,8,91.6667,40.2778,-4.31179,-11.5772,2.72658,0.263237,0.807495,0.987051,False,False
+rank:evidence_surface_llm,rank,evidence_surface_llm,content:evidence_surface_llm,72,24,53.8833,53.4022,-0.481089,-1.27517,0.0407546,1.74799,0.25,0.250337,20,97.2222,5.55556,-4.07644,-11.8147,5.24097e-07,0.249338,0.75,0.751012,False,False
+rank:faq_rewrite_v2,rank,faq_rewrite_v2,content:faq_rewrite_v2,72,24,49.9806,48.6399,-1.34065,-4.01626,0,6.5388,0.5,0.493525,22,98.6111,2.77778,-3.53403,-10.357,0,0.493525,0.807495,0.987051,False,False
+body-top3:answer_first,body-top3,content:answer_first@body-top3,baseline@body-top3,72,24,55.1345,53.6367,-1.49779,-2.99624,-0.211156,3.54356,0.0564266,0.039348,0,98.6111,0,-1.66508,-3.80016,0.182004,0.134293,0.16928,0.118044,False,False
+body-top3:evidence_surface_llm,body-top3,content:evidence_surface_llm@body-top3,baseline@body-top3,72,24,55.1345,54.3398,-0.794678,-2.10622,0.304867,3.10191,0.0646496,0.253987,3,98.6111,0,0.681179,-0.905458,2.90951,0.703965,0.16928,0.507975,False,False
+body-top3:faq_rewrite_v2,body-top3,content:faq_rewrite_v2@body-top3,baseline@body-top3,72,24,55.1345,55.1345,0,0,0,0,1,1,24,98.6111,0,0,0,0,1,1,1,False,False
+aa_resample,control,aa_resample,baseline,72,24,53.9278,53.9278,0,0,0,0,1,1,24,98.6111,0,0,0,0,1,1,1,False,False
+noop,control,noop,baseline,72,24,53.9278,53.9278,0,0,0,0,1,1,24,98.6111,0,0,0,0,1,1,1,False,False
+slot 5 vs 1,slot,engine:target_at:5,engine:target_at:1,36,16,43.9421,21.5563,-22.3859,-30.7374,-14.5837,16.9444,6.10352e-05,9.9995e-05,0,100,100,-58.159,-72.9524,-42.2066,0.00019999,6.10352e-05,9.9995e-05,False,False

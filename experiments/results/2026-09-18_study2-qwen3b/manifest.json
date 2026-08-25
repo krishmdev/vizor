@@ -1,0 +1,378 @@
+{
+  "vizor_version": "0.2.0",
+  "git_commit": "c07c57b",
+  "src_tree": "c937e7ac40eb0f350886b22e528ecbd24df7de5a",
+  "source_sha256_start": "04df2b87ae69f4f7b86ef3aec76b5615bba6a471b8671ab857de0dfd426ed07d",
+  "source_sha256_end": "04df2b87ae69f4f7b86ef3aec76b5615bba6a471b8671ab857de0dfd426ed07d",
+  "config_sha256": "5c079f0e826192b8a21a2dc32c1c354e18bc169fb72740a28a09afc5be6cb43d",
+  "corpus_sha256_start": "07532eb0ae346943f4aff008625a06516b8a432fe6ccbbdedafb7b651ee52873",
+  "corpus_sha256_end": "07532eb0ae346943f4aff008625a06516b8a432fe6ccbbdedafb7b651ee52873",
+  "started": "2026-09-18T13:08:05-0400",
+  "elapsed_s": 9581.8,
+  "config": {
+    "label": "Study 2: qwen2.5-3b-mlx4 via Localhost AI, bench corpus, Study 2 queries (pre-registered)",
+    "project": "data/bench/project_study2.yaml",
+    "embedder": "bge",
+    "reranker": "cross-encoder",
+    "index": "auto",
+    "sentiment": "vader",
+    "decay": "paper",
+    "samples": 3,
+    "queries": null,
+    "seed": 0,
+    "llm": {
+      "backend": "openai_compat",
+      "model": "qwen2.5-3b-mlx4",
+      "base_url": "http://127.0.0.1:8431/v1",
+      "temperature": 0.7,
+      "max_tokens": 450,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "You answer questions using numbered search results. Write short sentences. Put a citation in square brackets at the end of EVERY sentence, right before the period, naming the search result that supports that sentence. Format example, with made-up facts unrelated to any question: \"The Harrow kettle holds 1.7 litres [2]. It ships in three colours [2]. The Linden toaster has four slots [4].\" Never collect citations at the end of the answer.",
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen2.5-3b-mlx4",
+        "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f"
+      },
+      "top_p": null,
+      "chat_template_kwargs": {},
+      "max_thinking_tokens": null,
+      "seed": 0
+    },
+    "sandbox": {
+      "arms": [
+        "noop",
+        "aa_resample",
+        "answer_first",
+        "evidence_surface_llm",
+        "faq_rewrite_v2"
+      ],
+      "llm_rewrites": false,
+      "allow_fabrication": false,
+      "position_sweep": [
+        1,
+        5
+      ],
+      "boost_sweep": [],
+      "bootstrap": 5000,
+      "sweep_queries": 36,
+      "primary_metric": "c_share",
+      "weighting": "page",
+      "rewrite_min_accepted": 12,
+      "frozen_rewrites": "experiments/results/2026-09-18_study2-rewrites/rewrites.json"
+    },
+    "render": {
+      "passage_policy": "query-top3"
+    },
+    "score": {
+      "backend": "localhost",
+      "model": "qwen2.5-3b-mlx4",
+      "revision": null,
+      "base_url": "http://127.0.0.1:8431",
+      "chat_template_kwargs": {},
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen2.5-3b-mlx4"
+      },
+      "refs": [
+        0,
+        1
+      ],
+      "sets": [],
+      "comparisons": [
+        {
+          "name": "pinned:answer_first",
+          "set": "content:answer_first",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "pinned:evidence_surface_llm",
+          "set": "content:evidence_surface_llm",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "pinned:faq_rewrite_v2",
+          "set": "content:faq_rewrite_v2",
+          "ref": "baseline",
+          "family": "primary"
+        },
+        {
+          "name": "full:answer_first",
+          "set": "answer_first",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:evidence_surface_llm",
+          "set": "evidence_surface_llm",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "full:faq_rewrite_v2",
+          "set": "faq_rewrite_v2",
+          "ref": "baseline",
+          "family": "full"
+        },
+        {
+          "name": "rank:answer_first",
+          "set": "answer_first",
+          "ref": "content:answer_first",
+          "family": "rank"
+        },
+        {
+          "name": "rank:evidence_surface_llm",
+          "set": "evidence_surface_llm",
+          "ref": "content:evidence_surface_llm",
+          "family": "rank"
+        },
+        {
+          "name": "rank:faq_rewrite_v2",
+          "set": "faq_rewrite_v2",
+          "ref": "content:faq_rewrite_v2",
+          "family": "rank"
+        },
+        {
+          "name": "body-top3:answer_first",
+          "set": "content:answer_first@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "body-top3:evidence_surface_llm",
+          "set": "content:evidence_surface_llm@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "body-top3:faq_rewrite_v2",
+          "set": "content:faq_rewrite_v2@body-top3",
+          "ref": "baseline@body-top3",
+          "family": "body-top3"
+        },
+        {
+          "name": "aa_resample",
+          "set": "aa_resample",
+          "ref": "baseline",
+          "family": "control"
+        },
+        {
+          "name": "noop",
+          "set": "noop",
+          "ref": "baseline",
+          "family": "control"
+        },
+        {
+          "name": "slot 5 vs 1",
+          "set": "engine:target_at:5",
+          "ref": "engine:target_at:1",
+          "family": "slot"
+        }
+      ],
+      "prompt_arms": [
+        "content:answer_first",
+        "content:evidence_surface_llm",
+        "content:faq_rewrite_v2"
+      ],
+      "policies": [
+        "body-top3"
+      ],
+      "bootstrap": 5000,
+      "draws": 20000,
+      "workers": 1
+    },
+    "gate": {
+      "slot": "slot 5 vs 1",
+      "faq_ap": "pinned:faq_rewrite",
+      "faq_c_share": "content:faq_rewrite",
+      "pairs": {},
+      "slot_alpha": 0.01,
+      "ci_ratio": 0.6,
+      "spearman": 0.5,
+      "rel": null,
+      "spearman_alpha": 0.05,
+      "mde_family": 3
+    },
+    "rewriter": {
+      "backend": "openai_compat",
+      "model": "qwen3.5-9b-mlx4",
+      "base_url": "http://127.0.0.1:8432/v1",
+      "temperature": 0.6,
+      "max_tokens": 4096,
+      "workers": 1,
+      "max_cost_usd": null,
+      "system_prompt": "",
+      "server_meta": {
+        "server": "localhost-ai",
+        "preset": "qwen3.5-9b-mlx4",
+        "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f"
+      },
+      "top_p": 0.95,
+      "chat_template_kwargs": {
+        "enable_thinking": true
+      },
+      "max_thinking_tokens": 2048,
+      "seed": 0
+    },
+    "bandit": {
+      "rounds": 2000,
+      "runs": 20,
+      "greedy_steps": 0
+    }
+  },
+  "project": "bike-commuting-bench",
+  "n_docs": 72,
+  "n_queries": 72,
+  "samples": 3,
+  "embedder_id": "sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7",
+  "reranker_id": "cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44",
+  "index_backend": "numpy",
+  "llm_model": "qwen2.5-3b-mlx4",
+  "llm_is_fake": false,
+  "fake_llm_position_prior": null,
+  "models_seen": [
+    "qwen2.5-3b-mlx4"
+  ],
+  "single_model_snapshot": true,
+  "system_fingerprints": {},
+  "prompt_instruction_sha256": "29ee6ad65d4659bd",
+  "system_prompt": "You answer questions using numbered search results. Write short sentences. Put a citation in square brackets at the end of EVERY sentence, right before the period, naming the search result that supports that sentence. Format example, with made-up facts unrelated to any question: \"The Harrow kettle holds 1.7 litres [2]. It ships in three colours [2]. The Linden toaster has four slots [4].\" Never collect citations at the end of the answer.",
+  "seed_scheme": "sha256(base_seed, query_id, sample, salt)[:8] & 0x7fffffff",
+  "base_seed": 0,
+  "sentiment_backend": "vader/vaderSentiment-3.3.2/compound",
+  "decay": "paper",
+  "primary_metric": "c_share",
+  "passage_policy": "query-top3",
+  "weighting": "page",
+  "brands": {
+    "larkspur.example": "(?<![A-Za-z0-9])(?:Larkspur)(?![A-Za-z0-9])",
+    "cogandchain.example": "(?<![A-Za-z0-9])(?:Cog[\\s-]*(?:&|and)[\\s-]*Chain)(?![A-Za-z0-9])",
+    "spokewise.example": "(?<![A-Za-z0-9])(?:Spokewise)(?![A-Za-z0-9])",
+    "pedalcheap.example": "(?<![A-Za-z0-9])(?:Pedalcheap)(?![A-Za-z0-9])",
+    "saddlesore.example": "(?<![A-Za-z0-9])(?:Saddlesore)(?![A-Za-z0-9])"
+  },
+  "transform_query_scope": "crossfit-2",
+  "page_arm_scope": "focus page per query",
+  "model_pins": {
+    "embedder": "BAAI/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2@233902d25c440f23af6f7d6e94d2946bac0bee0a",
+    "sentiment": "cardiffnlp/twitter-roberta-base-sentiment-latest@3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7"
+  },
+  "score_scale": {
+    "median_top5_spread": 0.9172838893847922,
+    "median_gap_5_6": 0.004743203487790962,
+    "score_range": [
+      0.0,
+      1.0
+    ]
+  },
+  "llm_usage": {
+    "calls": 1179,
+    "cache_hits": 333,
+    "spent_usd": 0.0,
+    "ledger_total_usd": 0.0
+  },
+  "rewriter": {
+    "backend": "openai_compat",
+    "model": "qwen3.5-9b-mlx4",
+    "base_url": "http://127.0.0.1:8432/v1",
+    "temperature": 0.6,
+    "max_tokens": 4096,
+    "workers": 1,
+    "max_cost_usd": null,
+    "system_prompt": "",
+    "server_meta": {
+      "server": "localhost-ai",
+      "preset": "qwen3.5-9b-mlx4",
+      "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f"
+    },
+    "top_p": 0.95,
+    "chat_template_kwargs": {
+      "enable_thinking": true
+    },
+    "max_thinking_tokens": 2048,
+    "seed": 0,
+    "model_id": "qwen3.5-9b-mlx4"
+  },
+  "rewrite_guard": {
+    "evidence_surface_llm": {
+      "pages": 24,
+      "rejected": 1,
+      "rejection_rate": 0.041666666666666664,
+      "rejected_pages": {
+        "b19cb69ab942": [
+          "<kept 18 of 88 words>"
+        ]
+      }
+    }
+  },
+  "frozen_rewrites": {
+    "path": "experiments/results/2026-09-18_study2-rewrites/rewrites.json",
+    "sha256": "a09cb77458c251ea1911f233d8a9efd47595ddbc759877a6a9829f0932928ade",
+    "server_commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f",
+    "accepted": 23,
+    "pages": 24
+  },
+  "skipped_due_to_budget": [],
+  "host": {
+    "recorded_at": "2026-09-18T15:47:47-0400",
+    "host": {
+      "chip": "Apple M1 Pro",
+      "ram_gb": 16.0,
+      "os": "Darwin 26.5.1",
+      "python": "3.14.6",
+      "power": "Now drawing from 'AC Power'"
+    },
+    "exclusive_compute": {
+      "held": true,
+      "holder": "vizor"
+    },
+    "load": {
+      "loadavg": [
+        "4.66",
+        "2.96",
+        "2.83"
+      ],
+      "cpu_usage": "CPU usage: 1.85% user, 9.62% sys, 88.51% idle",
+      "docker_containers_running": 0,
+      "swap": "total = 5120.00M  used = 3724.31M  free = 1395.69M  (encrypted)"
+    },
+    "extra": {
+      "llm": "qwen2.5-3b-mlx4",
+      "device": "cpu"
+    }
+  },
+  "input_fingerprints_match": true,
+  "sensitivity": {
+    "metric": "c_share",
+    "aa_sd_per_query_pp": 16.65031881423228,
+    "aa_mean_pp": -2.9516050000000003,
+    "n_queries": 72,
+    "arm_holm_family": 3,
+    "content_holm_family": 0,
+    "families_from_plan": false,
+    "power": 0.8,
+    "alpha": 0.05,
+    "engine_arm_pp": 6.349086893592969,
+    "sweep_holm_family": 1,
+    "position_n_queries": 36,
+    "position_pp": 7.774547844470233,
+    "n_page_units": 24,
+    "n_page_units_min": 24,
+    "page_arms_testable": true,
+    "min_exact_p_page_units": 1.1920928955078125e-07,
+    "unit_sd_page_pp": 7.959409880987606,
+    "n_units_page": 24,
+    "page_arm_page_pp": 5.256906037672892,
+    "page_arm_page_t_pp": 5.588258224918903,
+    "unit_sd_page_x_fold_pp": 10.371817056072205,
+    "n_units_page_x_fold": 37,
+    "page_arm_page_x_fold_pp": 5.5170758052145645,
+    "page_arm_page_x_fold_t_pp": 5.733897200690963,
+    "page_arm_pp": 5.256906037672892,
+    "mention_aa_sd_per_query_pp": 21.160054685096853,
+    "mention_page_arm_pp": 10.004268832805423
+  }
+}

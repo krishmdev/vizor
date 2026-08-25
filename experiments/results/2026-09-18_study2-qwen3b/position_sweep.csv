@@ -1,0 +1,3 @@
+position,n_queries,pwc_pct,pwc_lo,pwc_hi,cite_rate_pct,c_share_pct,d_pwc_vs_first_pp,d_lo,d_hi,d_csov_vs_first_pp,d_csov_lo,d_csov_hi,mention_pct,p_pwc,p,primary,p_holm,significant
+1,36,58.679,49.2042,67.9438,89.8148,55.4222,0,0,0,0,0,0,77.7778,1,1,c_share,,False
+5,36,28.1796,19.3356,37.6289,48.1481,28.8713,-30.4995,-40.8313,-19.3406,-26.5509,-36.6263,-15.7245,79.6296,1.83436e-06,2.29238e-05,c_share,2.29238e-05,True
