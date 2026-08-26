@@ -1,0 +1,32 @@
+{
+  "recorded_at": "2026-09-18T17:21:28-0400",
+  "host": {
+    "chip": "Apple M1 Pro",
+    "ram_gb": 16.0,
+    "os": "Darwin 26.5.1",
+    "python": "3.14.6",
+    "power": "Now drawing from 'AC Power'"
+  },
+  "exclusive_compute": {
+    "held": true,
+    "holder": "vizor"
+  },
+  "load": {
+    "loadavg": [
+      "3.03",
+      "3.77",
+      "3.58"
+    ],
+    "cpu_usage": "CPU usage: 2.64% user, 9.43% sys, 87.92% idle",
+    "docker_containers_running": 0,
+    "swap": "total = 4096.00M  used = 3244.62M  free = 851.38M  (encrypted)"
+  },
+  "extra": {
+    "mode": "gemma",
+    "model": "gemma-4-e4b-mlx4",
+    "server": "localhost-ai",
+    "server_commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f",
+    "server_batch": "1",
+    "vizor_commit": "0fb6f3c"
+  }
+}
