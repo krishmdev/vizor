@@ -76,7 +76,11 @@ def main() -> int:
         "model": sc.model,
         "server_commit": a.server_commit,
         "server_pin": pin,
-        "mlx_pin": local.pin(),
+        # a local snapshot directory is recorded by its revision, not its path
+        "mlx_pin": {
+            **local.pin(),
+            "repo": str(a.repo) if not Path(a.repo).is_dir() else f"<snapshot>/{Path(a.repo).name}",
+        },
         "chat_template_kwargs": kw,
         "prompts": len(rows),
         "sites": sum(r["sites"] for r in rows),
