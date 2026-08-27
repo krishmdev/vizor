@@ -344,3 +344,32 @@ serving later requests). The first attempt stopped on a 600 s timeout; the score
 request after 60 s on a fresh connection (b6c47a0, c017b31). The gate run reported here resent
 9 requests. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
 values; `vizor recompute` matches all 2,160 rows.
+
+### Study 2 run and the Gemma replication (2026-09-18)
+
+Study 2 ran as planned, with the fallback primary: `experiments/results/2026-09-18_study2-qwen3b`.
+Before any answer, the determinism check on `qwen2.5-3b-mlx4` at batch 1 gave 10 of 10
+byte-identical answers alone and again alone, and 10 of 10 when sent together (queued by the
+server). The frozen rewrites had 23 of 24 pages accepted, so `evidence_surface_llm` is
+conclusive; all 24 rewrites reached the 2,048-token thinking budget. The fallback primary is
+computed by `scripts/sampled_primary.py` (exact Wilcoxon with zero pages dropped and the sign-flip
+test on the 24 page means, each Holm-adjusted over the three arms). The legacy test in `vizor
+report`'s table (Study 1's Wilcoxon with zero-splitting) is shown there for continuity and is
+not the pre-registered test; it gives Holm p 0.052 instead of 0.046 for `evidence_surface_llm`.
+
+The Gemma replication (item 3 of the second amendment) did not run. Its pre-run checks did
+(`experiments/results/2026-09-18_gemma-e4b-checks`):
+
+- Determinism at batch 1: 10 of 10 byte-identical, alone and queued, with thinking off.
+- `/v1/score` against in-process mlx-lm (mlx-lm 0.31.3, mlx 0.32.2, the same checkpoint and
+  tokenizer hash): not equivalent. On the ten real prompts, 90 sites, the largest log-probability
+  difference is 0.74. A probe with one prompt padded to growing lengths gives exactly 0 at 68,
+  158 and 488 prompt tokens and 0.38 and 0.24 at 938 and 1,838 tokens, so the two disagree once
+  the prompt passes Gemma's 512-token sliding window. Which side is wrong is not established
+  here. Study 2 prompts are about 1,000 to 2,000 tokens, so Gemma AP scores from `/v1/score`
+  are not usable until this is resolved in Localhost AI.
+- Time: Gemma answers took about 14 s each at batch 1, so the two sampled parts (about 2,200
+  answers) would take about 8.5 hours before scoring, well past the budget for this session.
+
+The replication stays pre-registered as written and can run later with the same configs.
+Nothing about it is reported as a result.
