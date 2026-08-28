@@ -366,7 +366,7 @@ The Gemma replication (item 3 of the second amendment) did not run. Its pre-run 
   difference is 0.74. A probe with one prompt padded to growing lengths gives exactly 0 at 68,
   158 and 488 prompt tokens and 0.38 and 0.24 at 938 and 1,838 tokens, so the two disagree once
   the prompt passes Gemma's 512-token sliding window. Which side is wrong is not established
-  here. Study 2 prompts are about 1,000 to 2,000 tokens, so Gemma AP scores from `/v1/score`
+  here. Study 2 prompts run about 2,000 to 2,700 tokens, so Gemma AP scores from `/v1/score`
   are not usable until this is resolved in Localhost AI.
 - Time: Gemma answers took about 14 s each at batch 1, so the two sampled parts (about 2,200
   answers) would take about 8.5 hours before scoring, well past the budget for this session.
