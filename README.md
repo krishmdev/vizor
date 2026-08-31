@@ -348,12 +348,67 @@ below 0.05.
 - 17-27% of answers, depending on the arm, cite nothing at all, even with a system message that
   asks for a citation on every sentence.
 
-A second study with a lower-noise metric and edits chosen from this diagnosis is pre-registered
-in [docs/bench-design-study2.md](docs/bench-design-study2.md). It has not been run yet. Its
-primary metric, attribution propensity, keeps a baseline answer fixed and asks the model how
-likely each source index is at every citation site of that answer under the edited prompt, so an
-unchanged prompt gives exactly zero difference and no sampling noise enters. The tooling for it
-is in place and tested offline with a deterministic fake scorer:
+**Study 2.** A second study, pre-registered in
+[docs/bench-design-study2.md](docs/bench-design-study2.md) with its amendments and deviations,
+tested three edits chosen from that diagnosis on 72 new queries, with `qwen2.5-3b-mlx4` served by
+Localhost AI at 3 samples per query:
+
+- `answer_first` moves the page's key-fact sentences to the top, rewording nothing.
+- `evidence_surface_llm` has a second model (Qwen3.5-9B with thinking on) restate the page with
+  its own numbers stated early. A guard rejects any rewrite that adds a number or name or drops
+  too much; 23 of 24 rewrites passed, and all 24 used the full 2,048-token thinking budget.
+- `faq_rewrite_v2` adds at most two FAQ pairs built from the page's own section headings.
+
+It was meant to use a new metric, attribution propensity (AP): keep a baseline answer fixed and
+ask the model how likely each source index is at every citation site under the edited prompt,
+so an unchanged prompt gives exactly zero difference. AP first had to pass a validation gate on
+Study 1's data, and it failed two of the four criteria: it detected the slot effect (-44 points)
+and the FAQ harm (-8 points), but it was not precise enough relative to its own effect size, and
+its page-level deltas did not track the sampled citation share (rho 0.25, permutation p 0.33).
+As pre-registered, the primary metric became the sampled citation share on 24 page units, with
+an effect counted only if the exact Wilcoxon and the sign-flip test are both below 0.05 after
+Holm over the three edits (`sampled_primary.md` in the results folder):
+
+| Edit | Citation share change, pp [95% CI] | Holm p, Wilcoxon | Holm p, sign-flip |
+|---|---|---|---|
+| `answer_first` | -9.5 [-15.8, -3.8] | 0.008 | 0.005 |
+| `evidence_surface_llm` | -4.3 [-9.1, -0.4] | 0.046 | 0.044 |
+| `faq_rewrite_v2` | -10.0 [-15.8, -4.8] | 0.004 | 0.003 |
+| A/A re-sample (control) | -3.4 [-6.6, -0.5] | 0.089 (raw) | 0.045 (raw) |
+
+- All three edits lowered the target's citation share, and all three meet the decision rule.
+  The design predicted that `answer_first` would not be negative; it was.
+- The `evidence_surface_llm` result is weak. It is about the size of the A/A control's own
+  drift (-3.4 points, raw sign-flip p 0.045, from re-sampling the same prompts), its adjusted p
+  values sit just under 0.05, and Study 1's older Wilcoxon variant in the generated table above
+  gives 0.052. Read it as "possibly a small harm", not as an established effect.
+- The run can detect about 5.6 points (80% power, from the A/A page SD of 8.0 points).
+- `faq_rewrite_v2` lowered citation share by 10 points, against Study 1's 15.4 for the original
+  FAQ rewrite. The queries and the model build differ, so this is only loosely comparable.
+- None of the edits changed how often answers name the brand by a Holm-significant amount.
+- On AP, now a secondary metric, only `faq_rewrite_v2` moved (-4.0 points [-6.7, -1.6] with the
+  sources held fixed), and under the `body-top3` rendering, where FAQ passages are never shown,
+  its AP change is exactly 0, as predicted. AP saw almost nothing for `answer_first` (-1.3) and
+  `evidence_surface_llm` (0.0) while the sampled answers moved, which is the same disagreement
+  that failed the gate.
+- A cross-family replication on Gemma 4 E4B is pre-registered but has not run. Its answers are
+  byte-identical at batch 1, but Localhost AI's `/v1/score` does not match in-process mlx-lm
+  scoring once a prompt passes Gemma's 512-token sliding window, and at about 14 s per answer
+  the sampled parts alone would take about 8.5 hours.
+
+**Localhost AI.** Study 2 is served by Localhost AI, the author's own inference server (a separate
+repository, at commit c61e05d; its server code is the same as at 154b4cd). Every manifest records
+that commit, and the scorer refuses a server that reports a different one. Two of its findings
+shaped the design: its MLX models give byte-identical output when a request runs alone but not
+inside a batch of two or more, so every Study 2 call ran at batch 1 with one request at a time
+(`LHAI_CONTROLLER=fixed LHAI_FIXED_BATCH=1`), and mlx-lm turns thinking on by default for Gemma 4
+and Qwen3.5, so the in-process scorer turns it off to match the server. At batch 1 on an M1 Pro,
+answers took about 9 s each on the 3B model, and the scoring server now and then left a request
+unanswered while serving later ones; the client resends such a request after 60 s (9 times in the
+gate), which is safe because scoring is deterministic and cached. `vizor recompute` reproduces
+every stored AP value.
+
+The tooling behind it, all tested offline with a deterministic fake scorer:
 
 - `vizor score <run>` scores a stored run's prompt sets against its baseline answers
   (Localhost AI's `/v1/score`, mlx-lm, or the fake) and writes page-level paired results;
@@ -442,8 +497,14 @@ tests/          402 offline tests, incl. vendored GEO reference functions
 
 ## Limitations
 
-- All real-model results come from one small local model (qwen2.5:3b through Ollama). Nothing
-  here says anything about ChatGPT, Perplexity or any other production engine.
+- All real-model results come from one small local model, Qwen2.5-3B (through Ollama in Study 1
+  and as an MLX 4-bit build through Localhost AI in Study 2). The Gemma replication has not
+  run. Nothing here says anything about ChatGPT, Perplexity or any other production engine.
+- Study 2's primary metric had to fall back to the sampled citation share because AP failed its
+  validation gate. At 3 samples per query the A/A control itself drifted by -3.4 points, so the
+  smallest Study 2 effect (`evidence_surface_llm`, -4.3) is close to the noise.
+- The Study 2 rewrites come from one model (Qwen3.5-9B) at one seed, and every one of them hit
+  the 2,048-token thinking budget, so a larger budget might have given different pages.
 - The sandbox engine is a model of an answer engine, not a production one. Real engines retrieve
   differently, may not show JSON-LD or meta descriptions to the model at all, and change without
   notice.
@@ -451,12 +512,13 @@ tests/          402 offline tests, incl. vendored GEO reference functions
   pages have no FAQ block and no JSON-LD, so those edits always had something to add. The
   queries are hand-written, 3 per topic, and the cross-fitted edits saw same-topic sibling
   queries, so "held out" means a held-out query, not a held-out topic.
-- The bench run can detect effects of about 8-9 points on citation share. Smaller effects of the
-  kind real sites might care about are below its resolution.
-- The headline rule counts an edit if it passes on citation share or on the named rate, each at
-  0.05, so its false-claim rate is up to about 0.10.
-- Many answers cite nothing (17-27% per arm), and citation share is computed over the markers
-  the model did write.
+- Study 1 can detect effects of about 8-9 points on citation share, Study 2 about 5.6. Smaller
+  effects of the kind real sites might care about are below their resolution.
+- Study 1's headline rule counts an edit if it passes on citation share or on the named rate,
+  each at 0.05, so its false-claim rate is up to about 0.10. Study 2 has one primary metric and
+  requires both tests.
+- In Study 1 many answers cite nothing (17-27% per arm; 0-2% in Study 2), and citation share is
+  computed over the markers the model did write.
 - The archived 2026-08-05 local run uses a reduced design (20 queries x 2 samples), its stored
   parses fail recomputation, and it has no power for page edits.
 - OpenAI's `seed` is best effort, so common random numbers give little variance reduction there.
