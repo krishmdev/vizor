@@ -87,6 +87,37 @@ def sign_flip_p(unit_deltas: np.ndarray, draws: int = 20000, seed: int = 0) -> f
     return (1 + hits) / (1 + draws)
 
 
+def sign_flip_exact_p(unit_deltas: np.ndarray, max_n: int = 40) -> float:
+    """Exact two-sided sign-flip p over all 2^n sign patterns, by meet in the middle.
+
+    The sums over each half of the units are enumerated (2^(n/2) each), one side is sorted, and
+    the patterns whose |total| reaches the observed |sum| are counted with a binary search. This
+    makes n = 24 (16.8 million patterns) cheap. It gives the value that `sign_flip_p`
+    approximates by Monte Carlo when 2^n exceeds its draws."""
+    d = np.asarray(unit_deltas, dtype=float)
+    d = d[~np.isnan(d)]
+    n = len(d)
+    if n == 0 or np.allclose(d, 0):
+        return 1.0
+    if n > max_n:
+        raise ValueError(f"{n} units is too many for exact enumeration (max {max_n})")
+
+    def half_sums(x: np.ndarray) -> np.ndarray:
+        k = len(x)
+        signs = ((np.arange(2**k)[:, None] >> np.arange(k)) & 1) * 2 - 1
+        return (signs * x).sum(axis=1) if k else np.zeros(1)
+
+    left, right = half_sums(d[: n // 2]), np.sort(half_sums(d[n // 2 :]))
+    tol = 1e-12 * max(1.0, float(np.abs(d).sum()))
+    t = abs(d.sum()) - tol
+    if t <= 0:
+        return 1.0
+    upper = len(right) - np.searchsorted(right, t - left, side="left")
+    lower = np.searchsorted(right, -t - left, side="right")
+    hits = int(np.sum(upper) + np.sum(lower))
+    return hits / float(2**n)
+
+
 def wilcoxon_exact_p(unit_deltas: np.ndarray) -> float:
     """Two-sided Wilcoxon signed-rank p on unit differences, exact when scipy can (no ties among
     the non-zero |d|), normal approximation otherwise. Zero differences are dropped (Wilcox)."""

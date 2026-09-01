@@ -171,3 +171,17 @@ def test_page_weighting_uses_page_means_throughout():
     assert p.lo == pytest.approx(-1.0) and p.hi == pytest.approx(3.0)
     labels, m = unit_means(d, c)
     assert list(labels) == ["a", "b"] and list(m) == [3.0, -1.0]
+
+
+def test_sign_flip_meet_in_the_middle_matches_full_enumeration():
+    from vizor.optimize.stats import sign_flip_exact_p, sign_flip_p
+
+    rng = np.random.default_rng(3)
+    for n in (1, 2, 7, 12, 13):
+        d = rng.normal(0.4, 1.0, n)
+        # sign_flip_p enumerates every pattern when 2^n <= draws
+        assert sign_flip_exact_p(d) == pytest.approx(sign_flip_p(d, draws=2**n))
+    assert sign_flip_exact_p(np.array([1.0, -1.0, 2.0, -2.0])) == 1.0
+    assert sign_flip_exact_p(np.zeros(5)) == 1.0
+    # ties at the observed statistic count as hits: only the two all-same patterns reach 4
+    assert sign_flip_exact_p(np.ones(4)) == pytest.approx(2 / 16)
