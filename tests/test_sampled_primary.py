@@ -37,3 +37,10 @@ def test_sampled_primary_holm_both_tests_and_rewrite_minimum(tmp_path, monkeypat
     assert not by["evidence_surface_llm"]["significant"]
     assert not by["faq_rewrite_v2"]["significant"]
     assert by["faq_rewrite_v2"]["p_perm_holm"] >= by["faq_rewrite_v2"]["p_perm"]
+    # exact sign-flip p and the exploratory reference analysis are reported alongside
+    assert 0 < by["answer_first"]["p_perm_exact"] <= 1
+    ref = out["exploratory_reference"]
+    aa_ref = {r["arm"]: r for r in ref["A/A re-sample"]}
+    # the A/A arm equals the baseline here, so every reference gives the same delta
+    assert aa_ref["answer_first"]["d_c_share_pp"] == by["answer_first"]["d_c_share_pp"]
+    assert "Exploratory, not pre-registered" in (tmp_path / "sampled_primary.md").read_text()

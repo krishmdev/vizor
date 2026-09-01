@@ -9,6 +9,15 @@ arms. An arm counts only if both adjusted p values are below 0.05, and a guarded
 with fewer accepted pages than `sandbox.rewrite_min_accepted` is inconclusive. The MDE comes from
 the A/A re-sample's page-level SD. Writes sampled_primary.json and sampled_primary.md.
 
+Two additions are reported next to the pre-registered numbers and change none of them:
+- `p_perm_exact`: the sign-flip p over all 2^n sign patterns (meet in the middle), next to the
+  pre-registered Monte Carlo value.
+- `exploratory_reference`: not pre-registered. The same page deltas and both tests (with Holm
+  over the arms) with the A/A re-sample, and then the mean of baseline and A/A, as the
+  reference instead of the baseline alone. The baseline is one draw of 3 samples per query, so a
+  lucky baseline shifts every arm's delta the same way; this shows how much the verdicts lean on
+  that one draw.
+
     uv run python scripts/sampled_primary.py <run dir> --config <config>
 """
 
@@ -23,7 +32,14 @@ import numpy as np
 
 from vizor.config import Config
 from vizor.gate import c_share_page_deltas
-from vizor.optimize.stats import bootstrap_ci, holm, mde, sign_flip_p, wilcoxon_exact_p
+from vizor.optimize.stats import (
+    bootstrap_ci,
+    holm,
+    mde,
+    sign_flip_exact_p,
+    sign_flip_p,
+    wilcoxon_exact_p,
+)
 from vizor.scoring import load_units
 
 PRIMARY = ["answer_first", "evidence_surface_llm", "faq_rewrite_v2"]
@@ -54,6 +70,7 @@ def main() -> int:
             "sd_page_pp": float(np.std(d, ddof=1)),
             "p_wilcoxon": wilcoxon_exact_p(d),
             "p_perm": sign_flip_p(d, draws=draws),
+            "p_perm_exact": sign_flip_exact_p(d),
             "n_zero_pages": int(np.sum(np.abs(d) < 1e-9)),
         }
 
@@ -82,6 +99,8 @@ def main() -> int:
         "mde_pp": mde(aa["sd_page_pp"], aa["n_pages"], len(a.arms), t=True) if aa else None,
         "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family",
     }
+    if aa is not None:
+        out["exploratory_reference"] = exploratory_reference(a.run, a.arms, units)
     (a.run / "sampled_primary.json").write_text(json.dumps(out, indent=1) + "\n")
     lines = [
         f"# Study 2 primary (sampled citation share, page units) on {a.run.name}",
@@ -109,9 +128,65 @@ def main() -> int:
         )
     if out["mde_pp"] is not None:
         lines += ["", f"MDE (A/A page SD {aa['sd_page_pp']:.2f} pp): {out['mde_pp']:.1f} pp."]
+    lines += [
+        "",
+        f"Exact sign-flip p (raw, all 2^{rows[0]['n_pages']} sign patterns; the table uses the "
+        f"pre-registered Monte Carlo value with {draws} draws): "
+        + ", ".join(f"`{r['arm']}` {r['p_perm_exact']:.4f}" for r in rows + controls)
+        + ".",
+    ]
+    if "exploratory_reference" in out:
+        lines += [
+            "",
+            "## Exploratory, not pre-registered: the choice of reference",
+            "",
+            "Same page deltas and tests, Holm over the three arms, with the A/A re-sample or the "
+            "mean of baseline and A/A as the reference instead of the baseline alone. This does "
+            "not replace the verdicts above.",
+            "",
+            "| Reference | Arm | dC-SoV pp | p Wilcoxon (Holm) | p sign-flip exact (Holm) | "
+            "Both Holm p < 0.05 |",
+            "|---|---|---|---|---|---|",
+        ]
+        for ref, rs in out["exploratory_reference"].items():
+            for r in rs:
+                lines.append(
+                    f"| {ref} | `{r['arm']}` | {r['d_c_share_pp']:+.1f} | "
+                    f"{r['p_wilcoxon']:.3f} ({r['p_wilcoxon_holm']:.3f}) | "
+                    f"{r['p_perm_exact']:.3f} ({r['p_perm_exact_holm']:.3f}) | "
+                    f"{'yes' if r['both_holm'] else 'no'} |"
+                )
     (a.run / "sampled_primary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     return 0
+
+
+def exploratory_reference(run: Path, arms: list[str], units: dict[str, str]) -> dict:
+    """Page deltas of each arm against the A/A arm, and against the mean of baseline and A/A.
+    Both are linear in the per-page means, so arm - aa = (arm - base) - (aa - base) and
+    arm - (base + aa) / 2 = (arm - base) - (aa - base) / 2."""
+    aa = c_share_page_deltas(run, "aa_resample", units)
+    out = {}
+    for name, w in (("A/A re-sample", 1.0), ("mean of baseline and A/A", 0.5)):
+        rs = []
+        for arm in arms:
+            d0 = c_share_page_deltas(run, arm, units)
+            d = (d0 - w * aa.loc[d0.index]).to_numpy()
+            rs.append(
+                {
+                    "arm": arm,
+                    "d_c_share_pp": float(d.mean()),
+                    "p_wilcoxon": wilcoxon_exact_p(d),
+                    "p_perm_exact": sign_flip_exact_p(d),
+                }
+            )
+        for key in ("p_wilcoxon", "p_perm_exact"):
+            for r, p in zip(rs, holm([r[key] for r in rs]), strict=True):
+                r[key + "_holm"] = p
+        for r in rs:
+            r["both_holm"] = r["p_wilcoxon_holm"] < 0.05 and r["p_perm_exact_holm"] < 0.05
+        out[name] = rs
+    return out
 
 
 if __name__ == "__main__":
