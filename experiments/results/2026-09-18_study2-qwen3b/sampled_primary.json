@@ -88,6 +88,14 @@
  ],
  "mde_pp": 5.588258224918904,
  "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family",
+ "gate": {
+  "dir": "2026-09-18_study2-gate",
+  "passed": false,
+  "failed": [
+   "3_ci_narrower",
+   "4_spearman"
+  ]
+ },
  "exploratory_reference": {
   "A/A re-sample": [
    {
