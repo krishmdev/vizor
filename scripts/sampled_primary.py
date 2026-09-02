@@ -18,7 +18,7 @@ Two additions are reported next to the pre-registered numbers and change none of
   lucky baseline shifts every arm's delta the same way; this shows how much the verdicts lean on
   that one draw.
 
-    uv run python scripts/sampled_primary.py <run dir> --config <config>
+    uv run python scripts/sampled_primary.py <run dir> --config <config> [--gate <gate.json>]
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ def main() -> int:
     ap.add_argument("--config", type=Path, required=True)
     ap.add_argument("--arms", nargs="+", default=PRIMARY)
     ap.add_argument("--controls", nargs="+", default=["aa_resample", "noop"])
+    ap.add_argument("--gate", type=Path, help="the validation gate's gate.json, to record why")
     a = ap.parse_args()
     cfg = Config.load(a.config)
     units = load_units(a.run)
@@ -99,6 +100,13 @@ def main() -> int:
         "mde_pp": mde(aa["sd_page_pp"], aa["n_pages"], len(a.arms), t=True) if aa else None,
         "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family",
     }
+    if a.gate:
+        g = json.loads(a.gate.read_text())
+        out["gate"] = {
+            "dir": a.gate.parent.name,
+            "passed": bool(g["passed"]),
+            "failed": [k for k, v in g["criteria"].items() if not v["pass"]],
+        }
     if aa is not None:
         out["exploratory_reference"] = exploratory_reference(a.run, a.arms, units)
     (a.run / "sampled_primary.json").write_text(json.dumps(out, indent=1) + "\n")
