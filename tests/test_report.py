@@ -81,3 +81,45 @@ def test_invalid_input_fingerprint_suppresses_inferential_report(run_dir):
     assert "**Invalid result:** Source changed during this run." in md
     assert "**Invalid result:** Source changed during this run." in block
     assert "Sandbox arms" not in md and "Holm-significant" not in block
+
+
+def test_sampled_primary_replaces_the_legacy_verdict(run_dir):
+    r = load(run_dir)
+    assert r["sampled_primary"] is None
+
+    def row(arm, d, p, sig):
+        return {
+            "arm": arm,
+            "n_pages": 4,
+            "d_c_share_pp": d,
+            "lo": d - 1,
+            "hi": d + 1,
+            "p_wilcoxon": p,
+            "p_perm": p,
+            "p_wilcoxon_holm": p,
+            "p_perm_holm": p,
+            "significant": sig,
+        }
+
+    ref = [
+        {"arm": "faq_rewrite", "d_c_share_pp": -1.0, "p_wilcoxon_holm": 0.5},
+        {"arm": "stats_surface", "d_c_share_pp": 0.0, "p_wilcoxon_holm": 1.0},
+    ]
+    for x in ref:
+        x["p_perm_exact_holm"] = x["p_wilcoxon_holm"]
+    r["sampled_primary"] = {
+        "family": ["faq_rewrite", "stats_surface"],
+        "arms": [row("faq_rewrite", -12.3, 0.01, True), row("stats_surface", 1.0, 0.9, False)],
+        "controls": [row("aa_resample", -7.7, 0.2, False)],
+        "gate": {"passed": False, "failed": ["3_ci_narrower", "4_spearman"]},
+        "exploratory_reference": {"A/A re-sample": ref},
+    }
+    r["manifest"] = {**r["manifest"], "llm_is_fake": False}
+    md = summary_md(r)
+    assert "AP failed its validation gate on criteria 3 and 4" in md
+    assert "Study 1 test (continuity, not the Study 2 rule)" in md
+    assert "| `faq_rewrite` | -12.3 [-13.3, -11.3]" in md
+    assert "0.010 / 0.010 *" in md
+    assert "moved C-SoV by -7.7 [-8.7, -6.7] pp on 4 page units" in md
+    assert "1 of 2 have an effect under the sampled primary rule" in md
+    assert "Exploratory, not pre-registered" in md

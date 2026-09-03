@@ -86,7 +86,37 @@ def load(d: Path) -> dict:
         "boost": _read(d, "boost_sweep.csv"),
         "bandit": _read(d, "bandit_summary.csv"),
         "trajectory": _read(d, "trajectory.csv"),
+        "sampled_primary": load_sampled_primary(d),
     }
+
+
+def load_sampled_primary(d: Path) -> dict | None:
+    """Study 2's fallback primary (scripts/sampled_primary.py), when the run has one. Its rule
+    replaces the legacy Holm Wilcoxon in deltas.csv for the verdict."""
+    p = d / "sampled_primary.json"
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+GATE_CRITERIA = {
+    "1_slot_detected": "1",
+    "2_faq_negative": "2",
+    "3_ci_narrower": "3",
+    "4_spearman": "4",
+}
+
+
+def sampled_rule_md(sp: dict) -> str:
+    """One sentence on why and how the sampled primary decides."""
+    g = sp.get("gate")
+    why = ""
+    if g and not g["passed"]:
+        crit = " and ".join(GATE_CRITERIA.get(c, c) for c in g["failed"])
+        why = f"AP failed its validation gate on criteria {crit}, so "
+    return (
+        f"{why}the primary is the sampled citation share (C-SoV) on {sp['arms'][0]['n_pages']} "
+        "page units: an arm has an effect (`*`) when the exact Wilcoxon and the sign-flip p are "
+        f"both below 0.05 after Holm over the {len(sp['family'])} arms."
+    )
 
 
 def label(r: dict) -> str:
@@ -215,27 +245,51 @@ def deltas_md_v2(r: dict) -> str:
         "mentioned": ("d_mention_pp", "d_mention_lo", "d_mention_hi"),
     }
     order = [primary] + [m for m in ("c_share", "imp_pwc", "mentioned") if m != primary]
+    sp = r.get("sampled_primary") if primary == "c_share" else None
+    sp_rows = {x["arm"]: x for x in (sp["arms"] + sp["controls"])} if sp else {}
     rows = []
     for x in df.itertuples():
         cells = [f"`{x.arm}`"]
+        s_ = sp_rows.get(x.arm)
         for m in order:
             a, lo, hi = cols[m]
-            cells.append(_ci(getattr(x, a), getattr(x, lo), getattr(x, hi)))
+            if s_ and m == "c_share":
+                cells.append(_ci(s_["d_c_share_pp"], s_["lo"], s_["hi"]))
+            else:
+                cells.append(_ci(getattr(x, a), getattr(x, lo), getattr(x, hi)))
+        if sp:
+            if x.arm in ctrl or not s_:
+                rule = "control"
+            else:
+                rule = f"{_p(s_['p_wilcoxon_holm'])} / {_p(s_['p_perm_holm'])}" + (
+                    " *" if s_["significant"] else ""
+                )
+            cells += [rule, "control" if x.arm in ctrl else _p(x.p_holm)]
+        else:
+            cells.append(_verdict(x, "p_holm", "significant", ctrl))
+        n_units = s_["n_pages"] if s_ else int(x.n_units)
         cells += [
-            _verdict(x, "p_holm", "significant", ctrl),
             _verdict(x, "p_mention_holm", "mention_significant", ctrl),
             f"{int(x.n_sources_changed)}" if x.kind == "doc" else "",
             _f(x.uncited_rate_pct, 0),
             _f(x.unparsed_rate_pct, 1),
             _f(x.last_only_rate_pct, 0),
-            f"{int(x.n_queries)} / {int(x.n_units)}",
+            f"{int(x.n_queries)} / {n_units}",
         ]
         rows.append(cells)
+    verdict_cols = (
+        [
+            "p (Holm, primary: Wilcoxon / sign-flip)",
+            "Study 1 test (continuity, not the Study 2 rule)",
+        ]
+        if sp
+        else ["p (Holm, primary)"]
+    )
     header = (
         ["Arm"]
         + [f"{head[m]} pp [95% CI]" + (" (primary)" if m == primary else "") for m in order]
+        + verdict_cols
         + [
-            "p (Holm, primary)",
             "p (Holm, named)",
             "Queries whose sources changed",
             "Uncited %",
@@ -245,9 +299,21 @@ def deltas_md_v2(r: dict) -> str:
         ]
     )
     fams = sorted(set(df.loc[~df.arm.isin(ctrl), "family"])) if "family" in df else ["arms"]
+    if sp:
+        verdict = (
+            "The verdict follows `sampled_primary.json`: "
+            + sampled_rule_md(sp)
+            + " The ΔC-SoV column, its intervals and the `n` units come from that file (page "
+            "units, A/A included; the A/A's ΔPAWC and Δnamed stay on its query units). The Study 1 column is the Holm-adjusted Wilcoxon (zero_method "
+            "zsplit) that decided Study 1; it is shown for continuity and decides nothing here. "
+        )
+    else:
+        verdict = (
+            "The verdict is the Holm-adjusted Wilcoxon p on the primary metric "
+            f"({METRIC_NAMES[primary]}), below 0.05 (`*`). "
+        )
     note = (
-        f"The verdict is the Holm-adjusted Wilcoxon p on the primary metric ({METRIC_NAMES[primary]}), "
-        "below 0.05 (`*`). The brand-mention test (“named”: the answer names the target brand, with or "
+        verdict + "The brand-mention test (“named”: the answer names the target brand, with or "
         "without a citation) gets its own Holm adjustment. "
         + (
             "Content-only arms (`content:`) keep the baseline's sources and their order and change only the "
@@ -655,7 +721,17 @@ def claim_arms_v2(r: dict) -> list[str]:
     name = {"c_share": "C-SoV", "imp_pwc": "PAWC share", "mentioned": "named rate"}[primary]
     out = []
     d = deltas.set_index("arm")
-    if "aa_resample" in d.index:
+    sp = r.get("sampled_primary") if primary == "c_share" else None
+    sp_aa = next((c for c in sp["controls"] if c["arm"] == "aa_resample"), None) if sp else None
+    if sp_aa and "aa_resample" in d.index:
+        a = d.loc["aa_resample"]
+        out.append(
+            f"- Noise floor: re-sampling the unchanged prompts (A/A) moved {name} by "
+            f"{_ci(sp_aa['d_c_share_pp'], sp_aa['lo'], sp_aa['hi'])} pp on "
+            f"{sp_aa['n_pages']} page units (raw sign-flip p {_p(sp_aa['p_perm'])}) and the "
+            f"named rate by {_ci(a.d_mention_pp, a.d_mention_lo, a.d_mention_hi)} pp."
+        )
+    elif "aa_resample" in d.index:
         a = d.loc["aa_resample"]
         out.append(
             f"- Noise floor: re-sampling the unchanged prompts (A/A) moved {name} by "
@@ -668,13 +744,35 @@ def claim_arms_v2(r: dict) -> list[str]:
         if not len(g):
             continue
         sig = g[g["significant"] == True]  # noqa: E712
+        rule = "a Holm-significant effect"
+        if sp and fam == "arms":
+            hit = {x["arm"] for x in sp["arms"] if x["significant"]}
+            sig = g[g.arm.isin(hit)]
+            rule = "an effect under the sampled primary rule"
         msig = g[g["mention_significant"] == True]  # noqa: E712
         out.append(
-            f"- {label_}: {len(sig)} of {len(g)} have a Holm-significant effect on {name}"
+            f"- {label_}: {len(sig)} of {len(g)} have {rule} on {name}"
             + (": " + ", ".join(f"`{a}`" for a in sig.arm) if len(sig) else "")
             + f"; {len(msig)} of {len(g)} on the named rate"
             + (": " + ", ".join(f"`{a}`" for a in msig.arm) if len(msig) else "")
             + "."
+        )
+    if sp and sp.get("exploratory_reference"):
+        parts = []
+        for ref, rs in sp["exploratory_reference"].items():
+            parts.append(
+                f"against the {ref} "
+                + ", ".join(
+                    f"`{x['arm']}` {_f(x['d_c_share_pp'], sign=True)} (Holm p "
+                    f"{_p(x['p_wilcoxon_holm'])} / {_p(x['p_perm_exact_holm'])})"
+                    for x in rs
+                )
+            )
+        out.append(
+            "- Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): "
+            + "; ".join(parts)
+            + ". A lucky baseline draw shifts every arm the same way; an arm that holds up only "
+            "against the baseline alone is not robust to that choice."
         )
     dec = r.get("decomposition")
     if dec is not None and len(dec):
