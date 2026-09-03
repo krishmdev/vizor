@@ -86,6 +86,9 @@ def test_background_sandbox_job_and_results(client):
     assert job["job_id"] in ids
     e = client.get(f"/experiments/{job['job_id']}").json()
     assert {d["arm"] for d in e["deltas"]} == {"noop", "faq_rewrite"}
+    # query labels come from the run itself, not from the API's configured project
+    assert e["queries"] and set(e["queries"][0]) == {"query_id", "query"}
+    assert e["sampled_primary"] is None and e["ap_deltas"] == [] and e["ap_refs"] is None
     first = client.get(f"/experiments/{job['job_id']}/answers").json()[0]
     a = client.get(f"/experiments/{job['job_id']}/answers/{first['query_id']}/0").json()
     assert a["is_fake_llm"] and a["sources"]

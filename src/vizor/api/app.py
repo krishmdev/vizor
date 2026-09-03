@@ -238,7 +238,18 @@ def experiment(run_id: str) -> dict:
         "bandit_summary": _csv(p / "bandit_summary.csv"),
         "bandit_curve": _csv(p / "bandit_curve.csv"),
         "trajectory": _csv(p / "trajectory.csv"),
+        "decomposition": _csv(p / "decomposition.csv"),
+        "queries": [
+            {"query_id": q["query_id"], "query": q["query"]} for q in _csv(p / "queries.csv")
+        ],
+        "sampled_primary": _json(p / "sampled_primary.json"),
+        "ap_deltas": _csv(p / "ap" / "ap_deltas.csv"),
+        "ap_refs": (_json(p / "ap" / "ap_manifest.json") or {}).get("refs"),
     }
+
+
+def _json(p: Path):
+    return json.loads(p.read_text()) if p.exists() else None
 
 
 @app.get("/experiments/{run_id}/answers")
