@@ -1,8 +1,8 @@
 """Vizor dashboard (Streamlit). Talks to the API at $VIZOR_API (default http://localhost:8000).
 
-Four views: Overview, Answer inspector, Sandbox, Optimizer. Domain colors are fixed per entity
-(project order: target first), validated for colour-vision deficiency, and every coloured mark
-also carries its domain name, so colour is never the only cue.
+Five views: Overview, Answer inspector, Sandbox, Optimizer, Side by side. Domain colors are fixed
+per entity (project order: target first), validated for colour-vision deficiency, and every
+coloured mark also carries its domain name, so colour is never the only cue.
 """
 
 from __future__ import annotations
@@ -81,7 +81,15 @@ code {{ color:var(--ink2); background:var(--panel); border-radius:3px; padding:0
 .legend i {{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:0.35rem; vertical-align:-1px; }}
 .note {{ color:var(--muted); font-size:0.84rem; }}
 [data-testid="stSidebar"] {{ background:var(--panel); }}
-@media (max-width: 640px) {{ .answer {{ font-size:1rem; padding:0.8rem; }} h1 {{ font-size:1.55rem !important; }} }}
+.psg li.new::before {{ content:"+ "; font:600 0.85rem {FONT_NUM}; color:#92400e; }}
+.sr, .alt-tbl {{ position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }}
+.st-key-forest_narrow {{ display:none; }}
+.alt-tbl {{ border-collapse:collapse; font:0.8rem {FONT_NUM}; margin:0 0 0.8rem; }}
+.alt-tbl caption {{ text-align:left; color:var(--muted); font-size:0.78rem; padding-bottom:0.3rem; }}
+.alt-tbl th, .alt-tbl td {{ border-bottom:1px solid var(--rule); padding:0.2rem 0.4rem; text-align:left; }}
+@media (max-width: 640px) {{ .answer {{ font-size:1rem; padding:0.8rem; }} h1 {{ font-size:1.55rem !important; }}
+  .st-key-forest_wide {{ display:none; }} .st-key-forest_narrow {{ display:block; }}
+  .alt-tbl {{ position:static !important; width:auto; height:auto; overflow:visible; clip:auto; white-space:normal; }} }}
 </style>
 """
 
@@ -330,6 +338,39 @@ def overview() -> None:
     )
 
 
+def md_inline(text: str) -> str:
+    """Bold, italic and code spans of an already HTML-escaped answer sentence."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+
+
+def answer_html(a: dict, colors: dict[str, str]) -> str:
+    """The answer sentence by sentence, underlined in the colour of the first cited source, with
+    a chip per citation (each chip names its source for screen readers)."""
+    by_pos = {s["position"]: s for s in a["sources"]}
+    parts = []
+    for sent in a["sentences"]:
+        cites = sent["citations"]
+        text = html.escape(sent["text"])
+        text = re.sub(r"\s*(\[\d+\])+\s*([.!?]?)$", r"\2", text)
+        text = re.sub(r"\[\d+\]", "", text)
+        text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+        text = md_inline(text)
+        if cites:
+            c = colors.get(by_pos[cites[0]]["domain"], MUTED)
+            chips = "".join(
+                f'<span class="cite" style="--c:{colors.get(by_pos[k]["domain"], MUTED)}" '
+                f'title="{html.escape(by_pos[k]["domain"])}" '
+                f'aria-label="cites source {k}, {html.escape(by_pos[k]["domain"])}">{k}</span>'
+                for k in cites
+            )
+            parts.append(f'<span class="sent" style="--tint:{tint(c)}">{text}</span>{chips} ')
+        else:
+            parts.append(f'<span class="sent none">{text}</span> ')
+    return f'<div class="answer">{"".join(parts)}</div>'
+
+
 def render_answer(a: dict, colors: dict[str, str]) -> None:
     by_pos = {s["position"]: s for s in a["sources"]}
     left, right = st.columns([3, 2], gap="large")
@@ -345,13 +386,21 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
         for s_ in a["sources"]:
             if s_["domain"] not in present:
                 present.append(s_["domain"])
+        bar_label = (
+            ", ".join(
+                f"[{s['position']}] {s['domain']} {s['pwc_share']:.0%}"
+                for s in a["sources"]
+                if s["pwc_share"] > 0
+            )
+            or "no citations"
+        )
         legend = "".join(
             f'<span><i style="background:{colors.get(d_, MUTED)}"></i>{html.escape(d_)}</span>'
             for d_ in present
         )
         st.markdown(
             f'<div class="kicker">PAWC share of this answer</div><div class="bar" role="img" '
-            f'aria-label="PAWC share by source">{segs}</div><div class="legend">{legend}</div>',
+            f'aria-label="PAWC share by source: {html.escape(bar_label)}">{segs}</div><div class="legend">{legend}</div>',
             unsafe_allow_html=True,
         )
         if not any(s_["role"] == "target" for s_ in a["sources"]):
@@ -373,25 +422,7 @@ def render_answer(a: dict, colors: dict[str, str]) -> None:
         st.markdown("".join(cards), unsafe_allow_html=True)
     with left:
         st.markdown("### Answer")
-        parts = []
-        for sent in a["sentences"]:
-            cites = sent["citations"]
-            text = html.escape(sent["text"])
-            text = re.sub(r"\s*(\[\d+\])+\s*([.!?]?)$", r"\2", text)
-            text = re.sub(r"\[\d+\]", "", text)
-            text = re.sub(r"\s+([,.;:!?])", r"\1", text)
-            if cites:
-                c = colors.get(by_pos[cites[0]]["domain"], MUTED)
-                chips = "".join(
-                    f'<span class="cite" style="--c:{colors.get(by_pos[k]["domain"], MUTED)}" '
-                    f'title="{html.escape(by_pos[k]["domain"])}" '
-                    f'aria-label="cites source {k}, {html.escape(by_pos[k]["domain"])}">{k}</span>'
-                    for k in cites
-                )
-                parts.append(f'<span class="sent" style="--tint:{tint(c)}">{text}</span>{chips} ')
-            else:
-                parts.append(f'<span class="sent none">{text}</span> ')
-        st.markdown(f'<div class="answer">{"".join(parts)}</div>', unsafe_allow_html=True)
+        st.markdown(answer_html(a, colors), unsafe_allow_html=True)
         if a["hallucinated_citations"]:
             st.warning(
                 f"Citations to sources that weren't in the prompt (dropped): {a['hallucinated_citations']}"
@@ -460,7 +491,7 @@ def inspector() -> None:
     e = api_or_stop(f"/experiments/{exp['id']}")
     arms = ["baseline"] + [d["arm"] for d in e["deltas"] if d["arm"] != "noop"]
     arm = st.sidebar.selectbox("Arm", arms)
-    qtext = {q["query_id"]: q["query"] for q in proj["queries"]}
+    qtext = {q["query_id"]: q["query"] for q in e.get("queries") or proj["queries"]}
     idx = api_or_stop(f"/experiments/{exp['id']}/answers?arm={arm}")
     qids = sorted({r["query_id"] for r in idx})
     if not qids:
@@ -488,26 +519,84 @@ def _interval_band(fig, x, lo, hi, color, name):
     )
 
 
-def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
+def fmt_p(p) -> str:
+    if p is None or pd.isna(p):
+        return "n/a"
+    return "<0.001" if p < 0.001 else f"{p:.3f}"
+
+
+GATE_CRITERIA = {
+    "1_slot_detected": "1",
+    "2_faq_negative": "2",
+    "3_ci_narrower": "3",
+    "4_spearman": "4",
+}
+
+
+def primary_banner(sp: dict | None) -> None:
+    """States the decision rule when a run has Study 2's sampled primary."""
+    if not sp:
+        return
+    g = sp.get("gate") or {}
+    why = ""
+    if g and not g.get("passed", True):
+        crit = " and ".join(GATE_CRITERIA.get(c, c) for c in g.get("failed", []))
+        why = f" (AP failed its validation gate on criteria {crit})"
+    st.markdown(
+        f'<div class="banner"><b>PRIMARY</b> &nbsp;Sampled C-SoV{why}; effect = both Holm p '
+        f"&lt; 0.05 (exact Wilcoxon and sign-flip, Holm over {len(sp['family'])} arms, "
+        f"{sp['arms'][0]['n_pages']} page units). AP is secondary and makes no claims.</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def apply_sampled_primary(d: pd.DataFrame, sp: dict | None) -> pd.DataFrame:
+    """Overwrite the C-SoV estimate, interval, units and verdict with the sampled primary's."""
+    d = d.copy()
+    d["p_text"] = [fmt_p(p) for p in d.get("p_holm", pd.Series(float("nan"), index=d.index))]
+    if not sp:
+        return d
+    by = {x["arm"]: x for x in sp["arms"] + sp["controls"]}
+    for i, x in d.iterrows():
+        s = by.get(x.arm)
+        if s is None:
+            continue
+        d.loc[i, ["d_csov_pp", "d_csov_lo", "d_csov_hi"]] = [s["d_c_share_pp"], s["lo"], s["hi"]]
+        d.loc[i, "n_units"] = s["n_pages"]
+        if "significant" in s:
+            d.loc[i, "significant"] = bool(s["significant"])
+            d.loc[i, "p_holm"] = max(s["p_wilcoxon_holm"], s["p_perm_holm"])
+            d.loc[i, "p_text"] = f"{fmt_p(s['p_wilcoxon_holm'])}/{fmt_p(s['p_perm_holm'])}"
+    return d
+
+
+def forest(d: pd.DataFrame, sens: dict, exp: dict, sp: dict | None = None) -> None:
     """Per-arm delta on the run's primary metric with descriptive CIs, grouped controls / page
-    arms / content-only arms / engine arms, with the
-    Holm verdict and n written beside each row so significance is never colour-only."""
+    arms / content-only arms / engine arms, with the verdict and n written beside each row so
+    significance is never colour-only. With a sampled primary (Study 2) its rule decides."""
     d = d[d.arm != "noop"].copy()
     primary = d["primary"].iloc[0] if "primary" in d and len(d) else "imp_pwc"
+    if primary != "c_share":
+        sp = None
+    d = apply_sampled_primary(d, sp)
     col = {"imp_pwc": "d_pwc", "c_share": "d_csov", "mentioned": "d_mention"}[primary]
     metric = {"imp_pwc": "PAWC share", "c_share": "C-SoV", "mentioned": "named rate"}[primary]
-    d["_m"], d["_lo"], d["_hi"] = d[f"{col}_pp"], d[f"{col}_lo"], d[f"{col}_hi"]
+    d["f_m"], d["f_lo"], d["f_hi"] = d[f"{col}_pp"], d[f"{col}_lo"], d[f"{col}_hi"]
     group = {"aa": "Control", "doc": "Page arm", "engine": "Engine arm"}
     d["group"] = d.kind.map(group).fillna("Engine arm")
     if "mode" in d:
         d.loc[d["mode"] == "content", "group"] = "Content-only arm"
     order = {"Control": 0, "Page arm": 1, "Content-only arm": 2, "Engine arm": 3}
-    d = d.sort_values(by=["group", "_m"], key=lambda c: c.map(order) if c.name == "group" else c)
+    d = d.sort_values(by=["group", "f_m"], key=lambda c: c.map(order) if c.name == "group" else c)
     # short row labels so the chart fits a phone; the group is in the hover and the row order
     d["label"] = d.arm.str.replace("engine:", "", regex=False)
+    units_all = d["n_units"] if "n_units" in d else d["n_queries"]
+    d["f_units"] = units_all.fillna(d.n_queries).astype(int)
     labels = list(d.label)[::-1]  # plotly draws the first category at the bottom
     sig = d.get("significant", pd.Series(False, index=d.index)).fillna(False).astype(bool)
+    rule = "both Holm p < 0.05" if sp else "Holm p < 0.05"
     st.markdown(f"### {titled(f'Δ{metric} of the target', exp)}")
+    primary_banner(sp)
     fig = figure(90 + 40 * len(d))
     fig.add_vline(x=0, line=dict(color=INK_2, width=1))
     page_ok = sens.get("page_arms_testable", True)
@@ -515,8 +604,7 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
     for kind, key in (("engine", "engine_arm_pp"), ("doc", "page_arm_pp")):
         m = sens.get(key)
         rows = d[d.kind == kind]
-        units_col = rows["n_units"] if "n_units" in rows else rows["n_queries"]
-        rows = rows[[reachable(int(u), family) for u in units_col.fillna(rows.n_queries)]]
+        rows = rows[[reachable(int(u), family) for u in rows.f_units]]
         if m and len(rows):
             for sign in (-1, 1):
                 fig.add_scatter(
@@ -528,15 +616,15 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
                     hovertemplate=f"MDE ±{m:.1f} pp (80% power)<extra></extra>",
                 )
     for mask, symbol, color, name in (
-        (sig, "diamond", SERIES[0], "Holm p < 0.05"),
-        (~sig & (d.kind != "aa"), "circle", MUTED, "not significant"),
+        (sig, "diamond", SERIES[0], rule),
+        (~sig & (d.kind != "aa"), "circle", MUTED, "no effect shown"),
         (d.kind == "aa", "circle-open", INK_2, "A/A control (noise)"),
     ):
         rows = d[mask]
         if not len(rows):
             continue
         fig.add_scatter(
-            x=rows._m,
+            x=rows.f_m,
             y=rows.label,
             mode="markers",
             name=name,
@@ -549,26 +637,34 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
             error_x=dict(
                 type="data",
                 symmetric=False,
-                array=rows._hi - rows._m,
-                arrayminus=rows._m - rows._lo,
+                array=rows.f_hi - rows.f_m,
+                arrayminus=rows.f_m - rows.f_lo,
                 color=INK_2,
                 thickness=1.5,
                 width=0,
             ),
-            customdata=rows[["_lo", "_hi", "p_holm", "n_queries", "group"]].to_numpy(),
-            hovertemplate="%{customdata[4]} · %{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, %{customdata[1]:+.2f}]"
-            "<br>Holm p %{customdata[2]:.3f} · n=%{customdata[3]}<extra></extra>",
+            customdata=rows[["f_lo", "f_hi", "p_text", "n_queries", "group", "f_units"]].to_numpy(),
+            hovertemplate="%{customdata[4]} · %{y}<br>Δ %{x:+.2f} pp [%{customdata[0]:+.2f}, "
+            "%{customdata[1]:+.2f}]<br>Holm p %{customdata[2]} · n=%{customdata[3]}"
+            "/%{customdata[5]}<extra></extra>",
         )
+    notes = {}
     for x in d.itertuples():
-        units = int(getattr(x, "n_units", x.n_queries) or x.n_queries)
+        units = int(x.f_units)
         if x.kind == "aa":
             txt = f"control n={int(x.n_queries)}"
+            if sp:
+                txt += f"/{units}"
         elif x.kind == "doc" and not reachable(units, family):
             txt = f"untestable k={units}"
         else:
-            txt = f"p={x.p_holm:.2f}{'*' if bool(getattr(x, 'significant', False)) else ''} n={int(x.n_queries)}"
+            p = x.p_text if x.p_text.startswith("<") else f"={x.p_text}"
+            txt = (
+                f"p{p}{'*' if bool(getattr(x, 'significant', False)) else ''} n={int(x.n_queries)}"
+            )
             if x.kind == "doc":
                 txt += f"/{units}"
+        notes[x.label] = txt
         fig.add_annotation(
             x=1.0,
             xref="paper",
@@ -581,26 +677,51 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         )
     fig.update_yaxes(categoryorder="array", categoryarray=labels)
     fig.update_xaxes(ticksuffix=" pp", title=f"Δ{metric}, pp (95% bootstrap CI)")
-    fig.update_layout(margin=dict(r=120, l=4), legend=dict(y=1.08))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    fig.update_layout(margin=dict(r=190 if sp else 120, l=4), legend=dict(y=1.08))
+    # Two renderings: with the right-margin notes for wide screens, and without them (full
+    # width) for narrow ones, where the table below shows the notes. CSS shows one of the two.
+    with st.container(key="forest_wide"):
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    narrow = go.Figure(fig)
+    narrow.layout.annotations = ()
+    narrow.update_layout(margin=dict(r=8, l=4))
+    narrow.update_xaxes(title=f"Δ{metric}, pp", tickangle=0, nticks=5)
+    with st.container(key="forest_narrow"):
+        st.plotly_chart(narrow, use_container_width=True, config={"displayModeBar": False})
+    rows_html = "".join(
+        f"<tr><td><code>{html.escape(x.label)}</code></td><td>{x.f_m:+.1f} "
+        f"[{x.f_lo:+.1f}, {x.f_hi:+.1f}]</td><td>{html.escape(notes[x.label])}</td></tr>"
+        for x in d.itertuples()
+    )
+    st.markdown(
+        f'<table class="alt-tbl"><caption>Δ{metric} of the target by arm, pp with 95% CI, and '
+        f"the verdict ({rule}, *) with n queries/units</caption><tr><th>Arm</th><th>Δ pp "
+        f"[95% CI]</th><th>Verdict, n</th></tr>{rows_html}</table>",
+        unsafe_allow_html=True,
+    )
     tested = d[d.kind != "aa"]
+    test = "both Holm p values" if sp else "Holm-adjusted Wilcoxon"
     msg = (
-        "No arm is distinguishable from zero at this sample size (Holm-adjusted Wilcoxon, α = 0.05)."
+        f"No arm is distinguishable from zero at this sample size ({test}, α = 0.05)."
         if not sig.any()
-        else f"{int(sig.sum())} arm(s) pass the Holm rule, marked ◆ and *."
+        else f"{int(sig.sum())} of {len(tested)} arm(s) meet the rule ({rule}), marked ◆ and *."
     )
     msg = (
         "Rows, top to bottom: the A/A control, page arms, content-only arms, engine arms; k is the number of "
         "independent edited-page units. " + msg
     )
     extra = []
-    if sens.get("engine_arm_pp"):
-        extra.append(
-            f"grey ticks = ±MDE (80% power): {sens['engine_arm_pp']:.1f} pp for engine arms"
-        )
+    mdes = [
+        f"{sens[k]:.1f} pp for {what}"
+        for k, what in (("page_arm_pp", "page arms"), ("engine_arm_pp", "engine arms"))
+        if sens.get(k) and len(d[d.kind == ("doc" if k == "page_arm_pp" else "engine")])
+    ]
+    if mdes:
+        extra.append("grey ticks = ±MDE (80% power): " + ", ".join(mdes))
     if sens.get("n_page_units") is not None:
+        lo_u, hi_u = sens.get("n_page_units_min", sens["n_page_units"]), sens["n_page_units"]
         extra.append(
-            f"page arms tested on {sens.get('n_page_units_min', sens['n_page_units'])}–{sens['n_page_units']} page units"
+            f"page arms tested on {lo_u if lo_u == hi_u else f'{lo_u}–{hi_u}'} page units"
             + ("" if page_ok else ", too few for any Holm-significant result")
         )
     if len(tested):
@@ -613,11 +734,22 @@ def forest(d: pd.DataFrame, sens: dict, exp: dict) -> None:
         )
 
 
-def sweep_chart(df: pd.DataFrame, xcol: str, dcol: str, xtitle: str, xname: str) -> None:
+def sweep_chart(
+    df: pd.DataFrame,
+    xcol: str,
+    xtitle: str,
+    xname: str,
+    y: tuple[str, str, str],
+    ytitle: str,
+    delta: tuple[str, str, str],
+) -> None:
     """Measured points only (no lines through unmeasured slots), CI whiskers, and the Holm verdict
-    of each comparison against the reference point, marked by shape and * as well as colour."""
+    of each comparison against the reference point, marked by shape and * as well as colour.
+    `y` is (value, lo, hi) of the plotted metric, `delta` the same for the change vs reference."""
     sig = df.get("significant", pd.Series(False, index=df.index)).fillna(False).astype(bool)
     sig.iloc[0] = False
+    ycol, ylo, yhi = y
+    dcol, dlo, dhi = delta
     fig = figure(300)
     for mask, color, symbol, name in (
         (~sig, MUTED, "circle", "not significant vs reference"),
@@ -628,7 +760,7 @@ def sweep_chart(df: pd.DataFrame, xcol: str, dcol: str, xtitle: str, xname: str)
             continue
         fig.add_scatter(
             x=rows[xcol],
-            y=rows.pwc_pct,
+            y=rows[ycol],
             mode="markers+text",
             name=name,
             text=["*" if s else "" for s in sig[mask]],
@@ -638,20 +770,75 @@ def sweep_chart(df: pd.DataFrame, xcol: str, dcol: str, xtitle: str, xname: str)
             error_y=dict(
                 type="data",
                 symmetric=False,
-                array=rows.pwc_hi - rows.pwc_pct,
-                arrayminus=rows.pwc_pct - rows.pwc_lo,
+                array=(rows[yhi] - rows[ycol]).fillna(0),
+                arrayminus=(rows[ycol] - rows[ylo]).fillna(0),
                 color=INK_2,
                 thickness=1.5,
                 width=6,
             ),
-            customdata=rows[[dcol, "d_lo", "d_hi"]].to_numpy(),
-            hovertemplate=f"{xname}=%{{x}}: %{{y:.1f}}%<br>Δ vs reference %{{customdata[0]:+.1f}} pp "
+            customdata=rows[[dcol, dlo, dhi]].to_numpy(),
+            hovertemplate=f"{xname}=%{{x}}: %{{y:.1f}}<br>Δ vs reference %{{customdata[0]:+.1f}} pp "
             "[%{customdata[1]:+.1f}, %{customdata[2]:+.1f}]<extra></extra>",
         )
     fig.update_xaxes(title=xtitle, tickvals=list(df[xcol]))
-    fig.update_yaxes(ticksuffix="%", rangemode="tozero", title="PAWC share")
+    fig.update_yaxes(title=ytitle)
     fig.update_layout(legend=dict(y=1.12))
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    alt = "; ".join(
+        f"{xname} {x[xcol]}: {x[ycol]:.1f}"
+        + (
+            ""
+            if i == 0 or pd.isna(x[dcol])
+            else f", Δ {x[dcol]:+.1f} pp [{x[dlo]:+.1f}, {x[dhi]:+.1f}]"
+        )
+        + (" *" if bool(sig.iloc[i]) else "")
+        for i, (_, x) in enumerate(df.iterrows())
+    )
+    st.markdown(
+        f'<p class="sr">{html.escape(ytitle)} by {xname}: {html.escape(alt)}.</p>',
+        unsafe_allow_html=True,
+    )
+
+
+def decomposition_table(e: dict) -> None:
+    """Content vs rank: Study 1's sampled decomposition and, where the run was scored, the AP
+    split (full = content + rank, from ap_deltas.csv)."""
+    rows = []
+    for x in e.get("decomposition") or []:
+        rows.append(
+            {
+                "metric": "C-SoV (sampled)",
+                "edit": x["arm"],
+                "total pp": round(x["total_csov_pp"], 1),
+                "content only pp": round(x["content_csov_pp"], 1),
+                "rank-mediated pp": round(x["rank_csov_pp"], 1),
+            }
+        )
+    ap = {x["name"]: x for x in e.get("ap_deltas") or []}
+    for name, x in ap.items():
+        if not name.startswith("full:"):
+            continue
+        arm = name.split(":", 1)[1]
+        c, r_ = ap.get(f"pinned:{arm}"), ap.get(f"rank:{arm}")
+        rows.append(
+            {
+                "metric": "AP (secondary)",
+                "edit": arm,
+                "total pp": round(x["d_ap_pp"], 1),
+                "content only pp": round(c["d_ap_pp"], 1) if c else None,
+                "rank-mediated pp": round(r_["d_ap_pp"], 1) if r_ else None,
+            }
+        )
+    if not rows:
+        return
+    st.markdown("### Content vs rank")
+    st.markdown(
+        '<p class="note">Each edit split into what the new text did with the same sources in the same '
+        "order (content only) and what it did by moving the page in retrieval (rank-mediated); "
+        "total = content + rank. Point estimates; the intervals are in the results files.</p>",
+        unsafe_allow_html=True,
+    )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
 def sandbox() -> None:
@@ -659,8 +846,8 @@ def sandbox() -> None:
         "Sandbox",
         "What changes the target's share",
         "Each arm edits the target site's pages (or the engine's retrieval) and re-runs the same queries with the "
-        "same seeds. An arm counts as an effect only if its Holm-adjusted Wilcoxon p is below 0.05; the intervals are "
-        "descriptive paired-bootstrap 95% CIs. "
+        "same seeds. An arm counts as an effect only if its Holm-adjusted p is below 0.05 under the run's "
+        "decision rule (stated above the chart); the intervals are descriptive paired-bootstrap 95% CIs. "
         "The A/A row re-samples unchanged prompts: read every other arm against it.",
     )
     exp = pick_experiment()
@@ -671,29 +858,68 @@ def sandbox() -> None:
     e = api_or_stop(f"/experiments/{exp['id']}")
     d = pd.DataFrame(e["deltas"])
     sens = e["manifest"].get("sensitivity") or {}
-    forest(d, sens, exp)
+    forest(d, sens, exp, e.get("sampled_primary"))
+    decomposition_table(e)
 
     c1, c2 = st.columns(2, gap="large")
     p = pd.DataFrame(e["position_sweep"])
     b = pd.DataFrame(e["boost_sweep"])
+    csov = (
+        len(p)
+        and "d_csov_vs_first_pp" in p
+        and str(p.get("primary", pd.Series([""])).iloc[0]) == "c_share"
+    )
     with c1:
         st.markdown(f"### {titled('Position sweep: vs slot 1', exp)}")
         st.markdown(
-            '<p class="note">Same pages; the target is forced into each measured slot of the prompt.</p>',
+            '<p class="note">Same pages; the target is forced into each measured slot of the prompt. '
+            + (
+                "Plotted: the change in C-SoV (the primary) against slot 1.</p>"
+                if csov
+                else "Plotted: PAWC share.</p>"
+            ),
             unsafe_allow_html=True,
         )
-        if len(p):
+        if len(p) and csov:
+            p.loc[p.index[0], ["d_csov_vs_first_pp", "d_csov_lo", "d_csov_hi"]] = 0.0
             sweep_chart(
-                p, "position", "d_pwc_vs_first_pp", "slot of the target in the prompt", "slot"
+                p,
+                "position",
+                "slot of the target in the prompt",
+                "slot",
+                ("d_csov_vs_first_pp", "d_csov_lo", "d_csov_hi"),
+                "ΔC-SoV vs slot 1, pp",
+                ("d_csov_vs_first_pp", "d_csov_lo", "d_csov_hi"),
+            )
+        elif len(p):
+            sweep_chart(
+                p,
+                "position",
+                "slot of the target in the prompt",
+                "slot",
+                ("pwc_pct", "pwc_lo", "pwc_hi"),
+                "PAWC share, %",
+                ("d_pwc_vs_first_pp", "d_lo", "d_hi"),
             )
     with c2:
         st.markdown(f"### {titled('Boost sweep: vs w=0', exp)}")
         st.markdown(
-            '<p class="note">w is added to the target pages\' final retrieval score (0–1 scale).</p>',
+            '<p class="note">w is added to the target pages\' final retrieval score (0–1 scale). '
+            "Plotted: PAWC share.</p>",
             unsafe_allow_html=True,
         )
         if len(b):
-            sweep_chart(b, "boost", "d_pwc_pp", "boost w", "w")
+            sweep_chart(
+                b,
+                "boost",
+                "boost w",
+                "w",
+                ("pwc_pct", "pwc_lo", "pwc_hi"),
+                "PAWC share, %",
+                ("d_pwc_pp", "d_lo", "d_hi"),
+            )
+        else:
+            st.markdown('<p class="note">Not run in this experiment.</p>', unsafe_allow_html=True)
     with st.expander("Sweep tables"):
         if len(p):
             st.dataframe(p, hide_index=True, use_container_width=True)
@@ -883,31 +1109,50 @@ def optimizer() -> None:
         )
 
 
-def _passages_html(side: dict, colors: dict[str, str], other: dict) -> str:
-    """Rendered passages per source; lines the other side doesn't show are marked."""
-    theirs = {ln for p in other.get("passages", []) for ln in p["lines"]}
+def _source_html(p: dict | None, colors: dict[str, str], theirs: set[str], side: str) -> str:
+    """One source's rendered passages; lines the other side doesn't show get a + marker, a tint
+    and a screen-reader note, so the difference is not colour-only."""
+    tag = f'<div class="kicker side-tag">{html.escape(side)}</div>'
+    if p is None:
+        return tag + '<p class="note">Not in this prompt.</p>'
+    c = colors.get(p["domain"], MUTED)
+    lines = "".join(
+        f'<li class="new"><span class="sr">only on this side: </span>{html.escape(ln)}</li>'
+        if ln not in theirs
+        else f"<li>{html.escape(ln)}</li>"
+        for ln in p["lines"]
+    )
+    return tag + (
+        f'<div class="src" style="--c:{c}"><span class="idx">[{p["position"]}]</span>'
+        f'<span class="dom">{html.escape(p["domain"])}</span>'
+        f'<span class="ttl">{html.escape(p["title"])}</span></div><ul class="psg">{lines}</ul>'
+    )
+
+
+def aligned_sources(left: dict, right: dict) -> list[tuple[dict | None, dict | None]]:
+    """Pairs each source of the left prompt with the same source (domain and title) in the right
+    one, in the left prompt's order, then the sources only the right prompt has."""
+
+    def key(p: dict) -> tuple[str, str]:
+        return p["domain"], p["title"]
+
+    rp = {key(p): p for p in right["passages"]}
+    seen = set()
     out = []
-    for p in side["passages"]:
-        c = colors.get(p["domain"], MUTED)
-        lines = "".join(
-            f'<li class="{"" if ln in theirs else "new"}">{html.escape(ln)}</li>'
-            for ln in p["lines"]
-        )
-        out.append(
-            f'<div class="src" style="--c:{c}"><span class="idx">[{p["position"]}]</span>'
-            f'<span class="dom">{html.escape(p["domain"])}</span>'
-            f'<span class="ttl">{html.escape(p["title"])}</span></div><ul class="psg">{lines}</ul>'
-        )
-    return "".join(out)
+    for p in left["passages"]:
+        out.append((p, rp.get(key(p))))
+        seen.add(key(p))
+    out += [(None, p) for p in right["passages"] if key(p) not in seen]
+    return out
 
 
 def side_by_side() -> None:
     header(
         "Side by side",
         "Baseline and arm for the same query and sample",
-        "Each column shows the passages the model saw for every source (lines only one side shows "
-        "are highlighted) and, if the arm was sampled, its answer. Below, the reference answer's "
-        "citation sites with the target's teacher-forced probability under each prompt.",
+        "The answers under both prompts, then the reference answer's citation sites with the target's "
+        "teacher-forced probability under each prompt, then the passages the model saw, one row per "
+        "source. Lines only one side shows are marked +.",
     )
     proj = api_or_stop("/project")
     colors = domain_colors(proj["domains"])
@@ -915,38 +1160,46 @@ def side_by_side() -> None:
     if exp is None:
         return no_experiments()
     run_line(exp)
+    e = api_or_stop(f"/experiments/{exp['id']}")
+    sp = e.get("sampled_primary")
     sets = api_or_stop(f"/experiments/{exp['id']}/sets")
     others = [s for s in sets if s != "baseline"]
     if not others:
         st.info("This run has no arm to compare with the baseline.")
         return
-    arm = st.sidebar.selectbox("Arm", others)
+    family = (sp or {}).get("family") or [
+        x["arm"] for x in e["deltas"] if x["arm"] not in ("noop", "aa_resample")
+    ]
+    default = next((i for i, s in enumerate(others) if s in family), 0)
+    arm = st.sidebar.selectbox("Arm", others, index=default)
     ref = st.sidebar.selectbox(
         "Against", sets, index=sets.index("baseline") if "baseline" in sets else 0
     )
-    qtext = {q["query_id"]: q["query"] for q in proj["queries"]}
+    qtext = {q["query_id"]: q["query"] for q in e.get("queries") or proj["queries"]}
     idx = api_or_stop(f"/experiments/{exp['id']}/answers?arm=baseline")
     qids = sorted({r["query_id"] for r in idx})
     c1, c2 = st.columns([4, 1])
     qid = c1.selectbox("Query", qids, format_func=lambda k: f"{qtext.get(k, k)}  ({k})")
-    sample = c2.selectbox("Sample", sorted({r["sample"] for r in idx if r["query_id"] == qid}))
+    samples = sorted({r["sample"] for r in idx if r["query_id"] == qid})
+    refs = e.get("ap_refs")
+    if refs:  # only the reference answers that were scored have AP and citation sites
+        samples = [s for s in samples if s in refs] or samples
+    sample = c2.selectbox(
+        "Sample", samples, help="Only samples with AP scores are offered." if refs else None
+    )
     d = api_or_stop(f"/experiments/{exp['id']}/compare/{qid}/{sample}?arm={arm}&ref={ref}")
+    ap_label = "AP (secondary)" if sp else "AP"
     left, right = st.columns(2, gap="large")
-    for col, side, other in (
-        (left, d["sides"][0], d["sides"][1]),
-        (right, d["sides"][1], d["sides"][0]),
-    ):
+    for col, side in ((left, d["sides"][0]), (right, d["sides"][1])):
         with col:
             ap = d["ap"].get(side["set"])
-            st.markdown(f"### `{side['set']}`" + (f" · AP {ap:.1%}" if ap is not None else ""))
+            st.markdown(
+                f"### `{side['set']}`" + (f" · {ap_label} {ap:.1%}" if ap is not None else "")
+            )
             if side.get("answer"):
-                st.markdown(
-                    f'<div class="answer">{html.escape(side["answer"]["text"])}</div>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown(answer_html(side["answer"], colors), unsafe_allow_html=True)
             else:
                 st.caption("Prompt only: no answer was sampled for this set.")
-            st.markdown(_passages_html(side, colors, other), unsafe_allow_html=True)
     if d["sites"]:
         st.markdown(f"### Citation sites of reference answer {sample}")
         rows = [
@@ -961,7 +1214,15 @@ def side_by_side() -> None:
         ]
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
     else:
-        st.caption("No AP rows for this reference answer (run `vizor score`, samples 0 and 1).")
+        st.caption("No AP rows for this reference answer (run `vizor score`).")
+    st.markdown("### Passages the model saw")
+    a_side, b_side = d["sides"]
+    a_lines = {ln for p in a_side["passages"] for ln in p["lines"]}
+    b_lines = {ln for p in b_side["passages"] for ln in p["lines"]}
+    for pa, pb in aligned_sources(a_side, b_side):
+        l_, r_ = st.columns(2, gap="large")
+        l_.markdown(_source_html(pa, colors, b_lines, a_side["set"]), unsafe_allow_html=True)
+        r_.markdown(_source_html(pb, colors, a_lines, b_side["set"]), unsafe_allow_html=True)
 
 
 def main() -> None:
