@@ -1,0 +1,37 @@
+{
+ "run": "2026-09-18_study2-qwen3b",
+ "arm": "evidence_surface_llm",
+ "pages_rewritten": 24,
+ "rejected": 1,
+ "accepted": 23,
+ "counts": {
+  "changed": 20,
+  "reordered": 1,
+  "unchanged": 2
+ },
+ "pages": {
+  "0a8b4cbfd175": "changed",
+  "1304b2be9547": "changed",
+  "19e3e9489af7": "changed",
+  "1daf8466e88a": "changed",
+  "21fb30346f35": "changed",
+  "43ddf48c5681": "changed",
+  "44084e8d0a55": "changed",
+  "4abe88d5bd5d": "changed",
+  "5707ebc75771": "unchanged",
+  "5c7425502f0e": "changed",
+  "6d34f770bef1": "changed",
+  "72e6a1c8a458": "reordered",
+  "96c105e5400c": "changed",
+  "ab321b55d147": "changed",
+  "b41c59fcb2e0": "unchanged",
+  "ba8a4a013889": "changed",
+  "baa1726cb87a": "changed",
+  "baf916977aa2": "changed",
+  "c946a6d27921": "changed",
+  "ca42a18ad475": "changed",
+  "d75d1cd34b38": "changed",
+  "e6d53256b798": "changed",
+  "f416cdb602aa": "changed"
+ }
+}
