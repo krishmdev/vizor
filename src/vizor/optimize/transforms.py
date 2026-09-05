@@ -621,6 +621,22 @@ def evidence_messages(doc: SourceDoc) -> list[dict[str, str]]:
     return [{"role": "system", "content": GEO_SYSTEM}, {"role": "user", "content": user}]
 
 
+def rewrite_change(before: str, after: str) -> str:
+    """How a rewrite changed a page's text: "unchanged" (same sentences in the same order, up
+    to whitespace), "reordered" (the same sentences in another order) or "changed". The guard
+    accepts all three; this flags the first two so accepted no-ops are not read as edits."""
+
+    def sents(t: str) -> list[str]:
+        return [" ".join(x.split()) for x in split_sentences(" ".join(t.split())) if x.strip()]
+
+    a, b = sents(before), sents(after)
+    if a == b:
+        return "unchanged"
+    if sorted(a) == sorted(b):
+        return "reordered"
+    return "changed"
+
+
 def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceDoc, str]:
     """GEO's statistics addition restricted to numbers already on the page: an LLM restates the
     page with its own numbers surfaced. A grounding guard rejects any output with a number or
@@ -677,6 +693,7 @@ def evidence_surface_llm(doc: SourceDoc, ctx: TransformContext) -> tuple[SourceD
             "doc_id": doc.doc_id,
             "accepted": not bad,
             "violations": bad[:10],
+            "change": rewrite_change(doc.body, body) if body else "changed",
             **info,
         }
     )

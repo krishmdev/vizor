@@ -151,9 +151,10 @@ def greedy_trajectory(
 
 
 def guard_summary(events: list[dict]) -> dict:
-    """Per rewrite transform: pages rewritten, pages rejected by the grounding guard, and the
-    rejection rate. A page rewritten more than once (e.g. again for a prompt-only set) counts
-    once; the rewrite is cached, so its verdict is the same each time."""
+    """Per rewrite transform: pages rewritten, pages rejected by the grounding guard, the
+    rejection rate, and the accepted pages whose text is unchanged or only reordered. A page
+    rewritten more than once (e.g. again for a prompt-only set) counts once; the rewrite is
+    cached, so its verdict is the same each time."""
     by: dict[str, dict[str, dict]] = {}
     for e in events:
         by.setdefault(e["transform"], {})[e["doc_id"]] = e
@@ -163,6 +164,13 @@ def guard_summary(events: list[dict]) -> dict:
             "rejected": sum(not e["accepted"] for e in pages.values()),
             "rejection_rate": sum(not e["accepted"] for e in pages.values()) / len(pages),
             "rejected_pages": {d: e["violations"] for d, e in pages.items() if not e["accepted"]},
+            # accepted rewrites that leave the text as it was, or only move sentences around
+            **{
+                f"{c}_pages": sorted(
+                    d for d, e in pages.items() if e["accepted"] and e.get("change") == c
+                )
+                for c in ("unchanged", "reordered")
+            },
         }
         for t, pages in by.items()
     }

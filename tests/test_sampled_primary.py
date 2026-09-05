@@ -44,3 +44,36 @@ def test_sampled_primary_holm_both_tests_and_rewrite_minimum(tmp_path, monkeypat
     # the A/A arm equals the baseline here, so every reference gives the same delta
     assert aa_ref["answer_first"]["d_c_share_pp"] == by["answer_first"]["d_c_share_pp"]
     assert "Exploratory, not pre-registered" in (tmp_path / "sampled_primary.md").read_text()
+
+
+def test_rewrite_change_flags_accepted_no_ops():
+    from vizor.experiment import guard_summary
+    from vizor.optimize.transforms import rewrite_change
+
+    a = "The lamp is bright. It lasts ten hours. It costs 59 dollars."
+    assert rewrite_change(a, "The lamp is  bright.\nIt lasts ten hours. It costs 59 dollars.") == (
+        "unchanged"
+    )
+    assert rewrite_change(a, "It costs 59 dollars. The lamp is bright. It lasts ten hours.") == (
+        "reordered"
+    )
+    assert rewrite_change(a, "The lamp is bright and lasts ten hours.") == "changed"
+    ev = [
+        {
+            "transform": "t",
+            "doc_id": "p1",
+            "accepted": True,
+            "violations": [],
+            "change": "unchanged",
+        },
+        {"transform": "t", "doc_id": "p2", "accepted": True, "violations": [], "change": "changed"},
+        {
+            "transform": "t",
+            "doc_id": "p3",
+            "accepted": False,
+            "violations": ["x"],
+            "change": "changed",
+        },
+    ]
+    g = guard_summary(ev)["t"]
+    assert g["unchanged_pages"] == ["p1"] and g["reordered_pages"] == [] and g["rejected"] == 1
