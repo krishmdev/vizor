@@ -187,3 +187,27 @@ def test_localhost_scorer_resends_a_request_that_gets_no_reply(stub_server):
     _Stub.stall = 9
     with pytest.raises(httpx.TimeoutException):
         LocalhostScorer("m", base_url=stub_server, timeout=0.2, attempts=2, backoff_s=0.01).pin()
+
+
+def test_localhost_checks_every_response_against_the_pin(stub_server):
+    sc = LocalhostScorer("m", base_url=stub_server)
+    msgs = [{"role": "user", "content": "q"}]
+    sc.score(msgs, "It is [1].", [Site(7, ("1", "2"))])
+    _Stub.drop = ("revision",)
+    with pytest.raises(RuntimeError, match="revision"):
+        sc.score(msgs, "It is [1].", [Site(7, ("1", "2"))])
+    _Stub.drop = ()
+    # an abbreviated config commit must match in full, not just its first 7 characters
+    with pytest.raises(RuntimeError, match="config says"):
+        LocalhostScorer("m", base_url=stub_server, server_meta={"commit": "deadbeefXXXX"}).pin()
+    assert LocalhostScorer("m", base_url=stub_server, server_meta={"commit": "deadbeefca"}).pin()
+
+
+def test_cached_scorer_reports_resends(stub_server, tmp_path):
+    from vizor.generate.scorer import CachedScorer
+
+    _Stub.stall = 1
+    inner = LocalhostScorer("m", base_url=stub_server, timeout=0.2, backoff_s=0.01)
+    sc = CachedScorer(inner, tmp_path)
+    sc.score([{"role": "user", "content": "q"}], "It is [1].", [Site(7, ("1", "2"))])
+    assert sc.stats()["retries"] >= 1

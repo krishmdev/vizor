@@ -186,8 +186,10 @@ class LocalhostScorer:
                 missing = [k for k in REQUIRED_PIN if not meta.get(k)]
                 if missing:
                     raise RuntimeError(f"/v1/score did not report {missing}; refusing to score")
-                want = self.server_meta.get("commit")
-                if want and not str(meta["commit"]).startswith(want[:7]):
+                want = str(self.server_meta.get("commit") or "")
+                got = str(meta["commit"])
+                # the whole commit, or all of an abbreviated one given in the config
+                if want and not (got == want or (len(want) >= 7 and got.startswith(want))):
                     raise RuntimeError(
                         f"server reports commit {meta['commit']}, config says {want}"
                     )
@@ -203,7 +205,15 @@ class LocalhostScorer:
     def score(self, messages: Messages, continuation: str, sites: list[Site]) -> ScoreResult:
         if not sites:
             return ScoreResult([], self.pin())
+        pin = self.pin()
         body = self._post(messages, continuation, sites)
+        meta = self._meta(body)
+        # every response must come from the pinned build, not just the first probe
+        for k in ("model", "revision", "commit", "tokenizer_sha", "weights_sha"):
+            if pin.get(k) is not None and meta.get(k) != pin[k]:
+                raise RuntimeError(
+                    f"/v1/score response reports {k} {meta.get(k)!r}, pinned {pin[k]!r}"
+                )
         out = []
         for s, r in zip(sites, body["sites"], strict=True):
             lp = {str(k): float(v) for k, v in r["candidates"].items()}
@@ -214,7 +224,7 @@ class LocalhostScorer:
                 if abs(float(v) - ren.get(str(k), float("nan"))) > RENORM_TOL:
                     raise ValueError(f"server renorm {k}={v} disagrees with {ren.get(str(k))}")
             out.append(SiteScore(s.char_offset, int(r.get("token_index", -1)), lp, ren))
-        return ScoreResult(out, self._meta(body))
+        return ScoreResult(out, meta)
 
 
 # ------------------------------------------------------------------------------------------ MLX
@@ -417,4 +427,7 @@ class CachedScorer:
         return res
 
     def stats(self) -> dict:
-        return {"calls": self.calls, "cache_hits": self.hits}
+        out = {"calls": self.calls, "cache_hits": self.hits}
+        if hasattr(self.inner, "retries"):  # resends after a timeout (LocalhostScorer)
+            out["retries"] = self.inner.retries
+        return out
