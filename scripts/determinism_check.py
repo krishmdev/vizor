@@ -110,7 +110,9 @@ def main() -> int:
         "alone_vs_batch_identical": sum(same_batch),
         "mismatch_rate_alone_vs_batch": 1 - sum(same_batch) / len(jobs),
         "byte_identical": ok,
-        "decision": "batching does not change answers"
+        # with server_batch 1 concurrent requests are queued, not batched, so this says nothing
+        # about answers computed inside a batch of two or more
+        "decision": f"queued requests at batch {args.server_batch} are byte-identical"
         if ok
         else "answers differ; run with workers: 1 and report the mismatch rate",
         "batch_wall_s": round(batch_wall, 1),
