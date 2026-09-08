@@ -15,7 +15,7 @@
  "alone_vs_batch_identical": 10,
  "mismatch_rate_alone_vs_batch": 0.0,
  "byte_identical": true,
- "decision": "batching does not change answers",
+ "decision": "queued requests at batch 1 are byte-identical",
  "batch_wall_s": 92.8,
  "alone": [
   {
