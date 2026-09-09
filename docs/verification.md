@@ -87,3 +87,11 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   (2,160 rows, 1,156 distinct scorer calls) and `configs/study2_dryrun.yaml` ran the whole
   Study 2 design (1,512 sampled answers, 2,016 scored rows, A/A and `noop` exactly 0). Those fake
   numbers check plumbing only.
+- **Final review fixes (CPU only, no model called)**: `pytest -m 'not slow and not network' -o
+  addopts='' -q` passed 423 tests (two deselected, as above), also under `scripts/offline-run`.
+  `ruff check .` and `ruff format --check .` passed. `vizor recompute` matched every committed
+  run (Study 2: 7,560 rows and 2,016 AP rows; gate: 2,160 AP rows). `vizor report` reproduces
+  the README block unchanged. The pre-registered keys of `sampled_primary.json` are unchanged;
+  the regenerated file only adds `p_perm_exact`, `exploratory_reference` and `gate`. The
+  dashboard screenshots were taken headless (Streamlit, Playwright Chromium) at 1280 and 390 px
+  against the API with a hashing embedder and FakeLLM config, so no model was loaded.

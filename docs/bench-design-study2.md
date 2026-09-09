@@ -341,8 +341,9 @@ and the design said beforehand that it would count as a failure anyway.
 
 Operational note: during the gate some `/v1/score` requests got no reply (the server went on
 serving later requests). The first attempt stopped on a 600 s timeout; the scorer now resends a
-request after 60 s on a fresh connection (b6c47a0, c017b31). The gate run reported here resent
-9 requests. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
+request after 60 s on a fresh connection (b6c47a0, c017b31). How many requests the gate run
+resent was only printed to the console and is not in its result files, so no number is given
+here; `scorer_stats` in `ap_manifest.json` now records it. Scoring is deterministic at batch 1 and cached, so a resent request returns the same
 values; `vizor recompute` matches all 2,160 rows.
 
 ### Study 2 run and the Gemma replication (2026-09-18)
@@ -356,6 +357,16 @@ computed by `scripts/sampled_primary.py` (exact Wilcoxon with zero pages dropped
 test on the 24 page means, each Holm-adjusted over the three arms). The legacy test in `vizor
 report`'s table (Study 1's Wilcoxon with zero-splitting) is shown there for continuity and is
 not the pre-registered test; it gives Holm p 0.052 instead of 0.046 for `evidence_surface_llm`.
+
+Added after the run, and not pre-registered: `sampled_primary.md` also gives the sign-flip p
+over all 2^24 sign patterns (0.0469 for `evidence_surface_llm`, 0.0456 for the A/A control,
+against the pre-registered Monte Carlo values 0.044 and 0.045) and an exploratory look at the
+choice of reference. Against the A/A re-sample no arm passes the rule after Holm; against the
+mean of baseline and A/A, `answer_first` and `faq_rewrite_v2` pass and `evidence_surface_llm`
+(-2.6 points, Wilcoxon p 0.41) does not. `evidence_surface_llm` is therefore not robust to the
+choice of reference. Of the 23 accepted rewrites, 2 are identical to the page and 1 only
+reorders its sentences (`rewrite_changes.json`). `/v1/score` was not checked against
+in-process mlx-lm on `qwen2.5-3b-mlx4`; the check needs the GPU and was left for later.
 
 The Gemma replication (item 3 of the second amendment) did not run. Its pre-run checks did
 (`experiments/results/2026-09-18_gemma-e4b-checks`):
