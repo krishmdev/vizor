@@ -1,5 +1,7 @@
 # Attribution propensity: 2026-09-05_bench-qwen3b
 
+> **Gate input, not a result.** Added after the run: these are the AP scores the validation gate read (`gate.md`), and AP failed the gate on criteria 3 and 4. No claim rests on them.
+
 Scorer `localhost-ai/qwen2.5-3b-mlx4`, pin `{"backend": "localhost-ai", "chat_template_kwargs": {}, "commit": "c61e05d4992d6cb68c7c16fc986eeb84dda74c5f", "model": "qwen2.5-3b-mlx4", "preset": "qwen2.5-3b-mlx4", "revision": "4f83f8f146fdf28b512a06562b671d7af4fab457", "server": "localhost-ai", "tokenizer_sha": "53532ad570e43718e4a465c9db068b743cf3bcae665b7608dbb80ed044b2b1d8", "url": "http://127.0.0.1:8431/v1/score"}`. Reference answers: baseline samples [0, 1]. 2160 scored (prompt set, query, reference) rows, 1706 with at least one citation site. Units are pages; the estimate, interval and tests use unweighted page means. AP deltas are in percentage points of citation probability.
 
 | Comparison | Family | ΔAP pp [95% CI] | AP ref % | n queries / pages | p Wilcoxon (Holm) | p sign-flip (Holm) | Significant | ΔAP first site pp | Focus page shown % | Pages with Δ = 0 |
