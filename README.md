@@ -357,14 +357,17 @@ Localhost AI at 3 samples per query:
 - `answer_first` moves the page's key-fact sentences to the top, rewording nothing.
 - `evidence_surface_llm` has a second model (Qwen3.5-9B with thinking on) restate the page with
   its own numbers stated early. A guard rejects any rewrite that adds a number or name or drops
-  too much; 23 of 24 rewrites passed, and all 24 used the full 2,048-token thinking budget.
+  too much; 23 of 24 rewrites passed the guard and 21 of those changed the text (two came back
+identical to the page, and one only reordered its sentences). All 24 used the full 2,048-token
+thinking budget.
 - `faq_rewrite_v2` adds at most two FAQ pairs built from the page's own section headings.
 
 It was meant to use a new metric, attribution propensity (AP): keep a baseline answer fixed and
 ask the model how likely each source index is at every citation site under the edited prompt,
 so an unchanged prompt gives exactly zero difference. AP first had to pass a validation gate on
 Study 1's data, and it failed two of the four criteria: it detected the slot effect (-44 points)
-and the FAQ harm (-8 points), but it was not precise enough relative to its own effect size, and
+and the FAQ harm (-8 points), and on the FAQ edit it was more precise than the sampled share, but
+1.27 times as precise (effect over interval half-width) rather than the required 1.67 times, and
 its page-level deltas did not track the sampled citation share (rho 0.25, permutation p 0.33).
 As pre-registered, the primary metric became the sampled citation share on 24 page units, with
 an effect counted only if the exact Wilcoxon and the sign-flip test are both below 0.05 after
@@ -380,9 +383,20 @@ Holm over the three edits (`sampled_primary.md` in the results folder):
 - All three edits lowered the target's citation share, and all three meet the decision rule.
   The design predicted that `answer_first` would not be negative; it was.
 - The `evidence_surface_llm` result is weak. It is about the size of the A/A control's own
-  drift (-3.4 points, raw sign-flip p 0.045, from re-sampling the same prompts), its adjusted p
-  values sit just under 0.05, and Study 1's older Wilcoxon variant in the generated table above
-  gives 0.052. Read it as "possibly a small harm", not as an established effect.
+  drift (-3.4 points, from re-sampling the same prompts), its adjusted p values sit just under
+  0.05, and Study 1's older Wilcoxon variant in the generated table above gives 0.052. The
+  sign-flip p values in the table are the pre-registered Monte Carlo ones (20,000 draws); over
+  all 2^24 sign patterns they are 0.0469 for `evidence_surface_llm` and 0.0456 for the A/A
+  control. Read it as "possibly a small harm", not as an established effect.
+- Exploratory, not pre-registered: the baseline is one draw of 3 samples per query, and a lucky
+  draw would shift all three deltas the same way. Using the A/A re-sample as the reference
+  instead gives `answer_first` -6.1 (raw Wilcoxon p 0.046), `faq_rewrite_v2` -6.6 (0.053) and
+  `evidence_surface_llm` -0.9 (0.81), and none passes the rule after Holm. Using the mean of
+  baseline and A/A gives -7.8 (0.011), -8.3 (0.010) and -2.6 (0.41); the first two pass the rule
+  and `evidence_surface_llm` does not. So `evidence_surface_llm` is not robust to the choice of
+  reference, and the other two shrink by a third against the A/A arm. The computation is in
+  `scripts/sampled_primary.py`, and the full table, with Holm p values for both tests, is in
+  `sampled_primary.md`. This does not change the pre-registered verdicts above.
 - The run can detect about 5.6 points (80% power, from the A/A page SD of 8.0 points).
 - `faq_rewrite_v2` lowered citation share by 10 points, against Study 1's 15.4 for the original
   FAQ rewrite. The queries and the model build differ, so this is only loosely comparable.
@@ -405,9 +419,14 @@ inside a batch of two or more, so every Study 2 call ran at batch 1 with one req
 (`LHAI_CONTROLLER=fixed LHAI_FIXED_BATCH=1`), and mlx-lm turns thinking on by default for Gemma 4
 and Qwen3.5, so the in-process scorer turns it off to match the server. At batch 1 on an M1 Pro,
 answers took about 9 s each on the 3B model, and the scoring server now and then left a request
-unanswered while serving later ones; the client resends such a request after 60 s (9 times in the
-gate), which is safe because scoring is deterministic and cached. `vizor recompute` reproduces
-every stored AP value.
+unanswered while serving later ones; the client resends such a request after 60 s, which is safe
+because scoring is deterministic and cached. How many requests were resent in the gate and in
+Study 2 was only printed to the console, so it is not reported; `scorer_stats` in
+`ap_manifest.json` records it from now on. The scorer now also checks every response's commit,
+revision and tokenizer hash against the pin, not just the first. `vizor recompute` reproduces
+every stored AP value. `/v1/score` was checked against in-process mlx-lm scoring only for Gemma
+(where it failed, above); that check was not run for `qwen2.5-3b-mlx4`, so the Study 2 AP
+values rest on the server's scoring without an independent check.
 
 The tooling behind it, all tested offline with a deterministic fake scorer:
 
@@ -464,14 +483,20 @@ model, and a `base_url` also covers other OpenAI-compatible servers.
 
 ## API and UI
 
-![Sandbox view: per-arm ΔPAWC with the A/A noise band](docs/sandbox.png)
+![Sandbox view of Study 2: per-arm change in citation share under the sampled primary rule, with the gate banner](docs/sandbox.png)
 
 `vizor serve` starts FastAPI with these routes: `/health` (including the egress canary result
 when `VIZOR_EGRESS_CANARY=1`), `/project`, `/corpus/docs[/{id}]`, `POST /answer` (live query →
 sources, labels, per-sentence attribution), `POST /runs` and `POST /sandbox` (background jobs,
 one at a time), `/jobs/{id}`, `/experiments[/{id}]`, `/experiments/{id}/answers/...` and
-`/experiments/{id}/diffs`. The Streamlit dashboard has four views: overview, answer inspector,
-sandbox (forest plot, sweeps, page diffs) and optimizer (regret curves, held-out check).
+`/experiments/{id}/diffs`, `/sets` and `/compare/...`. The Streamlit dashboard has five views:
+overview, answer inspector, sandbox (forest plot under the run's decision rule, content vs rank
+table, sweeps, page diffs), optimizer (regret curves, held-out check) and side by side (a
+baseline and an arm for the same query and sample, with the citation sites and the passages of
+each source aligned). Below about 640 px the forest plot drops its margin notes and shows them
+as a table; the screenshots were taken headless at 1280 and 390 px wide
+([sandbox](docs/sandbox-mobile.png), [inspector](docs/inspector-mobile.png),
+[side by side](docs/side-by-side.png), [side by side, phone](docs/side-by-side-mobile.png)).
 
 `docker compose up --build` runs both, mounting `.models/` read-only.
 `make compose-offline` runs the same stack on an `internal: true` network and checks from inside
@@ -493,7 +518,7 @@ data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
 data/bench/     larger synthetic corpus (72 pages, 24 of them target pages), Study 1's 72
                 queries and Study 2's 72 new ones
 experiments/    committed results and RESULTS.md
-tests/          402 offline tests, incl. vendored GEO reference functions
+tests/          423 offline tests, incl. vendored GEO reference functions
 ```
 
 ## Limitations
