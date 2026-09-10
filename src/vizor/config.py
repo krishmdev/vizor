@@ -81,6 +81,9 @@ class SandboxConfig(BaseModel):
     # guarded LLM rewrites are read from it instead of calling the rewriter, and the run refuses
     # it unless its rewriter fingerprint matches the config's.
     frozen_rewrites: str | None = None
+    # Samples per query for single arms, overriding `samples` (Study 3 runs its content-only
+    # twins at 1 sample). Seeds stay common random numbers: sample k has the same seed in every arm.
+    arm_samples: dict[str, int] = Field(default_factory=dict)
 
 
 class RenderConfig(BaseModel):

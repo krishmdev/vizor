@@ -176,6 +176,7 @@ class Sandbox:
         brands: dict | None = None,
         primary: str = "imp_pwc",
         weighting: str = "query",
+        arm_samples: dict[str, int] | None = None,
     ) -> None:
         if primary not in ("imp_pwc", "c_share", "mentioned"):
             raise ValueError(f"unknown primary metric {primary!r}")
@@ -185,6 +186,8 @@ class Sandbox:
         self.engine = engine
         self.queries = list(queries)
         self.samples = samples
+        # arm name -> samples per query for that arm (e.g. content-only twins at 1 sample)
+        self.arm_samples = dict(arm_samples or {})
         self.domains = domains
         self.ctx_factory = ctx_factory
         self.ctx = ctx_factory(self.queries)
@@ -234,8 +237,12 @@ class Sandbox:
     def _run_engine(
         self, arm: Arm, queries: Sequence[Query], engine: Engine | None = None
     ) -> ArmRun:
-        results = (engine or self.engine).run(queries, self.samples, arm.policy, arm.salt)
+        k = self.samples_for(arm)
+        results = (engine or self.engine).run(queries, k, arm.policy, arm.salt)
         return ArmRun(arm, results, self.rows_for(results, arm.name))
+
+    def samples_for(self, arm: Arm) -> int:
+        return self.arm_samples.get(arm.name, self.samples)
 
     def _doc_engines(self, arm: Arm, plan: list[tuple[str, Sequence[Query], TransformContext]]):
         """(fold, doc_id, queries, engine, edited doc or None, diff) for each edited page."""
@@ -269,7 +276,7 @@ class Sandbox:
             if new is not None:
                 changed.setdefault(fold, {})[doc_id] = new
                 diffs.setdefault(fold, {})[doc_id] = diff
-            results += engine.run(group, self.samples, arm.policy, arm.salt)
+            results += engine.run(group, self.samples_for(arm), arm.policy, arm.salt)
             for q in group:
                 scored[q.query_id] = (fold, doc_id)
         order = {q.query_id: i for i, q in enumerate(self.queries)}

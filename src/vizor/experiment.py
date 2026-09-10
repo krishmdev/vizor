@@ -289,6 +289,7 @@ def run_experiment(
         brands=project.brand_patterns(),
         primary=cfg.sandbox.primary_metric,
         weighting=cfg.sandbox.weighting,
+        arm_samples=cfg.sandbox.arm_samples,
     )
     log(
         f"{len(docs)} docs, {len(queries)} queries x {cfg.samples} samples, "
