@@ -76,6 +76,36 @@ def _windows(paragraphs: list[str]) -> list[str]:
     return chunks
 
 
+def window_starts(paragraphs: list[str]) -> list[tuple[int, int]]:
+    """Where each of `_windows(paragraphs)` begins: (paragraph index, word offset in it)."""
+    starts: list[tuple[int, int]] = []
+    buf_start: tuple[int, int] | None = None
+    n_buf = 0
+    for i, para in enumerate(paragraphs):
+        words = para.split()
+        if n_buf + len(words) <= WINDOW:
+            if buf_start is None:
+                buf_start = (i, 0)
+            n_buf += len(words)
+            continue
+        if n_buf:
+            starts.append(buf_start)
+            buf_start, n_buf = None, 0
+        if len(words) <= WINDOW:
+            buf_start, n_buf = (i, 0), len(words)
+            continue
+        step = WINDOW - OVERLAP
+        for start in range(0, len(words), step):
+            if len(words[start : start + WINDOW]) < OVERLAP and starts:
+                break
+            starts.append((i, start))
+            if start + WINDOW >= len(words):
+                break
+    if n_buf:
+        starts.append(buf_start)
+    return starts
+
+
 def passages(doc: SourceDoc) -> list[Passage]:
     out: list[Passage] = []
 
