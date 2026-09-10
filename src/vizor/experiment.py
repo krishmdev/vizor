@@ -519,6 +519,18 @@ def run_experiment(
         ]
     )
     write_csv(out / "queries.csv", focus)
+    # Where each arm's edited page ranked and which of its passages the model was shown.
+    from vizor.metrics.retrieval_log import retrieval_frame, retrieval_summary
+
+    retrieval = retrieval_frame(
+        [base, *arm_runs.values()],
+        lambda run: (
+            {q: d for q, (_, d) in run.scored_against.items()} if run.scored_against else sb.focus
+        ),
+        doc_map,
+    )
+    write_csv(out / "retrieval.csv", retrieval)
+    write_csv(out / "retrieval_summary.csv", retrieval_summary(retrieval))
     if isinstance(pos_df, pd.DataFrame):
         write_csv(out / "position_sweep.csv", pos_df)
     if isinstance(boost_df, pd.DataFrame):
