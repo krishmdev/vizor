@@ -52,6 +52,13 @@ def main() -> int:
     ap.add_argument("--arms", nargs="+", default=PRIMARY)
     ap.add_argument("--controls", nargs="+", default=["aa_resample", "noop"])
     ap.add_argument("--gate", type=Path, help="the validation gate's gate.json, to record why")
+    ap.add_argument(
+        "--require-aa-sign",
+        action="store_true",
+        help="Study 3's rule: an arm also needs its delta against the A/A arm to have the same "
+        "sign as its delta against the baseline",
+    )
+    ap.add_argument("--study", default="Study 2", help="the heading of sampled_primary.md")
     a = ap.parse_args()
     cfg = Config.load(a.config)
     units = load_units(a.run)
@@ -80,13 +87,22 @@ def main() -> int:
         for r, p in zip(rows, holm([r[key] for r in rows]), strict=True):
             r[key + "_holm"] = p
     need = cfg.sandbox.rewrite_min_accepted
+    if a.require_aa_sign:
+        aa_d = c_share_page_deltas(a.run, "aa_resample", units)
+        for r in rows:
+            d0 = c_share_page_deltas(a.run, r["arm"], units)
+            r["d_vs_aa_pp"] = float((d0 - aa_d.loc[d0.index]).mean())
+            r["same_sign_vs_aa"] = bool(np.sign(r["d_vs_aa_pp"]) == np.sign(r["d_c_share_pp"]))
     for r in rows:
         g = guard.get(r["arm"])
         accepted = g["pages"] - g["rejected"] if g else None
         r["accepted_pages"] = accepted
         r["inconclusive"] = bool(g and need and accepted < need)
         r["significant"] = (
-            r["p_wilcoxon_holm"] < 0.05 and r["p_perm_holm"] < 0.05 and not r["inconclusive"]
+            r["p_wilcoxon_holm"] < 0.05
+            and r["p_perm_holm"] < 0.05
+            and not r["inconclusive"]
+            and r.get("same_sign_vs_aa", True)
         )
     controls = [one(x) for x in a.controls]
     aa = next((c for c in controls if c["arm"] == "aa_resample"), None)
@@ -100,6 +116,8 @@ def main() -> int:
         "mde_pp": mde(aa["sd_page_pp"], aa["n_pages"], len(a.arms), t=True) if aa else None,
         "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family",
     }
+    if a.require_aa_sign:
+        out["rule"] = "both Holm p < 0.05 and the delta vs A/A has the same sign"
     if a.gate:
         g = json.loads(a.gate.read_text())
         out["gate"] = {
@@ -111,7 +129,7 @@ def main() -> int:
         out["exploratory_reference"] = exploratory_reference(a.run, a.arms, units)
     (a.run / "sampled_primary.json").write_text(json.dumps(out, indent=1) + "\n")
     lines = [
-        f"# Study 2 primary (sampled citation share, page units) on {a.run.name}",
+        f"# {a.study} primary (sampled citation share, page units) on {a.run.name}",
         "",
         "| Arm | dC-SoV pp [95% CI] | Holm p (Wilcoxon) | Holm p (sign-flip) | Pages | Zero "
         "pages | Verdict |",
@@ -136,6 +154,17 @@ def main() -> int:
         )
     if out["mde_pp"] is not None:
         lines += ["", f"MDE (A/A page SD {aa['sd_page_pp']:.2f} pp): {out['mde_pp']:.1f} pp."]
+    if a.require_aa_sign:
+        lines += [
+            "",
+            "Delta against the A/A arm (the rule needs the same sign as against the baseline): "
+            + ", ".join(
+                f"`{r['arm']}` {r['d_vs_aa_pp']:+.1f} pp "
+                f"({'same' if r['same_sign_vs_aa'] else 'opposite'})"
+                for r in rows
+            )
+            + ".",
+        ]
     lines += [
         "",
         f"Exact sign-flip p (raw, all 2^{rows[0]['n_pages']} sign patterns; the table uses the "
