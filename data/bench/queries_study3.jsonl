@@ -1,0 +1,72 @@
+{"query_id": "s3-comp-01", "query": "is a 400 lumen light enough for unlit bike paths or do i need 800", "intent": "comparison", "topic": "beam-800"}
+{"query_id": "s3-tran-01", "query": "waterproof bike front light that charges in about 3 hours", "intent": "transactional", "topic": "beam-800"}
+{"query_id": "s3-trou-01", "query": "my front light runtime is much shorter in winter", "intent": "troubleshooting", "topic": "beam-800"}
+{"query_id": "s3-info-01", "query": "how many strokes does a floor pump take to fill a road tire", "intent": "informational", "topic": "floor-pump"}
+{"query_id": "s3-tran-02", "query": "floor pump with a dual head for presta and schrader valves", "intent": "transactional", "topic": "floor-pump"}
+{"query_id": "s3-trou-02", "query": "my floor pump gauge reads differently from my other pump", "intent": "troubleshooting", "topic": "floor-pump"}
+{"query_id": "s3-info-02", "query": "how much does a 20 inch folding bike weigh", "intent": "informational", "topic": "fold-20"}
+{"query_id": "s3-comp-02", "query": "folding bike vs e-scooter for the last mile from the train", "intent": "comparison", "topic": "fold-20"}
+{"query_id": "s3-trou-03", "query": "the hinge on my folding bike feels loose", "intent": "troubleshooting", "topic": "fold-20"}
+{"query_id": "s3-info-03", "query": "what is a 2 x 10 drivetrain on a gravel bike", "intent": "informational", "topic": "gravel-gx"}
+{"query_id": "s3-comp-03", "query": "gravel bike vs road bike for commuting on rough city streets", "intent": "comparison", "topic": "gravel-gx"}
+{"query_id": "s3-tran-03", "query": "gravel bike with hydraulic disc brakes for a daily commute", "intent": "transactional", "topic": "gravel-gx"}
+{"query_id": "s3-comp-04", "query": "is it safer to keep a bike in a garage or a shared bike room", "intent": "comparison", "topic": "guides/bike-theft"}
+{"query_id": "s3-tran-04", "query": "what lock should i buy to stop thieves with bolt cutters", "intent": "transactional", "topic": "guides/bike-theft"}
+{"query_id": "s3-trou-04", "query": "someone tried to cut my lock what should i do now", "intent": "troubleshooting", "topic": "guides/bike-theft"}
+{"query_id": "s3-info-04", "query": "how do i know when a bike chain is worn out", "intent": "informational", "topic": "guides/chain-care"}
+{"query_id": "s3-tran-05", "query": "what do i need to buy to clean a bike chain at home", "intent": "transactional", "topic": "guides/chain-care"}
+{"query_id": "s3-trou-05", "query": "my chain is black and gritty after a few rides", "intent": "troubleshooting", "topic": "guides/chain-care"}
+{"query_id": "s3-info-05", "query": "how do i plan a safe bike route to work", "intent": "informational", "topic": "guides/first-commute"}
+{"query_id": "s3-comp-05", "query": "riding to work in regular clothes vs changing at the office", "intent": "comparison", "topic": "guides/first-commute"}
+{"query_id": "s3-trou-06", "query": "i get tired halfway through my bike commute", "intent": "troubleshooting", "topic": "guides/first-commute"}
+{"query_id": "s3-info-06", "query": "how do i find what caused a puncture in my tire", "intent": "informational", "topic": "guides/flat-tire"}
+{"query_id": "s3-comp-06", "query": "co2 inflator vs mini pump for fixing a flat on the road", "intent": "comparison", "topic": "guides/flat-tire"}
+{"query_id": "s3-tran-06", "query": "puncture resistant tires for a daily commute", "intent": "transactional", "topic": "guides/flat-tire"}
+{"query_id": "s3-comp-07", "query": "size chart vs test ride for choosing a bike frame size", "intent": "comparison", "topic": "guides/frame-size"}
+{"query_id": "s3-tran-07", "query": "what frame size gravel bike should i buy at 175 cm tall", "intent": "transactional", "topic": "guides/frame-size"}
+{"query_id": "s3-trou-07", "query": "my bike frame has almost no standover clearance", "intent": "troubleshooting", "topic": "guides/frame-size"}
+{"query_id": "s3-info-07", "query": "how high should my saddle be for commuting", "intent": "informational", "topic": "guides/saddle-height"}
+{"query_id": "s3-tran-08", "query": "what tool do i need to adjust my seatpost height", "intent": "transactional", "topic": "guides/saddle-height"}
+{"query_id": "s3-trou-08", "query": "my hips rock side to side when i pedal", "intent": "troubleshooting", "topic": "guides/saddle-height"}
+{"query_id": "s3-info-08", "query": "how often should i check my bike tire pressure", "intent": "informational", "topic": "guides/tire-pressure"}
+{"query_id": "s3-comp-08", "query": "tire pressure for a heavy rider vs a light rider", "intent": "comparison", "topic": "guides/tire-pressure"}
+{"query_id": "s3-trou-09", "query": "my tires lose air every week but there is no puncture", "intent": "troubleshooting", "topic": "guides/tire-pressure"}
+{"query_id": "s3-info-09", "query": "how many layers should i wear to cycle to work in winter", "intent": "informational", "topic": "guides/winter-commuting"}
+{"query_id": "s3-comp-09", "query": "studded tires vs regular tires on wet winter roads", "intent": "comparison", "topic": "guides/winter-commuting"}
+{"query_id": "s3-tran-09", "query": "what lights should i buy for dark winter commutes", "intent": "transactional", "topic": "guides/winter-commuting"}
+{"query_id": "s3-comp-10", "query": "electric cargo bike vs a trailer for carrying kids", "intent": "comparison", "topic": "haul"}
+{"query_id": "s3-tran-10", "query": "cargo bike with a handrail and footboards for older children", "intent": "transactional", "topic": "haul"}
+{"query_id": "s3-trou-10", "query": "my cargo bike is too wide to fit through doors", "intent": "troubleshooting", "topic": "haul"}
+{"query_id": "s3-info-10", "query": "how long does it take to cut a u-lock with an angle grinder", "intent": "informational", "topic": "lock-d9"}
+{"query_id": "s3-tran-11", "query": "u-lock with a frame mount so i can carry it on the bike", "intent": "transactional", "topic": "lock-d9"}
+{"query_id": "s3-trou-11", "query": "my u-lock is too small to fit around a post", "intent": "troubleshooting", "topic": "lock-d9"}
+{"query_id": "s3-info-11", "query": "does a city bike with a hub gear need a chainguard", "intent": "informational", "topic": "metro-7"}
+{"query_id": "s3-comp-11", "query": "city bike with a chainguard vs a gravel bike for riding in work clothes", "intent": "comparison", "topic": "metro-7"}
+{"query_id": "s3-trou-12", "query": "my city bike chain keeps getting my trousers dirty", "intent": "troubleshooting", "topic": "metro-7"}
+{"query_id": "s3-info-12", "query": "how much can a 20 litre pannier hold", "intent": "informational", "topic": "pannier-20"}
+{"query_id": "s3-comp-12", "query": "one pannier vs two panniers for commuting", "intent": "comparison", "topic": "pannier-20"}
+{"query_id": "s3-tran-12", "query": "pannier that fits rack tubes up to 16 mm", "intent": "transactional", "topic": "pannier-20"}
+{"query_id": "s3-comp-13", "query": "light built into a helmet vs a rear light on the seatpost", "intent": "comparison", "topic": "shell"}
+{"query_id": "s3-tran-13", "query": "lightweight helmet for daily city riding", "intent": "transactional", "topic": "shell"}
+{"query_id": "s3-trou-13", "query": "my helmet feels too tight after an hour of riding", "intent": "troubleshooting", "topic": "shell"}
+{"query_id": "s3-info-13", "query": "how steep a climb can a smart trainer simulate", "intent": "informational", "topic": "spin-t2"}
+{"query_id": "s3-tran-14", "query": "smart trainer that comes with an 11-speed cassette", "intent": "transactional", "topic": "spin-t2"}
+{"query_id": "s3-trou-14", "query": "my smart trainer reads too high after it warms up", "intent": "troubleshooting", "topic": "spin-t2"}
+{"query_id": "s3-info-14", "query": "at what age can a child ride a 16 inch bike", "intent": "informational", "topic": "sprout-16"}
+{"query_id": "s3-comp-14", "query": "16 inch vs 20 inch bike for a 6 year old", "intent": "comparison", "topic": "sprout-16"}
+{"query_id": "s3-trou-15", "query": "my child cannot reach the brake levers on their bike", "intent": "troubleshooting", "topic": "sprout-16"}
+{"query_id": "s3-info-15", "query": "how do disc brake rotors get contaminated", "intent": "informational", "topic": "support/disc-brake-squeal"}
+{"query_id": "s3-comp-15", "query": "cleaning contaminated disc brake pads vs replacing them", "intent": "comparison", "topic": "support/disc-brake-squeal"}
+{"query_id": "s3-tran-15", "query": "how much do replacement disc brake pads cost", "intent": "transactional", "topic": "support/disc-brake-squeal"}
+{"query_id": "s3-comp-16", "query": "e-bike range in summer vs in winter", "intent": "comparison", "topic": "support/e-bike-battery"}
+{"query_id": "s3-tran-16", "query": "is a second e-bike battery worth buying for a long commute", "intent": "transactional", "topic": "support/e-bike-battery"}
+{"query_id": "s3-trou-16", "query": "my e-bike battery gets warm while charging", "intent": "troubleshooting", "topic": "support/e-bike-battery"}
+{"query_id": "s3-info-16", "query": "what does a derailleur hanger do", "intent": "informational", "topic": "support/gear-indexing"}
+{"query_id": "s3-tran-17", "query": "is a chain wear checker worth buying", "intent": "transactional", "topic": "support/gear-indexing"}
+{"query_id": "s3-trou-17", "query": "my gears are slow to shift onto bigger cogs", "intent": "troubleshooting", "topic": "support/gear-indexing"}
+{"query_id": "s3-info-17", "query": "what is a spoke key used for", "intent": "informational", "topic": "support/wheel-truing"}
+{"query_id": "s3-comp-17", "query": "truing a wheel vs replacing a bent rim", "intent": "comparison", "topic": "support/wheel-truing"}
+{"query_id": "s3-trou-18", "query": "i hear a pinging noise from my spokes when i ride", "intent": "troubleshooting", "topic": "support/wheel-truing"}
+{"query_id": "s3-info-18", "query": "what is a cadence sensor on an e-bike", "intent": "informational", "topic": "volt-e1"}
+{"query_id": "s3-comp-18", "query": "e-bike with 45 nm of torque vs 85 nm for a hilly commute", "intent": "comparison", "topic": "volt-e1"}
+{"query_id": "s3-tran-18", "query": "e-bike under 25 kg that i can carry up stairs", "intent": "transactional", "topic": "volt-e1"}
