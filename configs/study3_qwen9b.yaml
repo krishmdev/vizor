@@ -1,0 +1,49 @@
+# Study 3, pre-registered (docs/bench-design-study3.md). Qwen3.5-9B (MLX 4-bit) served by
+# Localhost AI at batch 1 with thinking off, on the bench corpus with the 72 Study 3 queries.
+# Three query-blind edits aimed at passage selection and retrieval rank, their content-only
+# twins at 1 sample, and the two controls. Committed before any Study 3 call; not edited after.
+#
+#   vizor experiment --config configs/study3_qwen9b.yaml --server-commit <sha> \
+#     --out experiments/results/<date>_study3-qwen9b
+#   python scripts/sampled_primary.py <run> --config configs/study3_qwen9b.yaml \
+#     --arms fact_passage entity_anchor retrieval_meta --require-aa-sign --study "Study 3"
+#   python scripts/study3_secondary.py <run> --config configs/study3_qwen9b.yaml
+label: "Study 3: qwen3.5-9b-mlx4 via Localhost AI, bench corpus, Study 3 queries (pre-registered)"
+project: data/bench/project_study3.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: vader  # the 9B model leaves little memory; skip the roberta sentiment model
+samples: 3
+seed: 0
+llm:
+  backend: openai_compat
+  model: qwen3.5-9b-mlx4
+  base_url: http://127.0.0.1:8431/v1
+  temperature: 0.7
+  max_tokens: 450
+  workers: 1
+  chat_template_kwargs: {enable_thinking: false}
+  server_meta:
+    server: localhost-ai
+    preset: qwen3.5-9b-mlx4
+  system_prompt: >-
+    You answer questions using numbered search results. Write short sentences. Put a citation in
+    square brackets at the end of EVERY sentence, right before the period, naming the search result
+    that supports that sentence. Format example, with made-up facts unrelated to any question:
+    "The Harrow kettle holds 1.7 litres [2]. It ships in three colours [2]. The Linden toaster has
+    four slots [4]." Never collect citations at the end of the answer.
+sandbox:
+  primary_metric: c_share
+  weighting: page
+  arms: [noop, aa_resample, fact_passage, entity_anchor, retrieval_meta,
+         content:fact_passage, content:entity_anchor, content:retrieval_meta]
+  # the content-only twins are secondary (the content-vs-rank split) and run at 1 sample
+  arm_samples: {content:fact_passage: 1, content:entity_anchor: 1, content:retrieval_meta: 1}
+  position_sweep: []
+  boost_sweep: []
+render:
+  passage_policy: query-top3
+bandit:
+  greedy_steps: 0
+score:
+  draws: 20000

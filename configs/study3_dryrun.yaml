@@ -1,0 +1,29 @@
+# Offline dry run of the Study 3 design (FakeLLM answers): the same corpus, queries, arms and
+# retrieval as configs/study3_qwen9b.yaml. Retrieval and the edits do not depend on the answer
+# model, so its retrieval.csv is what the real run will log; its answer numbers are not evidence.
+#
+#   vizor experiment --config configs/study3_dryrun.yaml --out runs/study3-dryrun
+label: "Study 3 dry run (FakeLLM)"
+project: data/bench/project_study3.yaml
+embedder: bge
+reranker: cross-encoder
+sentiment: vader
+samples: 3
+seed: 0
+llm:
+  backend: fake
+sandbox:
+  primary_metric: c_share
+  weighting: page
+  arms: [noop, aa_resample, fact_passage, entity_anchor, retrieval_meta,
+         content:fact_passage, content:entity_anchor, content:retrieval_meta]
+  # the content-only twins are secondary (the content-vs-rank split) and run at 1 sample
+  arm_samples: {content:fact_passage: 1, content:entity_anchor: 1, content:retrieval_meta: 1}
+  position_sweep: []
+  boost_sweep: []
+render:
+  passage_policy: query-top3
+bandit:
+  greedy_steps: 0
+score:
+  draws: 20000
