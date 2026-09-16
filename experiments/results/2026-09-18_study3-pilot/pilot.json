@@ -1,0 +1,19 @@
+{
+ "run": "2026-09-18_study3-pilot",
+ "samples": 2,
+ "n_pages": 24,
+ "aa_mean_pp": 0.10779204861111091,
+ "aa_sd_page_pp": 7.727619513820326,
+ "mde_pp_at_pilot_samples": 5.4255194735356405,
+ "main_samples": 2,
+ "aa_sd_page_pp_projected": 7.727619513820326,
+ "mde_pp_projected": 5.4255194735356405,
+ "mde_method": "A/A page SD, t quantiles, 80% power, two-sided alpha 0.05 / family; projected by sqrt(pilot samples / main samples)",
+ "family": 3,
+ "answers_generated": 288,
+ "seconds_per_answer_mean": 31.853638888888888,
+ "seconds_per_answer_median": 29.177,
+ "generation_hours": 2.5482911111111113,
+ "contingency_threshold_s": 15.0,
+ "contingency_applied": true
+}

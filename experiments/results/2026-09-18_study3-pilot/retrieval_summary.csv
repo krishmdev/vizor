@@ -1,0 +1,4 @@
+arm,n_queries,focus_retrieved,focus_rank_mean,focus_slot_mean,target_retrieved,shown_new_all,shown_new_if_shown,best_passage_new
+baseline,72,1,1.73611,1.73611,1,0,0,0
+noop,72,1,1.73611,1.73611,1,0,0,0
+aa_resample,72,1,1.73611,1.73611,1,0,0,0

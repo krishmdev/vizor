@@ -1,0 +1,33 @@
+{
+  "recorded_at": "2026-09-18T22:24:40-0400",
+  "host": {
+    "chip": "Apple M1 Pro",
+    "ram_gb": 16.0,
+    "os": "Darwin 26.5.1",
+    "python": "3.14.6",
+    "power": "Now drawing from 'AC Power'"
+  },
+  "exclusive_compute": {
+    "held": true,
+    "holder": "vizor"
+  },
+  "load": {
+    "loadavg": [
+      "7.39",
+      "3.56",
+      "2.46"
+    ],
+    "cpu_usage": "CPU usage: 13.15% user, 17.10% sys, 69.73% idle",
+    "docker_containers_running": 0,
+    "swap": "total = 2048.00M  used = 1237.12M  free = 810.88M  (encrypted)"
+  },
+  "extra": {
+    "mode": "pilot",
+    "model": "qwen3.5-9b-mlx4",
+    "server": "localhost-ai",
+    "server_commit": "fdb4fbeb361e6244300b999ed1fdaeaef1fb1599",
+    "server_batch": "1",
+    "prefix_cache": "off",
+    "vizor_commit": "4803da9"
+  }
+}
