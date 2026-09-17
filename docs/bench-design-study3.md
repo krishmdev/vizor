@@ -207,6 +207,27 @@ section and committed before the main run.
 
 (Filled in from the pilot.)
 
+Filled in on 2026-09-28 from `experiments/results/2026-09-18_study3-pilot` (`pilot.json`,
+`pilot.md`), before any page arm was run:
+
+- Localhost AI was at commit fdb4fbe (later than ce3d03d, as allowed above). The determinism
+  check on `qwen3.5-9b-mlx4` at batch 1 with thinking off passed: 10 of 10 prompts
+  byte-identical sent alone twice, and 10 of 10 identical when sent together (queued one at a
+  time by the server) (`determinism.json`).
+- A/A (`aa_resample` minus baseline) on the 24 pages at 2 samples: mean +0.11 pp, page SD 7.73
+  pp, MDE 5.4 pp (t quantiles, 80% power, two-sided alpha 0.05 / 3). The per-query A/A SD is 10.4
+  pp (Study 2, qwen2.5-3b at 3 samples: 16.7 pp).
+- Time per generated answer: mean 31.9 s, median 29.2 s over the 288 pilot answers (2.55 hours
+  of generation). This is well above the spec's estimate of 13 s.
+- The contingency applies (31.9 s is over 15 s): the main run uses 2 samples per query, run as
+  `vizor experiment --config configs/study3_qwen9b.yaml --samples 2`; the content-only twins stay
+  at 1 sample. At 2 samples the main run is the pilot's own design, so the MDE for the primary
+  is the pilot's 5.4 pp with no projection. The main run reuses the pilot's baseline and A/A
+  answers from the cache, which needs the same server commit (fdb4fbe).
+- Remaining budget at 2 samples, from the dry run's distinct prompts: about 389 new answers
+  (`fact_passage` 144, `entity_anchor` 68, `retrieval_meta` 144, twins 33), about 3.5 hours at
+  31.9 s.
+
 ## Budget
 
 The spec's estimate, at about 13 s per answer (34.7 ms per decoded token plus about 2.5k tokens
