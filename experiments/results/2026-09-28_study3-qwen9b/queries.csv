@@ -1,0 +1,73 @@
+query_id,query,intent,fold,focus_doc,focus_url
+s3-comp-01,is a 400 lumen light enough for unlit bike paths or do i need 800,comparison,1,b41c59fcb2e0,https://larkspur.example/beam-800
+s3-tran-01,waterproof bike front light that charges in about 3 hours,transactional,2,b41c59fcb2e0,https://larkspur.example/beam-800
+s3-trou-01,my front light runtime is much shorter in winter,troubleshooting,2,b41c59fcb2e0,https://larkspur.example/beam-800
+s3-info-01,how many strokes does a floor pump take to fill a road tire,informational,2,baf916977aa2,https://larkspur.example/floor-pump
+s3-tran-02,floor pump with a dual head for presta and schrader valves,transactional,2,baf916977aa2,https://larkspur.example/floor-pump
+s3-trou-02,my floor pump gauge reads differently from my other pump,troubleshooting,2,baf916977aa2,https://larkspur.example/floor-pump
+s3-info-02,how much does a 20 inch folding bike weigh,informational,2,96c105e5400c,https://larkspur.example/fold-20
+s3-comp-02,folding bike vs e-scooter for the last mile from the train,comparison,1,96c105e5400c,https://larkspur.example/fold-20
+s3-trou-03,the hinge on my folding bike feels loose,troubleshooting,1,96c105e5400c,https://larkspur.example/fold-20
+s3-info-03,what is a 2 x 10 drivetrain on a gravel bike,informational,2,21fb30346f35,https://larkspur.example/gravel-gx
+s3-comp-03,gravel bike vs road bike for commuting on rough city streets,comparison,2,21fb30346f35,https://larkspur.example/gravel-gx
+s3-tran-03,gravel bike with hydraulic disc brakes for a daily commute,transactional,1,21fb30346f35,https://larkspur.example/gravel-gx
+s3-comp-04,is it safer to keep a bike in a garage or a shared bike room,comparison,2,1daf8466e88a,https://larkspur.example/guides/bike-theft
+s3-tran-04,what lock should i buy to stop thieves with bolt cutters,transactional,1,44084e8d0a55,https://larkspur.example/lock-d9
+s3-trou-04,someone tried to cut my lock what should i do now,troubleshooting,2,44084e8d0a55,https://larkspur.example/lock-d9
+s3-info-04,how do i know when a bike chain is worn out,informational,2,6d34f770bef1,https://larkspur.example/guides/chain-care
+s3-tran-05,what do i need to buy to clean a bike chain at home,transactional,1,6d34f770bef1,https://larkspur.example/guides/chain-care
+s3-trou-05,my chain is black and gritty after a few rides,troubleshooting,2,6d34f770bef1,https://larkspur.example/guides/chain-care
+s3-info-05,how do i plan a safe bike route to work,informational,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+s3-comp-05,riding to work in regular clothes vs changing at the office,comparison,2,f416cdb602aa,https://larkspur.example/guides/first-commute
+s3-trou-06,i get tired halfway through my bike commute,troubleshooting,1,f416cdb602aa,https://larkspur.example/guides/first-commute
+s3-info-06,how do i find what caused a puncture in my tire,informational,1,0a8b4cbfd175,https://larkspur.example/guides/flat-tire
+s3-comp-06,co2 inflator vs mini pump for fixing a flat on the road,comparison,1,baf916977aa2,https://larkspur.example/floor-pump
+s3-tran-06,puncture resistant tires for a daily commute,transactional,1,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+s3-comp-07,size chart vs test ride for choosing a bike frame size,comparison,2,b19cb69ab942,https://larkspur.example/guides/frame-size
+s3-tran-07,what frame size gravel bike should i buy at 175 cm tall,transactional,2,b19cb69ab942,https://larkspur.example/guides/frame-size
+s3-trou-07,my bike frame has almost no standover clearance,troubleshooting,1,1daf8466e88a,https://larkspur.example/guides/bike-theft
+s3-info-07,how high should my saddle be for commuting,informational,1,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+s3-tran-08,what tool do i need to adjust my seatpost height,transactional,2,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+s3-trou-08,my hips rock side to side when i pedal,troubleshooting,2,4abe88d5bd5d,https://larkspur.example/guides/saddle-height
+s3-info-08,how often should i check my bike tire pressure,informational,1,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+s3-comp-08,tire pressure for a heavy rider vs a light rider,comparison,1,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+s3-trou-09,my tires lose air every week but there is no puncture,troubleshooting,1,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+s3-info-09,how many layers should i wear to cycle to work in winter,informational,2,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+s3-comp-09,studded tires vs regular tires on wet winter roads,comparison,1,baa1726cb87a,https://larkspur.example/guides/winter-commuting
+s3-tran-09,what lights should i buy for dark winter commutes,transactional,1,b41c59fcb2e0,https://larkspur.example/beam-800
+s3-comp-10,electric cargo bike vs a trailer for carrying kids,comparison,2,1304b2be9547,https://larkspur.example/haul
+s3-tran-10,cargo bike with a handrail and footboards for older children,transactional,2,1304b2be9547,https://larkspur.example/haul
+s3-trou-10,my cargo bike is too wide to fit through doors,troubleshooting,1,1304b2be9547,https://larkspur.example/haul
+s3-info-10,how long does it take to cut a u-lock with an angle grinder,informational,1,44084e8d0a55,https://larkspur.example/lock-d9
+s3-tran-11,u-lock with a frame mount so i can carry it on the bike,transactional,2,1daf8466e88a,https://larkspur.example/guides/bike-theft
+s3-trou-11,my u-lock is too small to fit around a post,troubleshooting,1,44084e8d0a55,https://larkspur.example/lock-d9
+s3-info-11,does a city bike with a hub gear need a chainguard,informational,2,e6d53256b798,https://larkspur.example/metro-7
+s3-comp-11,city bike with a chainguard vs a gravel bike for riding in work clothes,comparison,1,e6d53256b798,https://larkspur.example/metro-7
+s3-trou-12,my city bike chain keeps getting my trousers dirty,troubleshooting,1,6d34f770bef1,https://larkspur.example/guides/chain-care
+s3-info-12,how much can a 20 litre pannier hold,informational,1,72e6a1c8a458,https://larkspur.example/pannier-20
+s3-comp-12,one pannier vs two panniers for commuting,comparison,2,72e6a1c8a458,https://larkspur.example/pannier-20
+s3-tran-12,pannier that fits rack tubes up to 16 mm,transactional,1,72e6a1c8a458,https://larkspur.example/pannier-20
+s3-comp-13,light built into a helmet vs a rear light on the seatpost,comparison,2,5707ebc75771,https://larkspur.example/shell
+s3-tran-13,lightweight helmet for daily city riding,transactional,1,5707ebc75771,https://larkspur.example/shell
+s3-trou-13,my helmet feels too tight after an hour of riding,troubleshooting,2,ba8a4a013889,https://larkspur.example/guides/tire-pressure
+s3-info-13,how steep a climb can a smart trainer simulate,informational,1,5c7425502f0e,https://larkspur.example/spin-t2
+s3-tran-14,smart trainer that comes with an 11-speed cassette,transactional,1,5c7425502f0e,https://larkspur.example/spin-t2
+s3-trou-14,my smart trainer reads too high after it warms up,troubleshooting,2,5c7425502f0e,https://larkspur.example/spin-t2
+s3-info-14,at what age can a child ride a 16 inch bike,informational,2,c946a6d27921,https://larkspur.example/sprout-16
+s3-comp-14,16 inch vs 20 inch bike for a 6 year old,comparison,1,c946a6d27921,https://larkspur.example/sprout-16
+s3-trou-15,my child cannot reach the brake levers on their bike,troubleshooting,2,c946a6d27921,https://larkspur.example/sprout-16
+s3-info-15,how do disc brake rotors get contaminated,informational,2,43ddf48c5681,https://larkspur.example/support/disc-brake-squeal
+s3-comp-15,cleaning contaminated disc brake pads vs replacing them,comparison,2,43ddf48c5681,https://larkspur.example/support/disc-brake-squeal
+s3-tran-15,how much do replacement disc brake pads cost,transactional,1,ab321b55d147,https://larkspur.example/support/wheel-truing
+s3-comp-16,e-bike range in summer vs in winter,comparison,2,d75d1cd34b38,https://larkspur.example/support/e-bike-battery
+s3-tran-16,is a second e-bike battery worth buying for a long commute,transactional,2,d75d1cd34b38,https://larkspur.example/support/e-bike-battery
+s3-trou-16,my e-bike battery gets warm while charging,troubleshooting,1,d75d1cd34b38,https://larkspur.example/support/e-bike-battery
+s3-info-16,what does a derailleur hanger do,informational,1,19e3e9489af7,https://larkspur.example/support/gear-indexing
+s3-tran-17,is a chain wear checker worth buying,transactional,2,19e3e9489af7,https://larkspur.example/support/gear-indexing
+s3-trou-17,my gears are slow to shift onto bigger cogs,troubleshooting,1,19e3e9489af7,https://larkspur.example/support/gear-indexing
+s3-info-17,what is a spoke key used for,informational,2,ab321b55d147,https://larkspur.example/support/wheel-truing
+s3-comp-17,truing a wheel vs replacing a bent rim,comparison,1,ab321b55d147,https://larkspur.example/support/wheel-truing
+s3-trou-18,i hear a pinging noise from my spokes when i ride,troubleshooting,2,ab321b55d147,https://larkspur.example/support/wheel-truing
+s3-info-18,what is a cadence sensor on an e-bike,informational,1,ca42a18ad475,https://larkspur.example/volt-e1
+s3-comp-18,e-bike with 45 nm of torque vs 85 nm for a hilly commute,comparison,1,1304b2be9547,https://larkspur.example/haul
+s3-tran-18,e-bike under 25 kg that i can carry up stairs,transactional,2,f416cdb602aa,https://larkspur.example/guides/first-commute

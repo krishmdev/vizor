@@ -1,0 +1,10 @@
+arm,n_queries,focus_retrieved,focus_rank_mean,focus_slot_mean,target_retrieved,shown_new_all,shown_new_if_shown,best_passage_new
+baseline,72,1,1.73611,1.73611,1,0,0,0
+noop,72,1,1.73611,1.73611,1,0,0,0
+aa_resample,72,1,1.73611,1.73611,1,0,0,0
+fact_passage,72,0.958333,2.26761,2.08696,0.986111,0.958333,1,0.605634
+entity_anchor,72,0.986111,1.71831,1.71831,1,0.444444,0.450704,0.056338
+retrieval_meta,72,1,1.55556,1.55556,1,0,0,0.222222
+content:fact_passage,72,1,1.73611,1.73611,1,1,1,0
+content:entity_anchor,72,1,1.73611,1.73611,1,0.458333,0.458333,0
+content:retrieval_meta,72,1,1.73611,1.73611,1,0,0,0
