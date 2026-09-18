@@ -384,3 +384,12 @@ The Gemma replication (item 3 of the second amendment) did not run. Its pre-run 
 
 The replication stays pre-registered as written and can run later with the same configs.
 Nothing about it is reported as a result.
+
+### Localhost AI history re-dated (2026-09-28, note added after the run)
+
+Localhost AI's git history was later rewritten to restore commit dates; the trees are unchanged
+and only the hashes differ. The hashes cited above and in the Study 2 manifests are the old ones:
+c61e05d is now 6c6e673, 154b4cd is now 8edf46d and 2aeada3 is now b91d662. Localhost AI's
+`docs/commit-map.tsv` maps every old hash to its new one. Result and manifest files are left as
+they were written.
+

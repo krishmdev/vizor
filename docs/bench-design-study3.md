@@ -248,3 +248,20 @@ expected by design; nulls and harms are reported the same way.
 ## Deviations
 
 (Any change from this plan, with the reason, is listed here.)
+
+### Localhost AI history re-dated (2026-09-28, before the main run)
+
+Localhost AI's git history was rewritten to restore commit dates; the trees are unchanged, only
+the hashes differ. The pilot's manifests, `lhai_commit.txt` and cache keys cite the old hash
+fdb4fbe (new f7102a1), and the Study 2 results cite c61e05d (new 6c6e673); Localhost AI's
+`docs/commit-map.tsv` maps every old hash to its new one. Result and manifest files are left as
+they were written.
+
+The main run is pinned to Localhost AI 8fa3d56, the new HEAD (f7102a1 plus the commit map and a
+README edit; the server code is the same as the pilot's). Because the server commit is part of
+the answer cache key, the main run cannot reuse the pilot's baseline and A/A answers and
+generates them again: 288 more answers, about 2.5 hours at the pilot's 31.9 s, for about 677 in
+all (about 6 hours). The regenerated baseline and A/A answers use the same seeds, so at batch 1
+they should be byte-identical to the pilot's; the fraction that is identical is reported as a
+check, and the main run's own answers are the ones analysed.
+
