@@ -1,0 +1,158 @@
+{
+ "run": "2026-09-28_study3-qwen9b",
+ "metric": "c_share",
+ "weighting": "page",
+ "family": [
+  "fact_passage",
+  "entity_anchor",
+  "retrieval_meta"
+ ],
+ "arms": [
+  {
+   "arm": "fact_passage",
+   "n_pages": 24,
+   "d_c_share_pp": -5.4542821875,
+   "lo": -10.262812637152777,
+   "hi": -0.6117844557291662,
+   "sd_page_pp": 12.251266431457795,
+   "p_wilcoxon": 0.026927709579467773,
+   "p_perm": 0.03899805009749512,
+   "p_perm_exact": 0.039436936378479004,
+   "n_zero_pages": 0,
+   "p_wilcoxon_holm": 0.08078312873840332,
+   "p_perm_holm": 0.11699415029248536,
+   "d_vs_aa_pp": -5.562074236111111,
+   "same_sign_vs_aa": true,
+   "accepted_pages": 24,
+   "inconclusive": false,
+   "significant": false
+  },
+  {
+   "arm": "entity_anchor",
+   "n_pages": 24,
+   "d_c_share_pp": -1.6893347222222224,
+   "lo": -3.4344774739583332,
+   "hi": -0.17187497395833395,
+   "sd_page_pp": 4.135982257229539,
+   "p_wilcoxon": 0.12939453125,
+   "p_perm": 0.053147342632868355,
+   "p_perm_exact": 0.0546875,
+   "n_zero_pages": 12,
+   "p_wilcoxon_holm": 0.2587890625,
+   "p_perm_holm": 0.11699415029248536,
+   "d_vs_aa_pp": -1.797126770833333,
+   "same_sign_vs_aa": true,
+   "accepted_pages": 24,
+   "inconclusive": false,
+   "significant": false
+  },
+  {
+   "arm": "retrieval_meta",
+   "n_pages": 24,
+   "d_c_share_pp": -0.7014728819444441,
+   "lo": -3.3289144800347223,
+   "hi": 1.9927760590277759,
+   "sd_page_pp": 6.965554019200696,
+   "p_wilcoxon": 0.5645889043807983,
+   "p_perm": 0.6263686815659217,
+   "p_perm_exact": 0.6246949434280396,
+   "n_zero_pages": 0,
+   "p_wilcoxon_holm": 0.5645889043807983,
+   "p_perm_holm": 0.6263686815659217,
+   "d_vs_aa_pp": -0.8092649305555549,
+   "same_sign_vs_aa": true,
+   "accepted_pages": 24,
+   "inconclusive": false,
+   "significant": false
+  }
+ ],
+ "controls": [
+  {
+   "arm": "aa_resample",
+   "n_pages": 24,
+   "d_c_share_pp": 0.10779204861111091,
+   "lo": -2.9266578463541673,
+   "hi": 3.112377917534722,
+   "sd_page_pp": 7.727619513820326,
+   "p_wilcoxon": 0.9888126850128174,
+   "p_perm": 0.9463526823658817,
+   "p_perm_exact": 0.9463059902191162,
+   "n_zero_pages": 0
+  },
+  {
+   "arm": "noop",
+   "n_pages": 24,
+   "d_c_share_pp": 0.0,
+   "lo": 0.0,
+   "hi": 0.0,
+   "sd_page_pp": 0.0,
+   "p_wilcoxon": 1.0,
+   "p_perm": 1.0,
+   "p_perm_exact": 1.0,
+   "n_zero_pages": 24
+  }
+ ],
+ "mde_pp": 5.4255194735356405,
+ "mde_method": "A/A page-level SD, t quantiles, 80% power, two-sided alpha 0.05 / family",
+ "rule": "both Holm p < 0.05 and the delta vs A/A has the same sign",
+ "exploratory_reference": {
+  "A/A re-sample": [
+   {
+    "arm": "fact_passage",
+    "d_c_share_pp": -5.562074236111111,
+    "p_wilcoxon": 0.017870306968688965,
+    "p_perm_exact": 0.08072483539581299,
+    "p_wilcoxon_holm": 0.053610920906066895,
+    "p_perm_exact_holm": 0.24217450618743896,
+    "both_holm": false
+   },
+   {
+    "arm": "entity_anchor",
+    "d_c_share_pp": -1.797126770833333,
+    "p_wilcoxon": 0.2405325174331665,
+    "p_perm_exact": 0.30671167373657227,
+    "p_wilcoxon_holm": 0.481065034866333,
+    "p_perm_exact_holm": 0.6134233474731445,
+    "both_holm": false
+   },
+   {
+    "arm": "retrieval_meta",
+    "d_c_share_pp": -0.8092649305555549,
+    "p_wilcoxon": 0.3902466297149658,
+    "p_perm_exact": 0.6254311800003052,
+    "p_wilcoxon_holm": 0.481065034866333,
+    "p_perm_exact_holm": 0.6254311800003052,
+    "both_holm": false
+   }
+  ],
+  "mean of baseline and A/A": [
+   {
+    "arm": "fact_passage",
+    "d_c_share_pp": -5.5081782118055544,
+    "p_wilcoxon": 0.011516094207763672,
+    "p_perm_exact": 0.050446271896362305,
+    "p_wilcoxon_holm": 0.034548282623291016,
+    "p_perm_exact_holm": 0.15133881568908691,
+    "both_holm": false
+   },
+   {
+    "arm": "entity_anchor",
+    "d_c_share_pp": -1.7432307465277777,
+    "p_wilcoxon": 0.12084019184112549,
+    "p_perm_exact": 0.12626230716705322,
+    "p_wilcoxon_holm": 0.24168038368225098,
+    "p_perm_exact_holm": 0.25252461433410645,
+    "both_holm": false
+   },
+   {
+    "arm": "retrieval_meta",
+    "d_c_share_pp": -0.7553689062499996,
+    "p_wilcoxon": 0.35962629318237305,
+    "p_perm_exact": 0.5732998847961426,
+    "p_wilcoxon_holm": 0.35962629318237305,
+    "p_perm_exact_holm": 0.5732998847961426,
+    "both_holm": false
+   }
+  ]
+ }
+}

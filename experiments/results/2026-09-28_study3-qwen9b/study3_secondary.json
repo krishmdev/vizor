@@ -1,0 +1,189 @@
+{
+ "run": "2026-09-28_study3-qwen9b",
+ "arms": {
+  "fact_passage": {
+   "named_pp": {
+    "n_pages": 24,
+    "est": -5.381944444444444,
+    "lo": -16.145833333333332,
+    "hi": 2.951388888888889,
+    "p_wilcoxon": 0.340836974053655
+   },
+   "full_pp": {
+    "n_pages": 24,
+    "est": -5.4542821875,
+    "lo": -10.262812637152777,
+    "hi": -0.6117844557291666,
+    "p_wilcoxon": 0.026927709579467773
+   },
+   "content_pp": {
+    "n_pages": 24,
+    "est": -1.5088201041666658,
+    "lo": -5.7561470138888895,
+    "hi": 2.908893248263889,
+    "p_wilcoxon": 0.20761656761169434
+   },
+   "rank_pp": {
+    "n_pages": 24,
+    "est": -3.9454620833333336,
+    "lo": -8.277125069444445,
+    "hi": -0.08017824131944573,
+    "p_wilcoxon": 0.15150094032287598
+   },
+   "retrieved_pp": {
+    "n_pages": 24,
+    "est": -4.861111111111111,
+    "lo": -12.5,
+    "hi": 0.0,
+    "p_wilcoxon": 0.5
+   },
+   "rank_delta": {
+    "n_pages": 24,
+    "est": 0.6111111111111112,
+    "lo": 0.23255208333333335,
+    "hi": 1.104253472222221,
+    "p_wilcoxon": 0.0029242059264872307
+   },
+   "passages": {
+    "fact_passage": {
+     "focus_retrieved": 0.9583333333333334,
+     "focus_rank_mean": 2.267605633802817,
+     "shown_new_all": 0.9583333333333334,
+     "shown_new_if_shown": 1.0,
+     "n_shown_queries": 69
+    },
+    "content:fact_passage": {
+     "focus_retrieved": 1.0,
+     "focus_rank_mean": 1.7361111111111112,
+     "shown_new_all": 1.0,
+     "shown_new_if_shown": 1.0,
+     "n_shown_queries": 72
+    }
+   }
+  },
+  "entity_anchor": {
+   "named_pp": {
+    "n_pages": 24,
+    "est": 1.2152777777777777,
+    "lo": -3.125,
+    "hi": 5.5555555555555545,
+    "p_wilcoxon": 0.4927166772270878
+   },
+   "full_pp": {
+    "n_pages": 24,
+    "est": -1.6893347222222224,
+    "lo": -3.4344774739583332,
+    "hi": -0.171874973958334,
+    "p_wilcoxon": 0.12939453125
+   },
+   "content_pp": {
+    "n_pages": 24,
+    "est": 0.15802190972222271,
+    "lo": -2.1255408854166666,
+    "hi": 2.178920921006943,
+    "p_wilcoxon": 0.40611207485198975
+   },
+   "rank_pp": {
+    "n_pages": 24,
+    "est": -1.8473566319444448,
+    "lo": -3.5210146189236124,
+    "hi": -0.13664314236111283,
+    "p_wilcoxon": 0.06464934349060059
+   },
+   "retrieved_pp": {
+    "n_pages": 24,
+    "est": -1.0416666666666667,
+    "lo": -3.125,
+    "hi": 0.0,
+    "p_wilcoxon": 1.0
+   },
+   "rank_delta": {
+    "n_pages": 24,
+    "est": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "p_wilcoxon": 1.0
+   },
+   "passages": {
+    "entity_anchor": {
+     "focus_retrieved": 0.9861111111111112,
+     "focus_rank_mean": 1.7183098591549295,
+     "shown_new_all": 0.4444444444444444,
+     "shown_new_if_shown": 0.4507042253521127,
+     "n_shown_queries": 71
+    },
+    "content:entity_anchor": {
+     "focus_retrieved": 1.0,
+     "focus_rank_mean": 1.7361111111111112,
+     "shown_new_all": 0.4583333333333333,
+     "shown_new_if_shown": 0.4583333333333333,
+     "n_shown_queries": 72
+    }
+   }
+  },
+  "retrieval_meta": {
+   "named_pp": {
+    "n_pages": 24,
+    "est": 0.17361111111111102,
+    "lo": -5.902777777777778,
+    "hi": 5.034722222222221,
+    "p_wilcoxon": 0.6713732405408726
+   },
+   "full_pp": {
+    "n_pages": 24,
+    "est": -0.7014728819444445,
+    "lo": -3.328914480034723,
+    "hi": 1.9927760590277759,
+    "p_wilcoxon": 0.5645889043807983
+   },
+   "content_pp": {
+    "n_pages": 24,
+    "est": -0.6904624652777778,
+    "lo": -3.873536126736111,
+    "hi": 2.6858325338541666,
+    "p_wilcoxon": 0.5838061571121216
+   },
+   "rank_pp": {
+    "n_pages": 24,
+    "est": -0.011010416666666542,
+    "lo": -1.9719395486111102,
+    "hi": 1.7754996614583325,
+    "p_wilcoxon": 0.898735523223877
+   },
+   "retrieved_pp": {
+    "n_pages": 24,
+    "est": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "p_wilcoxon": 1.0
+   },
+   "rank_delta": {
+    "n_pages": 24,
+    "est": -0.11805555555555554,
+    "lo": -0.3021701388888889,
+    "hi": 0.07291666666666667,
+    "p_wilcoxon": 0.096027081153624
+   },
+   "passages": {
+    "retrieval_meta": {
+     "focus_retrieved": 1.0,
+     "focus_rank_mean": 1.5555555555555556,
+     "shown_new_all": 0.0,
+     "shown_new_if_shown": 0.0,
+     "n_shown_queries": 72
+    },
+    "content:retrieval_meta": {
+     "focus_retrieved": 1.0,
+     "focus_rank_mean": 1.7361111111111112,
+     "shown_new_all": 0.0,
+     "shown_new_if_shown": 0.0,
+     "n_shown_queries": 72
+    }
+   }
+  }
+ },
+ "baseline": {
+  "focus_retrieved": 1.0,
+  "focus_rank_mean": 1.7361111111111112
+ }
+}
