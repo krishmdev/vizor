@@ -9,6 +9,11 @@ bootstrap interval, raw exact Wilcoxon p):
   candidate rank, arm minus baseline, and the passage-selection share (how often an edited or
   new passage of the page is among the passages shown).
 
+Exploratory, not pre-registered: the same split on sample 0 alone. The twins have 1 sample and
+the full arms 2, so full minus twin also contains half the difference between samples 1 and 0
+wherever the two prompts are identical; on sample 0 both use the same seed, so the rank-mediated
+part is exactly 0 wherever retrieval did not change.
+
     uv run python scripts/study3_secondary.py <run dir> --config <config>
 """
 
@@ -95,6 +100,25 @@ def main() -> int:
         "focus_retrieved": float(base["focus_retrieved"].mean()),
         "focus_rank_mean": float(base["focus_rank"].mean()),
     }
+    rows_path = a.run / "rows.csv.gz"
+    if rows_path.exists():
+        from vizor.optimize.sandbox import target_frame
+
+        rows = pd.read_csv(rows_path)
+        s0 = []
+        for arm in rows["arm"].unique():
+            t = target_frame(rows[rows["arm"] == arm])
+            s0.append(t[t["sample"] == 0][["query_id", "c_share"]].assign(arm=arm))
+        s0 = pd.concat(s0, ignore_index=True)
+        for arm in a.arms:
+            twin = f"content:{arm}"
+            if twin not in arms_present:
+                continue
+            out["arms"][arm]["sample0"] = {
+                "full_pp": describe(page_deltas(s0, "c_share", arm, "baseline", units), 100, b),
+                "content_pp": describe(page_deltas(s0, "c_share", twin, "baseline", units), 100, b),
+                "rank_pp": describe(page_deltas(s0, "c_share", arm, twin, units), 100, b),
+            }
     (a.run / "study3_secondary.json").write_text(json.dumps(out, indent=1) + "\n")
 
     def f(x: dict, unit: str = "pp") -> str:
@@ -134,6 +158,22 @@ def main() -> int:
                 f"{100 * p['shown_new_all']:.0f}% | "
                 f"{'n/a' if ifs is None else f'{100 * ifs:.0f}%'} ({p['n_shown_queries']}) |"
             )
+    if any("sample0" in r for r in out["arms"].values()):
+        lines += [
+            "",
+            "Exploratory, not pre-registered: the content-vs-rank split on sample 0 alone (the "
+            "twins' only sample; the same seed in every arm, so the rank-mediated part is exactly "
+            "0 wherever retrieval did not change).",
+            "",
+            "| Arm | Full dC-SoV (sample 0) | Content-only | Rank-mediated |",
+            "|---|---|---|---|",
+        ]
+        for arm, r in out["arms"].items():
+            if "sample0" in r:
+                z = r["sample0"]
+                lines.append(
+                    f"| `{arm}` | {f(z['full_pp'])} | {f(z['content_pp'])} | {f(z['rank_pp'])} |"
+                )
     (a.run / "study3_secondary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     return 0
