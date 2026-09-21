@@ -91,7 +91,7 @@ def load(d: Path) -> dict:
 
 
 def load_sampled_primary(d: Path) -> dict | None:
-    """Study 2's fallback primary (scripts/sampled_primary.py), when the run has one. Its rule
+    """The sampled primary (scripts/sampled_primary.py; Studies 2 and 3), when the run has one. Its rule
     replaces the legacy Holm Wilcoxon in deltas.csv for the verdict."""
     p = d / "sampled_primary.json"
     return json.loads(p.read_text()) if p.exists() else None
@@ -115,7 +115,12 @@ def sampled_rule_md(sp: dict) -> str:
     return (
         f"{why}the primary is the sampled citation share (C-SoV) on {sp['arms'][0]['n_pages']} "
         "page units: an arm has an effect (`*`) when the exact Wilcoxon and the sign-flip p are "
-        f"both below 0.05 after Holm over the {len(sp['family'])} arms."
+        f"both below 0.05 after Holm over the {len(sp['family'])} arms"
+        + (
+            ", and its delta against the A/A re-sample has the same sign as against the baseline."
+            if sp.get("rule")
+            else "."
+        )
     )
 
 
@@ -259,7 +264,7 @@ def deltas_md_v2(r: dict) -> str:
                 cells.append(_ci(getattr(x, a), getattr(x, lo), getattr(x, hi)))
         if sp:
             if x.arm in ctrl or not s_:
-                rule = "control"
+                rule = "control" if x.arm in ctrl else "secondary"
             else:
                 rule = f"{_p(s_['p_wilcoxon_holm'])} / {_p(s_['p_perm_holm'])}" + (
                     " *" if s_["significant"] else ""
@@ -280,7 +285,7 @@ def deltas_md_v2(r: dict) -> str:
     verdict_cols = (
         [
             "p (Holm, primary: Wilcoxon / sign-flip)",
-            "Study 1 test (continuity, not the Study 2 rule)",
+            "Study 1 test (continuity, not this study's rule)",
         ]
         if sp
         else ["p (Holm, primary)"]

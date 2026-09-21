@@ -117,9 +117,13 @@ def test_sampled_primary_replaces_the_legacy_verdict(run_dir):
     r["manifest"] = {**r["manifest"], "llm_is_fake": False}
     md = summary_md(r)
     assert "AP failed its validation gate on criteria 3 and 4" in md
-    assert "Study 1 test (continuity, not the Study 2 rule)" in md
+    assert "Study 1 test (continuity, not this study's rule)" in md
     assert "| `faq_rewrite` | -12.3 [-13.3, -11.3]" in md
     assert "0.010 / 0.010 *" in md
     assert "moved C-SoV by -7.7 [-8.7, -6.7] pp on 4 page units" in md
     assert "1 of 2 have an effect under the sampled primary rule" in md
     assert "Exploratory, not pre-registered" in md
+    assert "same sign" not in md
+    # Study 3's rule adds the sign condition against the A/A arm
+    r["sampled_primary"]["rule"] = "both Holm p < 0.05 and the delta vs A/A has the same sign"
+    assert "its delta against the A/A re-sample has the same sign" in summary_md(r)
