@@ -18,3 +18,11 @@ Passage selection: share of queries with an edited or new passage of the page am
 | `content:entity_anchor` | 100% | 1.74 | 46% | 46% (72) |
 | `retrieval_meta` | 100% | 1.56 | 0% | 0% (72) |
 | `content:retrieval_meta` | 100% | 1.74 | 0% | 0% (72) |
+
+Exploratory, not pre-registered: the content-vs-rank split on sample 0 alone (the twins' only sample; the same seed in every arm, so the rank-mediated part is exactly 0 wherever retrieval did not change).
+
+| Arm | Full dC-SoV (sample 0) | Content-only | Rank-mediated |
+|---|---|---|---|
+| `fact_passage` | -6.6 [-12.8, -0.3] pp (p 0.053) | -2.3 [-6.8, +2.3] pp (p 0.188) | -4.3 [-8.2, -0.8] pp (p 0.033) |
+| `entity_anchor` | -0.8 [-3.5, +1.1] pp (p 1.000) | -0.7 [-3.3, +1.3] pp (p 0.733) | -0.2 [-0.5, +0.0] pp (p 1.000) |
+| `retrieval_meta` | -2.3 [-5.9, +1.7] pp (p 0.143) | -1.5 [-5.0, +2.2] pp (p 0.303) | -0.7 [-1.9, +0.3] pp (p 0.312) |
