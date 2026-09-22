@@ -534,7 +534,7 @@ GATE_CRITERIA = {
 
 
 def primary_banner(sp: dict | None) -> None:
-    """States the decision rule when a run has Study 2's sampled primary."""
+    """States the decision rule when a run has a sampled primary (Studies 2 and 3)."""
     if not sp:
         return
     g = sp.get("gate") or {}
@@ -542,10 +542,12 @@ def primary_banner(sp: dict | None) -> None:
     if g and not g.get("passed", True):
         crit = " and ".join(GATE_CRITERIA.get(c, c) for c in g.get("failed", []))
         why = f" (AP failed its validation gate on criteria {crit})"
+    aa = " and the delta against the A/A arm has the same sign" if sp.get("rule") else ""
+    ap = " AP is secondary and makes no claims." if g else ""
     st.markdown(
         f'<div class="banner"><b>PRIMARY</b> &nbsp;Sampled C-SoV{why}; effect = both Holm p '
         f"&lt; 0.05 (exact Wilcoxon and sign-flip, Holm over {len(sp['family'])} arms, "
-        f"{sp['arms'][0]['n_pages']} page units). AP is secondary and makes no claims.</div>",
+        f"{sp['arms'][0]['n_pages']} page units){aa}.{ap}</div>",
         unsafe_allow_html=True,
     )
 
