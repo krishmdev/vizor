@@ -265,3 +265,63 @@ all (about 6 hours). The regenerated baseline and A/A answers use the same seeds
 they should be byte-identical to the pilot's; the fraction that is identical is reported as a
 check, and the main run's own answers are the ones analysed.
 
+
+### Study 3 run (2026-09-28)
+
+The main run (`experiments/results/2026-09-28_study3-qwen9b`) ran from 04:56 to 09:58 on
+Localhost AI 8fa3d56, batch 1, prefix cache off, thinking off, at 2 samples per query (the
+contingency above) with the content-only twins at 1 sample: 677 generated answers. Deviations
+from the plan, all stated above before the run: 2 samples instead of 3, and the baseline and
+A/A answers generated again because the server commit changed hash. The regenerated baseline and
+A/A answers are byte-identical to the pilot's in 288 of 288 cases (`pilot_identity.json`).
+`vizor recompute` matches all 5,400 rows. The guard accepted every edit, and `entity_anchor`
+left the 12 guides unchanged, as expected. GPU time for Study 3, including the qwen2.5-3b
+`/v1/score` check: 22:22-01:12 and 04:56-09:58, about 7.9 hours.
+
+Primary (`sampled_primary.md`), citation share, 24 page units, Holm over the three arms:
+
+| Arm | dC-SoV pp [95% CI] | Wilcoxon p raw (Holm) | Sign-flip p raw (Holm) | vs A/A | Rule met |
+|---|---|---|---|---|---|
+| `fact_passage` | -5.5 [-10.3, -0.6] | 0.027 (0.081) | 0.039 (0.117) | -5.6, same sign | no |
+| `entity_anchor` | -1.7 [-3.4, -0.2] | 0.129 (0.259) | 0.053 (0.117) | -1.8, same sign | no |
+| `retrieval_meta` | -0.7 [-3.3, +2.0] | 0.565 (0.565) | 0.626 (0.626) | -0.8, same sign | no |
+| `aa_resample` (control) | +0.1 [-2.9, +3.1] | 0.989 | 0.946 | | |
+
+No arm meets the rule. The MDE is 5.4 points; `fact_passage`'s point estimate is at about that
+size, but its adjusted p values are 0.08 and 0.12. `entity_anchor`'s -1.7 is the mean over 24
+pages of which 12 (the guides) are exactly 0.
+
+Predictions:
+
+- `fact_passage`, predicted negative: the sign held (not significant after Holm).
+- `entity_anchor`, predicted positive and below the MDE: below the MDE as predicted, but the sign
+  was negative, so the prediction did not hold.
+- `retrieval_meta`, predicted positive and below the MDE: below the MDE, but the sign was
+  negative, so the prediction did not hold.
+
+Secondary (`study3_secondary.md`, raw p values, no claims):
+
+- Named rate: `fact_passage` -5.4 [-16.1, +3.0], `entity_anchor` +1.2 [-3.1, +5.6],
+  `retrieval_meta` +0.2 [-5.9, +5.0] points.
+- Retrieval: the page was shown for 96% of queries under `fact_passage` (100% at baseline),
+  and its candidate rank got worse by 0.6 per page [+0.2, +1.1] (mean 1.74 to 2.27).
+  `retrieval_meta` improved the mean rank to 1.56 (page-level -0.1 [-0.3, +0.1]); `entity_anchor`
+  left it unchanged.
+- Passage selection: the key-facts passage was among the passages shown for 100% of the queries
+  where its page was shown; `entity_anchor`'s edited windows for 45%; `retrieval_meta` shows no
+  edited passage by construction (it edits the title and description, which were shown).
+- Content vs rank, as pre-registered (full minus the 1-sample twin): `fact_passage` content -1.5
+  [-5.8, +2.9], rank-mediated -3.9 [-8.3, -0.1]; `entity_anchor` +0.2 and -1.8 [-3.5, -0.1];
+  `retrieval_meta` -0.7 and -0.0. This split is confounded by the unequal samples: where the
+  full arm's prompt equals the twin's, full minus twin is half the difference between samples 1
+  and 0, not a rank effect. `entity_anchor` changed the sources of only 1 query, so its
+  "rank-mediated" -1.8 is sampling noise.
+- Exploratory, not pre-registered: the same split on sample 0 alone, where the twin and the full
+  arm share a seed, gives `fact_passage` content -2.3 [-6.8, +2.3] and rank-mediated -4.3 [-8.2,
+  -0.8] (18 queries changed sources), `entity_anchor` -0.7 and -0.2, and `retrieval_meta` -1.5
+  and -0.7.
+
+Reading: the edit designed to win passage selection did win it, and the page still lost citation
+share (not significant after Holm); on the secondary split, most of the loss came through the
+rank the page lost when the key-facts passage became its best match. The edit designed to win rank moved the page up a little and did not change the
+citation share by a detectable amount. Nothing in Study 3 raised the target's citation share.
