@@ -95,3 +95,12 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   the regenerated file only adds `p_perm_exact`, `exploratory_reference` and `gate`. The
   dashboard screenshots were taken headless (Streamlit, Playwright Chromium) at 1280 and 390 px
   against the API with a hashing embedder and FakeLLM config, so no model was loaded.
+- **Study 3 (2026-09-28)**: `pytest -m 'not slow and not network' -o addopts='' -q` passed 440
+  tests (two deselected, as above); `ruff check .` and `ruff format --check .` passed. The
+  FakeLLM dry run (`configs/study3_dryrun.yaml`) ran the whole design before any model call.
+  Under the compute lease: `/v1/score` matched in-process mlx-lm on `qwen2.5-3b-mlx4` (10
+  prompts, 51 sites, largest difference 0.0); the 9B determinism check passed at batch 1 (10 of
+  10); the pilot and the main run were written by `vizor experiment`. `vizor recompute` matched
+  every committed run (Study 3 pilot 2,160 rows, main run 5,400 rows), and the main run's
+  regenerated baseline and A/A answers equal the pilot's in 288 of 288 cases. `vizor report`
+  regenerates the README block; running it twice gives no further change.
