@@ -264,7 +264,7 @@ The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation shar
 
 The verdict follows `sampled_primary.json`: AP failed its validation gate on criteria 3 and 4, so the primary is the sampled citation share (C-SoV) on 24 page units: an arm has an effect (`*`) when the exact Wilcoxon and the sign-flip p are both below 0.05 after Holm over the 3 arms. The ΔC-SoV column, its intervals and the `n` units come from that file (page units, A/A included; the A/A's ΔPAWC and Δnamed stay on its query units). The Study 1 column is the Holm-adjusted Wilcoxon (zero_method zsplit) that decided Study 1; it is shown for continuity and decides nothing here. The brand-mention test (“named”: the answer names the target brand, with or without a citation) gets its own Holm adjustment. `noop` and `aa_resample` are controls outside every family. Page arms are tested on edited-page units (queries sharing an edited page are not independent); `n` is queries / units. The 95% CIs resample those units and are descriptive. The last four columns describe the arm's answers: no valid citation at all, citation-like text the parser could not map to a source, and every citation collected on the final sentence (for those answers PAWC's position weighting is meaningless). “Queries whose sources changed” counts queries where the arm changed the list of sources the model saw.
 
-| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary: Wilcoxon / sign-flip) | Study 1 test (continuity, not the Study 2 rule) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
+| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary: Wilcoxon / sign-flip) | Study 1 test (continuity, not this study's rule) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `noop` | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | control | control | control | 0 | 1 | 0.0 | 5 | 72 / 24 |
 | `aa_resample` | -3.4 [-6.6, -0.5] | -3.3 [-6.9, +0.3] | +4.6 [-0.0, +9.7] | control | control | control |  | 1 | 1.4 | 6 | 72 / 24 |
@@ -286,6 +286,71 @@ The verdict follows `sampled_primary.json`: AP failed its validation gate on cri
 - Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 16.7 pp): page edits ≈ 5.3 pp (5.6 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); named rate for page edits ≈ 10.0 pp; slot sweep ≈ 7.8 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
 - Positive control (target moved from slot 1 to slot 5, same pages): C-SoV -26.6 [-36.6, -15.7] pp, Holm p <0.001 *.
 - Bandit, held out: the frozen contextual policy had regret 4.553 (±1.964) vs 4.762 for random and 2.502 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
+
+#### Study 3 pilot: qwen3.5-9b-mlx4 via Localhost AI, baseline and A/A at 2 samples
+
+- Results: `experiments/results/2026-09-18_study3-pilot` (git 4803da9, 2026-09-18)
+- Answer model: `qwen3.5-9b-mlx4`
+- Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
+- Sentiment: `vader/vaderSentiment-3.3.2/compound`; PAWC decay: paper
+- 72 queries x 2 samples, 72 pages
+- Served by server `localhost-ai`, preset `qwen3.5-9b-mlx4`, commit `fdb4fbeb361e6244300b999ed1fdaeaef1fb1599` at `http://127.0.0.1:8431/v1`
+- System message (sha256 `aec4c3c34309`, full text in the manifest): “You answer questions using numbered search results. Write short sentences. Put a citation…”
+- Primary metric for the verdict: citation share (C-SoV, share of the answer's valid markers)
+- Local calls: 288 new, 144 cached (no API spend)
+
+The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation share (C-SoV, share of the answer's valid markers)), below 0.05 (`*`). The brand-mention test (“named”: the answer names the target brand, with or without a citation) gets its own Holm adjustment. `noop` and `aa_resample` are controls outside every family. Page arms are tested on edited-page units (queries sharing an edited page are not independent); `n` is queries / units. The 95% CIs resample those units and are descriptive. The last four columns describe the arm's answers: no valid citation at all, citation-like text the parser could not map to a source, and every citation collected on the final sentence (for those answers PAWC's position weighting is meaningless). “Queries whose sources changed” counts queries where the arm changed the list of sources the model saw.
+
+| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `noop` | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | control | control | 0 | 1 | 0.0 | 0 | 72 / 24 |
+| `aa_resample` | +0.5 [-1.9, +2.8] | +0.4 [-1.9, +2.8] | +4.9 [-2.1, +11.8] | control | control |  | 1 | 0.0 | 0 | 72 / 72 |
+
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp and the named rate by +4.9 [-2.1, +11.8] pp.
+- Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
+- No page arms in this run (a pilot), so it states no MDE of its own; `vizor sensitivity <dir> --family N` gives the MDE for a planned design.
+
+#### Study 3: qwen3.5-9b-mlx4 via Localhost AI, bench corpus, Study 3 queries (pre-registered)
+
+- Results: `experiments/results/2026-09-28_study3-qwen9b` (git 7e5d5b1, 2026-09-28)
+- Answer model: `qwen3.5-9b-mlx4`
+- Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
+- Sentiment: `vader/vaderSentiment-3.3.2/compound`; PAWC decay: paper
+- 72 queries x 2 samples, 72 pages
+- Served by server `localhost-ai`, preset `qwen3.5-9b-mlx4`, commit `8fa3d561868856735aa6196773b30bd73e92b0cb` at `http://127.0.0.1:8431/v1`
+- System message (sha256 `aec4c3c34309`, full text in the manifest): “You answer questions using numbered search results. Write short sentences. Put a citation…”
+- Primary metric for the verdict: citation share (C-SoV, share of the answer's valid markers)
+- Local calls: 677 new, 403 cached (no API spend)
+
+The verdict follows `sampled_primary.json`: the primary is the sampled citation share (C-SoV) on 24 page units: an arm has an effect (`*`) when the exact Wilcoxon and the sign-flip p are both below 0.05 after Holm over the 3 arms, and its delta against the A/A re-sample has the same sign as against the baseline. The ΔC-SoV column, its intervals and the `n` units come from that file (page units, A/A included; the A/A's ΔPAWC and Δnamed stay on its query units). The Study 1 column is the Holm-adjusted Wilcoxon (zero_method zsplit) that decided Study 1; it is shown for continuity and decides nothing here. The brand-mention test (“named”: the answer names the target brand, with or without a citation) gets its own Holm adjustment. Content-only arms (`content:`) keep the baseline's sources and their order and change only the edited page's text; they form a separate Holm family. `noop` and `aa_resample` are controls outside every family. Page arms are tested on edited-page units (queries sharing an edited page are not independent); `n` is queries / units. The 95% CIs resample those units and are descriptive. The last four columns describe the arm's answers: no valid citation at all, citation-like text the parser could not map to a source, and every citation collected on the final sentence (for those answers PAWC's position weighting is meaningless). “Queries whose sources changed” counts queries where the arm changed the list of sources the model saw.
+
+| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary: Wilcoxon / sign-flip) | Study 1 test (continuity, not this study's rule) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `noop` | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | control | control | control | 0 | 1 | 0.0 | 0 | 72 / 24 |
+| `aa_resample` | +0.1 [-2.9, +3.1] | +0.4 [-1.9, +2.8] | +4.9 [-2.1, +11.8] | control | control | control |  | 1 | 0.0 | 0 | 72 / 24 |
+| `fact_passage` | -5.5 [-10.3, -0.6] | -5.2 [-9.9, -0.6] | -5.4 [-16.1, +3.0] | 0.081 / 0.117 | 0.081 | 1.000 | 22 | 3 | 0.0 | 0 | 72 / 24 |
+| `entity_anchor` | -1.7 [-3.4, -0.2] | -1.3 [-3.1, +0.4] | +1.2 [-3.1, +5.6] | 0.259 / 0.117 | 0.404 | 1.000 | 1 | 1 | 0.0 | 0 | 72 / 24 |
+| `retrieval_meta` | -0.7 [-3.3, +2.0] | +0.6 [-2.0, +3.3] | +0.2 [-5.9, +5.0] | 0.565 / 0.626 | 0.565 | 1.000 | 10 | 1 | 0.0 | 0 | 72 / 24 |
+| `content:fact_passage` | -1.5 [-5.8, +2.9] | -0.2 [-4.2, +3.9] | -4.9 [-15.6, +3.8] | secondary | 0.623 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+| `content:entity_anchor` | +0.2 [-2.1, +2.2] | +0.4 [-2.0, +2.7] | -0.3 [-5.9, +5.2] | secondary | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+| `content:retrieval_meta` | -0.7 [-3.9, +2.7] | +0.6 [-2.8, +4.0] | -5.2 [-16.7, +3.6] | secondary | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+
+Each page edit split into what the new text did with the same sources in the same order (content-only arm) and what it did by changing retrieval (full arm minus content-only arm, paired per query). Total = content + rank-mediated. The p next to the rank-mediated effect is an unadjusted Wilcoxon on page units.
+
+| Page edit | Total ΔC-SoV pp | Content-only ΔC-SoV pp | Rank-mediated ΔC-SoV pp | Total Δnamed pp | Content-only Δnamed pp | Rank-mediated Δnamed pp | Queries whose sources changed |
+|---|---|---|---|---|---|---|---|
+| `fact_passage` | -5.5 [-10.3, -0.6] | -1.5 [-5.8, +2.9] | -3.9 [-8.3, -0.1] (p 0.152) | -5.4 [-16.1, +3.0] | -4.9 [-15.6, +3.8] | -0.5 [-4.5, +3.5] | 22 |
+| `entity_anchor` | -1.7 [-3.4, -0.2] | +0.2 [-2.1, +2.2] | -1.8 [-3.5, -0.1] (p 0.065) | +1.2 [-3.1, +5.6] | -0.3 [-5.9, +5.2] | +1.6 [-3.0, +6.2] | 1 |
+| `retrieval_meta` | -0.7 [-3.3, +2.0] | -0.7 [-3.9, +2.7] | -0.0 [-2.0, +1.8] (p 0.898) | +0.2 [-5.9, +5.0] | -5.2 [-16.7, +3.6] | +5.4 [-0.9, +12.3] | 10 |
+
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.1 [-2.9, +3.1] pp on 24 page units (raw sign-flip p 0.946) and the named rate by +4.9 [-2.1, +11.8] pp.
+- Page and engine arms: 0 of 3 have an effect under the sampled primary rule on C-SoV; 0 of 3 on the named rate.
+- Content-only arms: 0 of 3 have a Holm-significant effect on C-SoV; 0 of 3 on the named rate.
+- Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): against the A/A re-sample `fact_passage` -5.6 (Holm p 0.054 / 0.242), `entity_anchor` -1.8 (Holm p 0.481 / 0.613), `retrieval_meta` -0.8 (Holm p 0.481 / 0.625); against the mean of baseline and A/A `fact_passage` -5.5 (Holm p 0.035 / 0.151), `entity_anchor` -1.7 (Holm p 0.242 / 0.253), `retrieval_meta` -0.8 (Holm p 0.360 / 0.573). A lucky baseline draw shifts every arm the same way; an arm that holds up only against the baseline alone is not robust to that choice.
+- Content vs rank: for 2 of 3 page edits the rank-mediated part of the C-SoV change is larger in size than the content-only part (point estimates; see the decomposition table for intervals).
+- Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
+- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 10.4 pp): page edits ≈ 5.1 pp (5.4 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); content-only arms ≈ 5.1 pp; named rate for page edits ≈ 11.0 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
+- Bandit, held out: the frozen contextual policy had regret 1.480 (±0.590) vs 2.968 for random and 2.782 for the best fixed arm chosen on the training half. It beat random on the held-out queries by more than its 95% interval.
 
 #### FakeLLM (pipeline check)
 
@@ -411,7 +476,50 @@ Holm over the three edits (`sampled_primary.md` in the results folder):
   scoring once a prompt passes Gemma's 512-token sliding window, and at about 14 s per answer
   the sampled parts alone would take about 8.5 hours.
 
-**Localhost AI.** Study 2 is served by Localhost AI, the author's own inference server (a separate
+**Study 3.** The third study, pre-registered in
+[docs/bench-design-study3.md](docs/bench-design-study3.md), tested edits built to win passage
+selection and retrieval rank instead of edits that restate the page. It used a stronger answer
+model, `qwen3.5-9b-mlx4` (Qwen3.5-9B, thinking off) through Localhost AI, on 72 new queries. All
+three edits are deterministic, read no queries, and add only the product and brand name, a few
+connecting words and the page's own key terms:
+
+- `fact_passage` adds one key-facts paragraph of at most 110 words after the intro, made of the
+  page's own sentences with prices, numbers with units or specs, each rewritten to name the
+  product and brand.
+- `entity_anchor` replaces pronouns and bare references ("It", "The pump") with the product and
+  brand name, in the first sentence of each 120-word passage window only. It changed the 12
+  product pages and left the 12 guides as they were.
+- `retrieval_meta` rebuilds the title, description and headings from the page's TF-IDF key
+  terms.
+
+The pilot measured 31.9 s per answer at batch 1, over the pre-registered 15 s limit, so the main
+run used 2 samples per query instead of 3. The rule is the Study 2 rule plus one condition: the
+arm's delta against the A/A re-sample must have the same sign as its delta against the baseline.
+
+| Edit | Citation share change, pp [95% CI] | Holm p, Wilcoxon | Holm p, sign-flip | Meets the rule |
+|---|---|---|---|---|
+| `fact_passage` | -5.5 [-10.3, -0.6] | 0.081 | 0.117 | no |
+| `entity_anchor` | -1.7 [-3.4, -0.2] | 0.259 | 0.117 | no |
+| `retrieval_meta` | -0.7 [-3.3, +2.0] | 0.565 | 0.626 | no |
+| A/A re-sample (control) | +0.1 [-2.9, +3.1] | 0.989 (raw) | 0.946 (raw) | |
+
+- No edit changed the target's citation share by an amount the run could claim. The run could
+  detect about 5.4 points (from the pilot's A/A page SD of 7.7 points).
+- The predictions were negative for `fact_passage` (it was, though not significantly) and small
+  positive effects for the other two (both came out slightly negative).
+- The key-facts passage did win selection: it was among the passages shown every time its page
+  was shown. But it also became the page's best-matching passage for most queries, and the
+  reranker scored it lower, so the page dropped from a mean rank of 1.74 to 2.27. On the
+  secondary content-vs-rank split, most of `fact_passage`'s loss comes through that rank change
+  (-3.9 of -5.5 points; -4.3 of -6.6 on the exploratory same-seed version).
+- `retrieval_meta` moved the page up (mean rank 1.56) and did not change its citation share by a
+  detectable amount.
+- The brand was not named more or less often by any edit beyond the noise (the largest change
+  was -5.4 points, 95% CI [-16.1, +3.0]).
+- The main run had to regenerate the pilot's baseline and A/A answers after Localhost AI's history
+  was re-dated. All 288 came out byte-identical to the pilot's.
+
+**Localhost AI.** Studies 2 and 3 are served by Localhost AI, the author's own inference server (a separate
 repository, at commit c61e05d; its server code is the same as at 154b4cd). Every manifest records
 that commit, and the scorer refuses a server that reports a different one. Two of its findings
 shaped the design: its MLX models give byte-identical output when a request runs alone but not
@@ -426,7 +534,15 @@ Study 2 was only printed to the console, so it is not reported; `scorer_stats` i
 revision and tokenizer hash against the pin, not just the first. `vizor recompute` reproduces
 every stored AP value. `/v1/score` was checked against in-process mlx-lm scoring only for Gemma
 (where it failed, above); that check was not run for `qwen2.5-3b-mlx4`, so the Study 2 AP
-values rest on the server's scoring without an independent check.
+values rested on the server's scoring without an independent check when Study 2 was written up.
+It has since been checked: on 10 Study 2 prompts (51 citation sites) the two agree exactly (the
+largest log-probability difference is 0.0; `experiments/results/2026-09-18_qwen3b-score-equivalence`).
+
+Study 3 runs Qwen3.5-9B on the same server at batch 1 with thinking off; its answers are
+byte-identical at batch 1 (10 of 10), and they took about 32 s each on the M1 Pro. Localhost AI's
+history was later re-dated, so its hashes changed while the code did not: the Study 2 manifests
+and the Study 3 pilot cite the old hashes (c61e05d, fdb4fbe), which its `docs/commit-map.tsv`
+maps to the new ones (6c6e673, f7102a1), and the Study 3 main run is pinned to the new 8fa3d56.
 
 The tooling behind it, all tested offline with a deterministic fake scorer:
 
@@ -516,16 +632,18 @@ src/vizor/
                 queries.py
 data/demo/      synthetic corpus (22 pages, 5 fictional sites) and 40 queries
 data/bench/     larger synthetic corpus (72 pages, 24 of them target pages), Study 1's 72
-                queries and Study 2's 72 new ones
+                queries and 72 new ones each for Studies 2 and 3
 experiments/    committed results and RESULTS.md
-tests/          423 offline tests, incl. vendored GEO reference functions
+tests/          440 offline tests, incl. vendored GEO reference functions
 ```
 
 ## Limitations
 
-- All real-model results come from one small local model, Qwen2.5-3B (through Ollama in Study 1
-  and as an MLX 4-bit build through Localhost AI in Study 2). The Gemma replication has not
-  run. Nothing here says anything about ChatGPT, Perplexity or any other production engine.
+- The real-model results come from two local models: Qwen2.5-3B (through Ollama in Study 1 and
+  as an MLX 4-bit build through Localhost AI in Study 2) and Qwen3.5-9B (MLX 4-bit, Study 3).
+  Each study used one model, so no edit has been checked across models, and the Gemma
+  replication has not run. Nothing here says anything about ChatGPT, Perplexity or any other
+  production engine.
 - Study 2's primary metric had to fall back to the sampled citation share because AP failed its
   validation gate. At 3 samples per query the A/A control itself drifted by -3.4 points, so the
   smallest Study 2 effect (`evidence_surface_llm`, -4.3) is close to the noise.
@@ -538,11 +656,16 @@ tests/          423 offline tests, incl. vendored GEO reference functions
   pages have no FAQ block and no JSON-LD, so those edits always had something to add. The
   queries are hand-written, 3 per topic, and the cross-fitted edits saw same-topic sibling
   queries, so "held out" means a held-out query, not a held-out topic.
-- Study 1 can detect effects of about 8-9 points on citation share, Study 2 about 5.6. Smaller
-  effects of the kind real sites might care about are below their resolution.
+- Study 1 can detect effects of about 8-9 points on citation share, Study 2 about 5.6 and
+  Study 3 about 5.4. Smaller effects of the kind real sites might care about are below their
+  resolution.
+- Study 3 ran at 2 samples per query rather than 3 (the pre-registered time limit), and its
+  content-only twins ran at 1 sample, which makes its content-vs-rank split noisy; the
+  pre-registered version of that split also mixes in sampling noise where retrieval did not
+  change (see the design doc).
 - Study 1's headline rule counts an edit if it passes on citation share or on the named rate,
-  each at 0.05, so its false-claim rate is up to about 0.10. Study 2 has one primary metric and
-  requires both tests.
+  each at 0.05, so its false-claim rate is up to about 0.10. Studies 2 and 3 have one primary
+  metric and require both tests (Study 3 also requires the same sign against the A/A arm).
 - In Study 1 many answers cite nothing (17-27% per arm; 0-2% in Study 2), and citation share is
   computed over the markers the model did write.
 - The archived 2026-08-05 local run uses a reduced design (20 queries x 2 samples), its stored
