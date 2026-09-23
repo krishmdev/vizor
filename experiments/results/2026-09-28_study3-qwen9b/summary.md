@@ -24,18 +24,18 @@ Pooled marker share is the domain's share of all valid markers across every answ
 
 ## Sandbox arms (target: larkspur.example)
 
-The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation share (C-SoV, share of the answer's valid markers)), below 0.05 (`*`). The brand-mention test (“named”: the answer names the target brand, with or without a citation) gets its own Holm adjustment. Content-only arms (`content:`) keep the baseline's sources and their order and change only the edited page's text; they form a separate Holm family. `noop` and `aa_resample` are controls outside every family. Page arms are tested on edited-page units (queries sharing an edited page are not independent); `n` is queries / units. The 95% CIs resample those units and are descriptive. The last four columns describe the arm's answers: no valid citation at all, citation-like text the parser could not map to a source, and every citation collected on the final sentence (for those answers PAWC's position weighting is meaningless). “Queries whose sources changed” counts queries where the arm changed the list of sources the model saw.
+The verdict follows `sampled_primary.json`: the primary is the sampled citation share (C-SoV) on 24 page units: an arm has an effect (`*`) when the exact Wilcoxon and the sign-flip p are both below 0.05 after Holm over the 3 arms, and its delta against the A/A re-sample has the same sign as against the baseline. The ΔC-SoV column, its intervals and the `n` units come from that file (page units, A/A included; the A/A's ΔPAWC and Δnamed stay on its query units). The Study 1 column is the Holm-adjusted Wilcoxon (zero_method zsplit) that decided Study 1; it is shown for continuity and decides nothing here. The brand-mention test (“named”: the answer names the target brand, with or without a citation) gets its own Holm adjustment. Content-only arms (`content:`) keep the baseline's sources and their order and change only the edited page's text; they form a separate Holm family. `noop` and `aa_resample` are controls outside every family. Page arms are tested on edited-page units (queries sharing an edited page are not independent); `n` is queries / units. The 95% CIs resample those units and are descriptive. The last four columns describe the arm's answers: no valid citation at all, citation-like text the parser could not map to a source, and every citation collected on the final sentence (for those answers PAWC's position weighting is meaningless). “Queries whose sources changed” counts queries where the arm changed the list of sources the model saw.
 
-| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `noop` | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | control | control | 0 | 1 | 0.0 | 0 | 72 / 24 |
-| `aa_resample` | +0.5 [-1.9, +2.8] | +0.4 [-1.9, +2.8] | +4.9 [-2.1, +11.8] | control | control |  | 1 | 0.0 | 0 | 72 / 72 |
-| `fact_passage` | -5.5 [-10.3, -0.6] | -5.2 [-9.9, -0.6] | -5.4 [-16.1, +3.0] | 0.081 | 1.000 | 22 | 3 | 0.0 | 0 | 72 / 24 |
-| `entity_anchor` | -1.7 [-3.4, -0.2] | -1.3 [-3.1, +0.4] | +1.2 [-3.1, +5.6] | 0.404 | 1.000 | 1 | 1 | 0.0 | 0 | 72 / 24 |
-| `retrieval_meta` | -0.7 [-3.3, +2.0] | +0.6 [-2.0, +3.3] | +0.2 [-5.9, +5.0] | 0.565 | 1.000 | 10 | 1 | 0.0 | 0 | 72 / 24 |
-| `content:fact_passage` | -1.5 [-5.8, +2.9] | -0.2 [-4.2, +3.9] | -4.9 [-15.6, +3.8] | 0.623 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
-| `content:entity_anchor` | +0.2 [-2.1, +2.2] | +0.4 [-2.0, +2.7] | -0.3 [-5.9, +5.2] | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
-| `content:retrieval_meta` | -0.7 [-3.9, +2.7] | +0.6 [-2.8, +4.0] | -5.2 [-16.7, +3.6] | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+| Arm | ΔC-SoV pp [95% CI] (primary) | ΔPAWC pp [95% CI] | Δnamed pp [95% CI] | p (Holm, primary: Wilcoxon / sign-flip) | Study 1 test (continuity, not this study's rule) | p (Holm, named) | Queries whose sources changed | Uncited % | Unparsed markers % | Cites only on last sentence % | n |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `noop` | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | +0.0 [+0.0, +0.0] | control | control | control | 0 | 1 | 0.0 | 0 | 72 / 24 |
+| `aa_resample` | +0.1 [-2.9, +3.1] | +0.4 [-1.9, +2.8] | +4.9 [-2.1, +11.8] | control | control | control |  | 1 | 0.0 | 0 | 72 / 24 |
+| `fact_passage` | -5.5 [-10.3, -0.6] | -5.2 [-9.9, -0.6] | -5.4 [-16.1, +3.0] | 0.081 / 0.117 | 0.081 | 1.000 | 22 | 3 | 0.0 | 0 | 72 / 24 |
+| `entity_anchor` | -1.7 [-3.4, -0.2] | -1.3 [-3.1, +0.4] | +1.2 [-3.1, +5.6] | 0.259 / 0.117 | 0.404 | 1.000 | 1 | 1 | 0.0 | 0 | 72 / 24 |
+| `retrieval_meta` | -0.7 [-3.3, +2.0] | +0.6 [-2.0, +3.3] | +0.2 [-5.9, +5.0] | 0.565 / 0.626 | 0.565 | 1.000 | 10 | 1 | 0.0 | 0 | 72 / 24 |
+| `content:fact_passage` | -1.5 [-5.8, +2.9] | -0.2 [-4.2, +3.9] | -4.9 [-15.6, +3.8] | secondary | 0.623 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+| `content:entity_anchor` | +0.2 [-2.1, +2.2] | +0.4 [-2.0, +2.7] | -0.3 [-5.9, +5.2] | secondary | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
+| `content:retrieval_meta` | -0.7 [-3.9, +2.7] | +0.6 [-2.8, +4.0] | -5.2 [-16.7, +3.6] | secondary | 0.812 | 1.000 | 0 | 0 | 0.0 | 0 | 72 / 24 |
 
 ## Content vs rank
 
@@ -49,9 +49,10 @@ Each page edit split into what the new text did with the same sources in the sam
 
 ## What the sweeps show
 
-- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp and the named rate by +4.9 [-2.1, +11.8] pp.
-- Page and engine arms: 0 of 3 have a Holm-significant effect on C-SoV; 0 of 3 on the named rate.
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.1 [-2.9, +3.1] pp on 24 page units (raw sign-flip p 0.946) and the named rate by +4.9 [-2.1, +11.8] pp.
+- Page and engine arms: 0 of 3 have an effect under the sampled primary rule on C-SoV; 0 of 3 on the named rate.
 - Content-only arms: 0 of 3 have a Holm-significant effect on C-SoV; 0 of 3 on the named rate.
+- Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): against the A/A re-sample `fact_passage` -5.6 (Holm p 0.054 / 0.242), `entity_anchor` -1.8 (Holm p 0.481 / 0.613), `retrieval_meta` -0.8 (Holm p 0.481 / 0.625); against the mean of baseline and A/A `fact_passage` -5.5 (Holm p 0.035 / 0.151), `entity_anchor` -1.7 (Holm p 0.242 / 0.253), `retrieval_meta` -0.8 (Holm p 0.360 / 0.573). A lucky baseline draw shifts every arm the same way; an arm that holds up only against the baseline alone is not robust to that choice.
 - Content vs rank: for 2 of 3 page edits the rank-mediated part of the C-SoV change is larger in size than the content-only part (point estimates; see the decomposition table for intervals).
 - Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
 - Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 10.4 pp): page edits ≈ 5.1 pp (5.4 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); content-only arms ≈ 5.1 pp; named rate for page edits ≈ 11.0 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
