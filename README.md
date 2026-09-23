@@ -520,8 +520,10 @@ arm's delta against the A/A re-sample must have the same sign as its delta again
   was re-dated. All 288 came out byte-identical to the pilot's.
 
 **Localhost AI.** Studies 2 and 3 are served by Localhost AI, the author's own inference server (a separate
-repository, at commit c61e05d; its server code is the same as at 154b4cd). Every manifest records
-that commit, and the scorer refuses a server that reports a different one. Two of its findings
+repository). Study 2 ran at commit c61e05d (its server code is the same as at 154b4cd; after the
+re-date described below, c61e05d is 6c6e673), the Study 3 pilot at fdb4fbe (now f7102a1) and the
+Study 3 main run at 8fa3d56. Every manifest records its commit, and the scorer refuses a server
+that reports a different one. Two of its findings
 shaped the design: its MLX models give byte-identical output when a request runs alone but not
 inside a batch of two or more, so every Study 2 call ran at batch 1 with one request at a time
 (`LHAI_CONTROLLER=fixed LHAI_FIXED_BATCH=1`), and mlx-lm turns thinking on by default for Gemma 4
