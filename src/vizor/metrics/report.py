@@ -740,10 +740,11 @@ def claim_arms_v2(r: dict) -> list[str]:
         )
     elif "aa_resample" in d.index:
         a = d.loc["aa_resample"]
+        on = f" on {int(a.n_units)} query units" if a.get("unit") == "query" else ""
         out.append(
             f"- Noise floor: re-sampling the unchanged prompts (A/A) moved {name} by "
-            f"{_ci(a[f'd_{col}_pp'], a[f'd_{col}_lo'], a[f'd_{col}_hi'])} pp and the named rate by "
-            f"{_ci(a.d_mention_pp, a.d_mention_lo, a.d_mention_hi)} pp."
+            f"{_ci(a[f'd_{col}_pp'], a[f'd_{col}_lo'], a[f'd_{col}_hi'])} pp{on} and the named "
+            f"rate by {_ci(a.d_mention_pp, a.d_mention_lo, a.d_mention_hi)} pp."
         )
     tested = deltas[~deltas.arm.isin(["noop", "aa_resample"])]
     for fam, label_ in (("arms", "Page and engine arms"), ("content", "Content-only arms")):
@@ -790,7 +791,18 @@ def claim_arms_v2(r: dict) -> list[str]:
             "decomposition table for intervals)."
         )
     pm = page_means(r["dir"], primary, list(tested[tested["kind"] == "doc"].arm))
-    if r["manifest"].get("weighting") == "page":
+    aa_q = not sp and "aa_resample" in d.index and d.loc["aa_resample"].get("unit") == "query"
+    if r["manifest"].get("weighting") == "page" and aa_q:
+        # without sampled_primary.json the A/A row stays on query units
+        aa_pm = page_means(r["dir"], primary, ["aa_resample"]).get("aa_resample")
+        out.append(
+            f"- Weighting: the {name} estimates, intervals and tests above use unweighted page "
+            f"means, except the A/A row, which uses its {int(d.loc['aa_resample'].n_units)} query "
+            "units"
+            + (f" (on page units the A/A is {_f(aa_pm, 2, True)} pp)" if aa_pm is not None else "")
+            + "."
+        )
+    elif r["manifest"].get("weighting") == "page":
         out.append(
             f"- Weighting: the {name} estimates, intervals and tests above all use unweighted "
             "page means."

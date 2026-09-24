@@ -259,6 +259,11 @@ def test_report_states_page_weighting(scored):
     run, _ = scored
     r = load(run)
     r["manifest"]["llm_is_fake"] = False  # FakeLLM runs get only the FakeLLM caveat
+    md = claim_md(r)
+    # without sampled_primary.json the A/A row stays on query units, and the line says so
+    assert "use unweighted page means, except the A/A row, which uses its" in md
+    assert "(on page units the A/A is " in md
+    r["sampled_primary"] = {"family": [], "arms": [], "controls": []}
     assert "all use unweighted page means" in claim_md(r)
 
 
