@@ -681,7 +681,9 @@ def claim_md(r: dict) -> str:
                 fx is None or c.final_regret <= fx.final_regret
             )
             out.append(
-                f"- Bandit, held out: the frozen contextual policy had regret {_f(c.final_regret, 3)} "
+                # no pre-registration includes the bandit; it replays the page-arm rewards at no cost
+                "- Exploratory, not pre-registered: on the held-out queries the frozen contextual "
+                f"bandit policy had regret {_f(c.final_regret, 3)} "
                 f"(±{_f(c.final_regret_ci, 3)}) vs {_f(rnd.final_regret, 3)} for random"
                 + (
                     f" and {_f(fx.final_regret, 3)} for the best fixed arm chosen on the training half"
@@ -689,9 +691,9 @@ def claim_md(r: dict) -> str:
                     else ""
                 )
                 + (
-                    ". It beat random on the held-out queries by more than its 95% interval."
+                    ". It beat random by more than its 95% interval."
                     if gen
-                    else ". On the held-out queries it is not distinguishable from random."
+                    else ". It is not distinguishable from random."
                 )
             )
     return "\n".join(out)

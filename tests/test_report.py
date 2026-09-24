@@ -127,3 +127,10 @@ def test_sampled_primary_replaces_the_legacy_verdict(run_dir):
     # Study 3's rule adds the sign condition against the A/A arm
     r["sampled_primary"]["rule"] = "both Holm p < 0.05 and the delta vs A/A has the same sign"
     assert "its delta against the A/A re-sample has the same sign" in summary_md(r)
+
+
+def test_bandit_line_is_marked_exploratory(run_dir):
+    r = load(run_dir)
+    r["manifest"] = {**r["manifest"], "llm_is_fake": False}
+    line = next(x for x in claim_md(r).splitlines() if "bandit policy" in x)
+    assert line.startswith("- Exploratory, not pre-registered: on the held-out queries")
