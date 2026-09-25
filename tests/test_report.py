@@ -134,3 +134,24 @@ def test_bandit_line_is_marked_exploratory(run_dir):
     r["manifest"] = {**r["manifest"], "llm_is_fake": False}
     line = next(x for x in claim_md(r).splitlines() if "bandit policy" in x)
     assert line.startswith("- Exploratory, not pre-registered: on the held-out queries")
+
+
+def test_mde_line_names_cross_fitting_and_twin_samples_only_when_they_apply(run_dir, monkeypatch):
+    import vizor.metrics.report as rep
+
+    sens = {"arm_holm_family": 2, "content_holm_family": 2, "aa_sd_per_query_pp": 10.0}
+    sens |= {"page_arm_page_pp": 5.0, "n_units_page": 4, "content_arm_page_pp": 5.0}
+    monkeypatch.setattr(rep, "sensitivity", lambda *a, **k: dict(sens))
+    r = load(run_dir)
+    r["manifest"] = {**r["manifest"], "llm_is_fake": False}
+
+    def mde(r):
+        return next(x for x in claim_md(r).splitlines() if x.startswith("- Minimum detectable"))
+
+    assert "(both cross-fit folds clustered by page)" in mde(r)  # faq_rewrite is cross-fitted
+    assert "the twins ran at" not in mde(r)
+    r["deltas"] = r["deltas"].assign(transform_scope="none")
+    r["manifest"]["config"] = {"sandbox": {"arm_samples": {"content:faq_rewrite": 1}}}
+    line = mde(r)
+    assert "cross-fit" not in line
+    assert "this assumes 2 samples per query, as for the page edits; the twins ran at 1" in line

@@ -719,6 +719,13 @@ def page_means(d: Path, metric: str, arms: list[str]) -> dict[str, float]:
     return out
 
 
+def _fewer_twin_samples(m: dict) -> int | None:
+    """The content-only twins' sample count when it is below the run's (Study 3 ran them at 1)."""
+    per_arm = ((m.get("config") or {}).get("sandbox") or {}).get("arm_samples") or {}
+    k = [v for a, v in per_arm.items() if a.startswith("content:")]
+    return min(k) if k and m.get("samples") and min(k) < m["samples"] else None
+
+
 def claim_arms_v2(r: dict) -> list[str]:
     """Verdict lines for runs with a primary metric: noise floor, arms per Holm family, mentions,
     the content/rank split and what the design could detect."""
@@ -824,18 +831,29 @@ def claim_arms_v2(r: dict) -> list[str]:
     planned = bool(sens.get("families_from_plan")) and "planned_arms" in r["manifest"]
     if sens:
         parts = []
+        crossfit = tested.get("transform_scope", pd.Series(dtype=str)).astype(str)
+        crossfit = crossfit.str.startswith("crossfit").any()
+        k_twin = _fewer_twin_samples(r["manifest"])
         if sens.get("page_arm_page_pp") is not None:
             t_pp = sens.get("page_arm_page_t_pp")
             parts.append(
                 f"page edits ≈ {_f(sens['page_arm_page_pp'])} pp"
                 + (f" ({_f(t_pp)} pp with t quantiles)" if t_pp is not None else "")
-                + f" on {sens['n_units_page']} underlying page units (both cross-fit folds "
-                "clustered by page)"
+                + f" on {sens['n_units_page']} underlying page units"
+                + (" (both cross-fit folds clustered by page)" if crossfit else "")
             )
         elif sens.get("n_page_units") is not None:
             parts.append("page edits: **untestable at this design** (too few page units)")
         if sens.get("content_arm_page_pp") is not None:
-            parts.append(f"content-only arms ≈ {_f(sens['content_arm_page_pp'])} pp")
+            parts.append(
+                f"content-only arms ≈ {_f(sens['content_arm_page_pp'])} pp"
+                + (
+                    f" (this assumes {r['manifest']['samples']} samples per query, as for the page "
+                    f"edits; the twins ran at {k_twin}, so their MDE is larger)"
+                    if k_twin
+                    else ""
+                )
+            )
         if sens.get("mention_page_arm_pp") is not None:
             parts.append(f"named rate for page edits ≈ {_f(sens['mention_page_arm_pp'])} pp")
         if sens.get("position_pp") is not None:
