@@ -155,3 +155,24 @@ def test_mde_line_names_cross_fitting_and_twin_samples_only_when_they_apply(run_
     line = mde(r)
     assert "cross-fit" not in line
     assert "this assumes 2 samples per query, as for the page edits; the twins ran at 1" in line
+
+
+def test_content_vs_rank_leads_with_the_same_seed_split_when_twins_have_fewer_samples(run_dir):
+    r = load(run_dir)
+    r["manifest"] = {**r["manifest"], "llm_is_fake": False}
+    assert "- Content vs rank: for " in claim_md(r)
+    r["manifest"]["config"] = {"sandbox": {"arm_samples": {"content:faq_rewrite": 1}}}
+
+    def est(x):
+        return {"est": x}
+
+    s0 = {"content_pp": est(-2.34), "rank_pp": est(-4.28)}
+    r["study3_secondary"] = {"arms": {"faq_rewrite": {"sample0": s0}}}
+    r["decomposition"] = r["decomposition"].assign(n_sources_changed=[1, 5])
+    lines = claim_md(r).splitlines()
+    i = next(i for i, x in enumerate(lines) if "content-vs-rank split" in x)
+    assert lines[i - 1].startswith("- Content vs rank, exploratory and not pre-registered")
+    assert "`faq_rewrite` -2.3 content / -4.3 rank-mediated" in lines[i - 1]
+    assert "confounded by the 1-sample twins" in lines[i]
+    assert "`faq_rewrite` changed the sources of only 1 query, so its rank-mediated" in lines[i]
+    assert "`stats_surface` changed" not in lines[i]

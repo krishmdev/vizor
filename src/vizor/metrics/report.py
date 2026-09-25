@@ -87,7 +87,13 @@ def load(d: Path) -> dict:
         "bandit": _read(d, "bandit_summary.csv"),
         "trajectory": _read(d, "trajectory.csv"),
         "sampled_primary": load_sampled_primary(d),
+        "study3_secondary": _read_json(d, "study3_secondary.json"),
     }
+
+
+def _read_json(d: Path, name: str) -> dict | None:
+    p = d / name
+    return json.loads(p.read_text()) if p.exists() else None
 
 
 def load_sampled_primary(d: Path) -> dict | None:
@@ -792,11 +798,41 @@ def claim_arms_v2(r: dict) -> list[str]:
     dec = r.get("decomposition")
     if dec is not None and len(dec):
         big = dec.loc[(dec[f"rank_{col}_pp"].abs() > dec[f"content_{col}_pp"].abs())]
-        out.append(
-            f"- Content vs rank: for {len(big)} of {len(dec)} page edits the rank-mediated part of the "
-            f"{name} change is larger in size than the content-only part (point estimates; see the "
-            "decomposition table for intervals)."
-        )
+        k_twin = _fewer_twin_samples(r["manifest"])
+        sec = (r.get("study3_secondary") or {}).get("arms", {}) if primary == "c_share" else {}
+        s0 = {a: v["sample0"] for a, v in sec.items() if "sample0" in v}
+        if k_twin and s0:
+            out.append(
+                "- Content vs rank, exploratory and not pre-registered (the split on sample 0 alone, "
+                "where each twin and its full arm share a seed; `study3_secondary.md`), in pp: "
+                + ", ".join(
+                    f"`{a}` {_f(v['content_pp']['est'], sign=True)} content / "
+                    f"{_f(v['rank_pp']['est'], sign=True)} rank-mediated"
+                    for a, v in s0.items()
+                )
+                + "."
+            )
+        if k_twin:
+            one = dec.loc[dec["n_sources_changed"] <= 1]
+            out.append(
+                f"- The pre-registered content-vs-rank split (the decomposition table) is confounded "
+                f"by the {k_twin}-sample twins (see the design doc): where a full arm's prompt "
+                "equals its twin's, full minus twin is sampling noise, not a rank effect. Taken at "
+                f"face value, it has the rank-mediated part larger in size than the content-only "
+                f"part for {len(big)} of {len(dec)} page edits."
+                + "".join(
+                    f" `{x.arm}` changed the sources of only {int(x.n_sources_changed)} "
+                    f"{'query' if int(x.n_sources_changed) == 1 else 'queries'}, so its "
+                    "rank-mediated part is noise."
+                    for x in one.itertuples()
+                )
+            )
+        else:
+            out.append(
+                f"- Content vs rank: for {len(big)} of {len(dec)} page edits the rank-mediated part "
+                f"of the {name} change is larger in size than the content-only part (point "
+                "estimates; see the decomposition table for intervals)."
+            )
     pm = page_means(r["dir"], primary, list(tested[tested["kind"] == "doc"].arm))
     aa_q = not sp and "aa_resample" in d.index and d.loc["aa_resample"].get("unit") == "query"
     if r["manifest"].get("weighting") == "page" and aa_q:
