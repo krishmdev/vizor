@@ -510,9 +510,12 @@ arm's delta against the A/A re-sample must have the same sign as its delta again
   positive effects for the other two (both came out slightly negative).
 - The key-facts passage did win selection: it was among the passages shown every time its page
   was shown. But it also became the page's best-matching passage for most queries, and the
-  reranker scored it lower, so the page dropped from a mean rank of 1.74 to 2.27. On the
-  secondary content-vs-rank split, most of `fact_passage`'s loss comes through that rank change
-  (-3.9 of -5.5 points; -4.3 of -6.6 on the exploratory same-seed version).
+  reranker scored it lower, so the page dropped from a mean rank of 1.74 to 2.27. On an
+  exploratory content-vs-rank split that was not pre-registered (sample 0 only, where each
+  content-only twin and its full arm share a seed), `fact_passage` lost 2.3 points through the
+  new text and 4.3 through that rank change. The pre-registered split (-1.5 and -3.9) is
+  confounded by the twins running at 1 sample (see `docs/bench-design-study3.md`). `entity_anchor` changed the
+  sources of only 1 query, so its rank-mediated part is noise.
 - `retrieval_meta` moved the page up (mean rank 1.56) and did not change its citation share by a
   detectable amount.
 - The brand was not named more or less often by any edit beyond the noise (the largest change
