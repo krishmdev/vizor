@@ -70,14 +70,14 @@ Each page edit split into what the new text did with the same sources in the sam
 
 - Context order (same pages, target forced into each slot, n=36 queries): C-SoV slot 1 43.1%, slot 5 13.0%. Holm-significant differences: slot 5 vs 1: -30.1 [-39.9, -20.5] pp (Holm p <0.001).
 - How fragile the slot 5 result is: its raw p is <0.001 over 36 queries, but those queries are served by only 17 target pages. Per page, slot 5 minus slot 1 on C-SoV is beam-800 -51.6, floor-pump -90.0, fold-20 -33.4, gravel-gx -18.3, chain-care -46.4, first-commute -10.0, flat-tire -7.5, tire-pressure +1.3, haul -61.1, lock-d9 -41.4, metro-7 -54.3, pannier-20 -40.0, shell +8.7, spin-t2 +16.9, sprout-16 -30.8, gear-indexing -2.0, volt-e1 -13.1 pp, and a Wilcoxon test on the page means gives p = 0.001. It also depends on the sweeps forming their own Holm family: in one family with the arms (13 tests) its Holm p would be <0.001.
-- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.2 [-3.7, +4.4] pp and the named rate by -1.4 [-5.3, +2.5] pp.
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.2 [-3.7, +4.4] pp on 72 query units and the named rate by -1.4 [-5.3, +2.5] pp.
 - Page and engine arms: 1 of 6 have a Holm-significant effect on C-SoV: `faq_rewrite`; 1 of 6 on the named rate: `faq_rewrite`.
 - Content-only arms: 1 of 6 have a Holm-significant effect on C-SoV: `content:faq_rewrite`; 1 of 6 on the named rate: `content:faq_rewrite`.
 - Content vs rank: for 2 of 6 page edits the rank-mediated part of the C-SoV change is larger in size than the content-only part (point estimates; see the decomposition table for intervals).
 - Weighting: the C-SoV estimates and intervals above weight every query equally, while the Wilcoxon test ranks unweighted page means. The page means are `metadata` -1.8, `faq_rewrite` -14.1, `jsonld_insert` -2.5, `internal_links` -4.6, `stats_surface` 0.6, `keyword_stuffing` 2.5, `content:metadata` -2.1, `content:faq_rewrite` -13.7, `content:jsonld_insert` -2.7, `content:internal_links` -4.6, `content:stats_surface` 1.6, `content:keyword_stuffing` 1.5 pp.
 - Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 17.7 pp): page edits ≈ 7.9 pp (8.5 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); content-only arms ≈ 7.9 pp; named rate for page edits ≈ 7.6 pp; slot sweep ≈ 8.3 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
 - Positive control (target moved from slot 1 to slot 5, same pages): C-SoV -30.1 [-39.9, -20.5] pp, Holm p <0.001 *.
-- Bandit, held out: the frozen contextual policy had regret 6.268 (±2.233) vs 7.705 for random and 5.772 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
+- Exploratory, not pre-registered: on the held-out queries the frozen contextual bandit policy had regret 6.268 (±2.233) vs 7.705 for random and 5.772 for the best fixed arm chosen on the training half. It is not distinguishable from random.
 
 ### Bandit replay
 
@@ -140,7 +140,7 @@ The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation shar
 
 ### What the sweeps show
 
-- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.2 [-3.7, +4.4] pp and the named rate by -1.4 [-5.3, +2.5] pp.
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.2 [-3.7, +4.4] pp on 72 query units and the named rate by -1.4 [-5.3, +2.5] pp.
 - Minimum detectable effect on C-SoV (for the planned design of 6 page edits and 6 content-only twins, each its own Holm family; 80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 17.7 pp): page edits ≈ 7.9 pp (8.5 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); content-only arms ≈ 7.9 pp; named rate for page edits ≈ 7.6 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
 
 
@@ -195,9 +195,9 @@ The verdict follows `sampled_primary.json`: AP failed its validation gate on cri
 - Page and engine arms: 3 of 3 have an effect under the sampled primary rule on C-SoV: `answer_first`, `evidence_surface_llm`, `faq_rewrite_v2`; 0 of 3 on the named rate.
 - Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): against the A/A re-sample `answer_first` -6.1 (Holm p 0.137 / 0.140), `evidence_surface_llm` -0.9 (Holm p 0.812 / 0.742), `faq_rewrite_v2` -6.6 (Holm p 0.137 / 0.140); against the mean of baseline and A/A `answer_first` -7.8 (Holm p 0.029 / 0.020), `evidence_surface_llm` -2.6 (Holm p 0.406 / 0.287), `faq_rewrite_v2` -8.3 (Holm p 0.029 / 0.020). A lucky baseline draw shifts every arm the same way; an arm that holds up only against the baseline alone is not robust to that choice.
 - Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
-- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 16.7 pp): page edits ≈ 5.3 pp (5.6 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); named rate for page edits ≈ 10.0 pp; slot sweep ≈ 7.8 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
+- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 16.7 pp): page edits ≈ 5.3 pp (5.6 pp with t quantiles) on 24 underlying page units; named rate for page edits ≈ 10.0 pp; slot sweep ≈ 7.8 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
 - Positive control (target moved from slot 1 to slot 5, same pages): C-SoV -26.6 [-36.6, -15.7] pp, Holm p <0.001 *.
-- Bandit, held out: the frozen contextual policy had regret 4.553 (±1.964) vs 4.762 for random and 2.502 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
+- Exploratory, not pre-registered: on the held-out queries the frozen contextual bandit policy had regret 4.553 (±1.964) vs 4.762 for random and 2.502 for the best fixed arm chosen on the training half. It is not distinguishable from random.
 
 ### Bandit replay
 
@@ -261,8 +261,8 @@ The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation shar
 
 ### What the sweeps show
 
-- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp and the named rate by +4.9 [-2.1, +11.8] pp.
-- Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp on 72 query units and the named rate by +4.9 [-2.1, +11.8] pp.
+- Weighting: the C-SoV estimates, intervals and tests above use unweighted page means, except the A/A row, which uses its 72 query units (on page units the A/A is +0.11 pp).
 - No page arms in this run (a pilot), so it states no MDE of its own; `vizor sensitivity <dir> --family N` gives the MDE for a planned design.
 
 
@@ -321,10 +321,11 @@ Each page edit split into what the new text did with the same sources in the sam
 - Page and engine arms: 0 of 3 have an effect under the sampled primary rule on C-SoV; 0 of 3 on the named rate.
 - Content-only arms: 0 of 3 have a Holm-significant effect on C-SoV; 0 of 3 on the named rate.
 - Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): against the A/A re-sample `fact_passage` -5.6 (Holm p 0.054 / 0.242), `entity_anchor` -1.8 (Holm p 0.481 / 0.613), `retrieval_meta` -0.8 (Holm p 0.481 / 0.625); against the mean of baseline and A/A `fact_passage` -5.5 (Holm p 0.035 / 0.151), `entity_anchor` -1.7 (Holm p 0.242 / 0.253), `retrieval_meta` -0.8 (Holm p 0.360 / 0.573). A lucky baseline draw shifts every arm the same way; an arm that holds up only against the baseline alone is not robust to that choice.
-- Content vs rank: for 2 of 3 page edits the rank-mediated part of the C-SoV change is larger in size than the content-only part (point estimates; see the decomposition table for intervals).
+- Content vs rank, exploratory and not pre-registered (the split on sample 0 alone, where each twin and its full arm share a seed; `study3_secondary.md`), in pp: `fact_passage` -2.3 content / -4.3 rank-mediated, `entity_anchor` -0.7 content / -0.2 rank-mediated, `retrieval_meta` -1.5 content / -0.7 rank-mediated.
+- The pre-registered content-vs-rank split (the decomposition table) is confounded by the 1-sample twins (see the design doc): where a full arm's prompt equals its twin's, full minus twin is sampling noise, not a rank effect. Taken at face value, it has the rank-mediated part larger in size than the content-only part for 2 of 3 page edits. `entity_anchor` changed the sources of only 1 query, so its rank-mediated part is noise.
 - Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
-- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 10.4 pp): page edits ≈ 5.1 pp (5.4 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); content-only arms ≈ 5.1 pp; named rate for page edits ≈ 11.0 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
-- Bandit, held out: the frozen contextual policy had regret 1.480 (±0.590) vs 2.968 for random and 2.782 for the best fixed arm chosen on the training half. It beat random on the held-out queries by more than its 95% interval.
+- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 10.4 pp): page edits ≈ 5.1 pp (5.4 pp with t quantiles) on 24 underlying page units; content-only arms ≈ 5.1 pp (this assumes 2 samples per query, as for the page edits; the twins ran at 1, so their MDE is larger); named rate for page edits ≈ 11.0 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
+- Exploratory, not pre-registered: on the held-out queries the frozen contextual bandit policy had regret 1.480 (±0.590) vs 2.968 for random and 2.782 for the best fixed arm chosen on the training half. It beat random by more than its 95% interval.
 
 ### Bandit replay
 

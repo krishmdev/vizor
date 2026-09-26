@@ -49,9 +49,9 @@ The verdict follows `sampled_primary.json`: AP failed its validation gate on cri
 - Page and engine arms: 3 of 3 have an effect under the sampled primary rule on C-SoV: `answer_first`, `evidence_surface_llm`, `faq_rewrite_v2`; 0 of 3 on the named rate.
 - Exploratory, not pre-registered (the reference choice, `sampled_primary.md`): against the A/A re-sample `answer_first` -6.1 (Holm p 0.137 / 0.140), `evidence_surface_llm` -0.9 (Holm p 0.812 / 0.742), `faq_rewrite_v2` -6.6 (Holm p 0.137 / 0.140); against the mean of baseline and A/A `answer_first` -7.8 (Holm p 0.029 / 0.020), `evidence_surface_llm` -2.6 (Holm p 0.406 / 0.287), `faq_rewrite_v2` -8.3 (Holm p 0.029 / 0.020). A lucky baseline draw shifts every arm the same way; an arm that holds up only against the baseline alone is not robust to that choice.
 - Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
-- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 16.7 pp): page edits ≈ 5.3 pp (5.6 pp with t quantiles) on 24 underlying page units (both cross-fit folds clustered by page); named rate for page edits ≈ 10.0 pp; slot sweep ≈ 7.8 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
+- Minimum detectable effect on C-SoV (80% power, strictest Holm step, normal approximation, from the A/A re-sample; per-query A/A SD 16.7 pp): page edits ≈ 5.3 pp (5.6 pp with t quantiles) on 24 underlying page units; named rate for page edits ≈ 10.0 pp; slot sweep ≈ 7.8 pp. These are approximate: the test is a Wilcoxon signed-rank test, not a t test. Effects smaller than these could be missed.
 - Positive control (target moved from slot 1 to slot 5, same pages): C-SoV -26.6 [-36.6, -15.7] pp, Holm p <0.001 *.
-- Bandit, held out: the frozen contextual policy had regret 4.553 (±1.964) vs 4.762 for random and 2.502 for the best fixed arm chosen on the training half. On the held-out queries it is not distinguishable from random.
+- Exploratory, not pre-registered: on the held-out queries the frozen contextual bandit policy had regret 4.553 (±1.964) vs 4.762 for random and 2.502 for the best fixed arm chosen on the training half. It is not distinguishable from random.
 
 ## Bandit replay
 

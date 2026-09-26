@@ -33,6 +33,6 @@ The verdict is the Holm-adjusted Wilcoxon p on the primary metric (citation shar
 
 ## What the sweeps show
 
-- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp and the named rate by +4.9 [-2.1, +11.8] pp.
-- Weighting: the C-SoV estimates, intervals and tests above all use unweighted page means.
+- Noise floor: re-sampling the unchanged prompts (A/A) moved C-SoV by +0.5 [-1.9, +2.8] pp on 72 query units and the named rate by +4.9 [-2.1, +11.8] pp.
+- Weighting: the C-SoV estimates, intervals and tests above use unweighted page means, except the A/A row, which uses its 72 query units (on page units the A/A is +0.11 pp).
 - No page arms in this run (a pilot), so it states no MDE of its own; `vizor sensitivity <dir> --family N` gives the MDE for a planned design.
