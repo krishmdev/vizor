@@ -155,6 +155,12 @@ def test_mde_line_names_cross_fitting_and_twin_samples_only_when_they_apply(run_
     line = mde(r)
     assert "cross-fit" not in line
     assert "this assumes 2 samples per query, as for the page edits; the twins ran at 1" in line
+    # a pilot's MDE for a planned design keeps the clause when a planned arm is cross-fitted
+    sens["families_from_plan"] = True
+    r["manifest"]["planned_arms"] = ["noop", "aa_resample", "faq_rewrite"]
+    assert "(both cross-fit folds clustered by page)" in mde(r)
+    r["manifest"]["planned_arms"] = ["noop", "aa_resample", "stats_surface"]
+    assert "cross-fit" not in mde(r)
 
 
 def test_content_vs_rank_leads_with_the_same_seed_split_when_twins_have_fewer_samples(run_dir):

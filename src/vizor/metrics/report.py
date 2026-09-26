@@ -725,6 +725,15 @@ def page_means(d: Path, metric: str, arms: list[str]) -> dict[str, float]:
     return out
 
 
+def _planned_crossfit(spec: str) -> bool:
+    from vizor.optimize.sandbox import Arm
+
+    try:
+        return Arm.parse(spec).uses_queries
+    except ValueError:
+        return False
+
+
 def _fewer_twin_samples(m: dict) -> int | None:
     """The content-only twins' sample count when it is below the run's (Study 3 ran them at 1)."""
     per_arm = ((m.get("config") or {}).get("sandbox") or {}).get("arm_samples") or {}
@@ -868,7 +877,9 @@ def claim_arms_v2(r: dict) -> list[str]:
     if sens:
         parts = []
         crossfit = tested.get("transform_scope", pd.Series(dtype=str)).astype(str)
-        crossfit = crossfit.str.startswith("crossfit").any()
+        crossfit = crossfit.str.startswith("crossfit").any() or (
+            planned and any(_planned_crossfit(a) for a in r["manifest"]["planned_arms"] or [])
+        )
         k_twin = _fewer_twin_samples(r["manifest"])
         if sens.get("page_arm_page_pp") is not None:
             t_pp = sens.get("page_arm_page_t_pp")
