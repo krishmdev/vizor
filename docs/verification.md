@@ -102,5 +102,7 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   prompts, 51 sites, largest difference 0.0); the 9B determinism check passed at batch 1 (10 of
   10); the pilot and the main run were written by `vizor experiment`. `vizor recompute` matched
   every committed run (Study 3 pilot 2,160 rows, main run 5,400 rows), and the main run's
-  regenerated baseline and A/A answers equal the pilot's in 288 of 288 cases. `vizor report`
+  regenerated baseline and A/A answers equal the pilot's in 288 of 288 cases
+  (`scripts/pilot_identity.py`, which writes `pilot_identity.json` and reproduces the committed
+  file byte for byte). `vizor report`
   regenerates the README block; running it twice gives no further change.
