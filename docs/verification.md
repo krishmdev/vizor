@@ -35,9 +35,8 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
     the manifest.
   - `experiments/results/2026-09-24_fakellm`: keyless demo, 40 queries x 5 samples, 48 s.
   - `vizor recompute` re-parses every raw answer and matches the stored rows for both runs.
-  - Both manifests record a `git_commit` (38ef511) that no longer resolves, because history was
-    rewritten after the runs. `src_tree` (7dce379c…, the git tree hash of `src/`) identifies the
-    code, and the result files themselves are committed.
+  - Both manifests record `git_commit` (38ef511) and `src_tree` (7dce379c…, the Git tree hash
+    of `src/`). The source tree identifies the measured code, and the result files are committed.
 - **Fresh clone, offline half**: in the clone from 2026-09-24, `make demo` with
   `OFFLINE_WRAPPER` set to the sandbox profile completed (40 queries x 5 samples, FakeLLM).
 - **Unit tests**: `make test` (`pytest -m "not slow and not network"`), 293 passed on the final
