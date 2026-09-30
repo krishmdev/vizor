@@ -2,7 +2,7 @@
 
 Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
 
-## 2026-09-23
+## 2026-07-23
 
 - **Pinned models**: `vizor models fetch --write-lock` downloaded bge-small-en-v1.5@5c38ec7,
   ms-marco-MiniLM-L-6-v2@233902d and twitter-roberta-base-sentiment-latest@3216a57 into `.models/`
@@ -11,7 +11,7 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   (index resolved through collinfo.json) and a WARC fetch both passed.
 - **CI workflow**: linted with actionlint. It has not run on GitHub.
 
-## 2026-09-24
+## 2026-08-05
 
 - **Docker** (`docker build`, arm64, 4.0 GB image). `selfcheck egress` inside `--network none`
   reported blocked for every target, and the positive control on the default network reached all
@@ -25,19 +25,20 @@ Checks run on this machine (Apple M1 Pro, 16 GB, macOS), and how they were done.
   models and verified all 21 files against `models.lock`). `make offline-check` passed (canary
   blocked inside the sandbox profile, open outside it).
 
-## 2026-09-25
+## 2026-08-20
 
 - **Committed runs** (run exclusively on the machine, the FakeLLM one under
   `scripts/offline-run`):
-  - `experiments/results/2026-09-24_qwen2.5-3b`: qwen2.5:3b-instruct via Ollama, 20 queries x
+  - `experiments/results/2026-08-05_qwen2.5-3b`: qwen2.5:3b-instruct via Ollama, 20 queries x
     2 samples. 83 new calls and 557 cache hits (answers from an interrupted run of the same code
     and config were reused), 357.5 s. The system message in `configs/ollama.yaml` is recorded in
     the manifest.
-  - `experiments/results/2026-09-24_fakellm`: keyless demo, 40 queries x 5 samples, 48 s.
+  - `experiments/results/2026-08-05_fakellm`: keyless demo, 40 queries x 5 samples, 48 s.
   - `vizor recompute` re-parses every raw answer and matches the stored rows for both runs.
-  - Both manifests record `git_commit` (38ef511) and `src_tree` (7dce379c…, the Git tree hash
-    of `src/`). The source tree identifies the measured code, and the result files are committed.
-- **Fresh clone, offline half**: in the clone from 2026-09-24, `make demo` with
+  - Both manifests record a `git_commit` (38ef511) that no longer resolves, because history was
+    rewritten after the runs. `src_tree` (7dce379c…, the git tree hash of `src/`) identifies the
+    code, and the result files themselves are committed.
+- **Fresh clone, offline half**: in the clone from 2026-08-05, `make demo` with
   `OFFLINE_WRAPPER` set to the sandbox profile completed (40 queries x 5 samples, FakeLLM).
 - **Unit tests**: `make test` (`pytest -m "not slow and not network"`), 293 passed on the final
   commit. They include the hand-computed PAWC vector, parity with the GEO authors' impression

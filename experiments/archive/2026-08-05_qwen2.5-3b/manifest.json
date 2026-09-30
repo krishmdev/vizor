@@ -1,7 +1,7 @@
 {
   "vizor_version": "0.2.0",
   "git_commit": "b9f509a",
-  "started": "2026-09-25T00:57:33-0400",
+  "started": "2026-08-20T00:57:33-0400",
   "elapsed_s": 357.5,
   "config": {
     "project": "data/demo/project.yaml",

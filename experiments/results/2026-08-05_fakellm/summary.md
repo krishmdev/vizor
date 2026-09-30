@@ -1,6 +1,6 @@
 # FakeLLM (pipeline check)
 
-- Results: `experiments/results/2026-09-24_fakellm` (git b9f509a, 2026-09-25)
+- Results: `experiments/results/2026-08-05_fakellm` (git b9f509a, 2026-08-20)
 - Answer model: `fake-extractive/v1/BAAI/bge-small-en-v1.5` (deterministic extractive stand-in; pipeline check, not model evidence)
 - Retrieval: `sentence-transformers/BAAI/bge-small-en-v1.5/5c38ec7c405e/384/21fa4cb7` + `cross-encoder/cross-encoder/ms-marco-MiniLM-L-6-v2/233902d25c44`, index `numpy`
 - Sentiment: `hf/cardiffnlp/twitter-roberta-base-sentiment-latest/3216a57f2a0d/p_pos-p_neg`; PAWC decay: paper
